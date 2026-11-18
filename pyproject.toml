@@ -77,7 +77,7 @@ docstring-code-format = true
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
-include = ["src"]
+include = ["src", "tests"]
 reportAny = "error"
 reportExplicitAny = "error"
 reportMissingTypeStubs = "error"
