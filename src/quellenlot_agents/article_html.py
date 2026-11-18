@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Final
 
-_REGIONS: Final = ("article", "main")
+_REGIONS: Final[tuple[str, ...]] = ("article", "main")
 _SKIP: Final = {"aside", "footer", "form", "nav", "noscript", "script", "style", "svg", "template"}
 _BLOCKS: Final = {
     "article",
@@ -62,7 +62,7 @@ class _ArticleParser(HTMLParser):
         self._title: list[str] = []
         self._page: list[str] = []
         self._skipped: list[str] = []
-        self._depth = dict.fromkeys(_REGIONS, 0)
+        self._depth: dict[str, int] = dict.fromkeys(_REGIONS, 0)
         self._regions: dict[str, list[list[str]]] = {tag: [] for tag in _REGIONS}
 
     def _append(self, text: str) -> None:
@@ -136,9 +136,10 @@ def extract_article(html: bytes, charset: str | None) -> ArticleText:
     """Decode and extract a snapshot from a static HTML document."""
     if charset is None:
         meta = _META_CHARSET.search(html[:4096])
-        charset = meta[1].decode("ascii") if meta else "utf-8-sig"
+        if meta is not None:
+            charset = meta[1].decode("ascii")
     try:
-        decoded = html.decode(charset)
+        decoded = html.decode(charset or "utf-8-sig")
     except (LookupError, UnicodeError):
         try:
             decoded = html.decode("utf-8-sig")
