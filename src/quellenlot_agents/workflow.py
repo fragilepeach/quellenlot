@@ -271,7 +271,7 @@ async def _run_review(
             DraftReview,
         )
         return _review_record(reviewer, target, draft, case)
-    except (ProviderError, ValidationError, ValueError, OSError, httpx.HTTPError) as exc:
+    except (ProviderError, ValueError, OSError, httpx.HTTPError) as exc:
         return ReviewRecord(
             reviewer_agent_id=reviewer.id,
             reviewed_agent_id=target.agent_id,
