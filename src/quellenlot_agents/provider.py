@@ -13,6 +13,7 @@ _LOCAL_CHAT_ENDPOINT = "http://127.0.0.1:11434/api/chat"
 class ProviderError(RuntimeError):
     """A local model request or response could not be used."""
 
+
 OutputModel = TypeVar("OutputModel", bound=BaseModel)
 
 
