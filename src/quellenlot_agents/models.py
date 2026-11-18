@@ -65,7 +65,7 @@ class ArticleCaseInput(ContractModel):
     case_id: str = Field(min_length=1, max_length=120)
     article: SourceInput
     question: NonBlankStatement | None = None
-    comparison_sources: list[SourceInput] = Field(default_factory=list, max_length=19)
+    comparison_sources: list[SourceInput] = Field(default_factory=list[SourceInput], max_length=19)
 
     @property
     def sources(self) -> list[SourceInput]:

@@ -2,6 +2,7 @@
 
 import json
 import unittest
+from collections.abc import Mapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TypedDict, cast
@@ -129,7 +130,7 @@ class ArticleCliTests(unittest.TestCase):
 
     def _run(
         self,
-        case: dict[str, object],
+        case: Mapping[str, object],
         replies: _OllamaReplies,
         *,
         expected_exit: int | None = None,
@@ -143,7 +144,7 @@ class ArticleCliTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             input_path = Path(directory) / "case.json"
             output_path = Path(directory) / "report.json"
-            input_path.write_text(json.dumps(case), encoding="utf-8")
+            input_path.write_text(json.dumps(dict(case)), encoding="utf-8")
             args = [
                 "quellenlot-agents",
                 "--config",

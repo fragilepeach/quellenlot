@@ -7,14 +7,16 @@ import asyncio
 import sys
 from pathlib import Path
 
-from pydantic import TypeAdapter, ValidationError
+from pydantic import RootModel, ValidationError
 
 from quellenlot_agents.article import run_article_comparison
 from quellenlot_agents.config import load_config
 from quellenlot_agents.models import ArticleCaseInput, ArticleReport, CaseInput, RunReport
 from quellenlot_agents.workflow import run_review
 
-_CASE_INPUT = TypeAdapter[CaseInput | ArticleCaseInput](CaseInput | ArticleCaseInput)
+
+class _CaseInput(RootModel[CaseInput | ArticleCaseInput]):
+    """The accepted JSON input shapes for the CLI."""
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -33,7 +35,7 @@ def main() -> None:
     args = _parser().parse_args()
     try:
         config = load_config(args.config)
-        case = _CASE_INPUT.validate_json(args.input.read_bytes())
+        case = _CaseInput.model_validate_json(args.input.read_bytes()).root
         report: RunReport | ArticleReport
         if isinstance(case, ArticleCaseInput):
             report = asyncio.run(run_article_comparison(case, config))
