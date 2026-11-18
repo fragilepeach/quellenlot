@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import tomllib
 from pathlib import Path
-from typing import cast
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, model_validator
 
@@ -60,4 +59,4 @@ def api_key_for(model: ModelConfig) -> str:
     if not value:
         msg = f"Environment variable {model.api_key_env} is missing or empty."
         raise ValueError(msg)
-    return cast(str, value)
+    return value
