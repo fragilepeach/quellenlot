@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 
 class ContractModel(BaseModel):
@@ -42,10 +42,40 @@ class CaseInput(ContractModel):
     @model_validator(mode="after")
     def require_unique_source_ids(self) -> CaseInput:
         """Reject ambiguous source references before any model is called."""
-        source_ids = [source.source_id for source in self.sources]
-        if len(source_ids) != len(set(source_ids)):
-            msg = "Source IDs must be unique within a case."
-            raise ValueError(msg)
+        _require_unique_source_ids(self.sources)
+        return self
+
+
+def _require_unique_source_ids(sources: list[SourceInput]) -> None:
+    """Reject ambiguous source references."""
+    source_ids = {source.source_id for source in sources}
+    if len(source_ids) != len(sources):
+        msg = "Source IDs must be unique within a case."
+        raise ValueError(msg)
+
+
+NonBlankStatement = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4_000)
+]
+
+
+class ArticleCaseInput(ContractModel):
+    """An original article, an optional question, and manually supplied comparisons."""
+
+    case_id: str = Field(min_length=1, max_length=120)
+    article: SourceInput
+    question: NonBlankStatement | None = None
+    comparison_sources: list[SourceInput] = Field(default_factory=list, max_length=19)
+
+    @property
+    def sources(self) -> list[SourceInput]:
+        """Return the original article first, followed by the comparison sources."""
+        return [self.article, *self.comparison_sources]
+
+    @model_validator(mode="after")
+    def require_unique_source_ids(self) -> ArticleCaseInput:
+        """Reject shared IDs across the article and its comparisons."""
+        _require_unique_source_ids(self.sources)
         return self
 
 
@@ -60,6 +90,19 @@ class DraftQuote(ContractModel):
     source_id: str = Field(min_length=1, max_length=120)
     locator: str = Field(min_length=1, max_length=200)
     text: str = Field(min_length=1, max_length=2_000)
+
+
+class DraftArticleClaim(ContractModel):
+    """A checkable claim and its anchor in the original article."""
+
+    claim: NonBlankStatement
+    quote: DraftQuote
+
+
+class DraftArticleExtraction(ContractModel):
+    """The checkable claims found in the original article."""
+
+    claims: list[DraftArticleClaim] = Field(max_length=5)
 
 
 class DraftFinding(ContractModel):
@@ -160,6 +203,19 @@ class SourceSnapshot(ContractModel):
     content_sha256: str
     text_is_complete: bool
 
+    @classmethod
+    def from_source(cls, source: SourceInput) -> SourceSnapshot:
+        """Identify the exact version of the supplied text."""
+        return cls(
+            source_id=source.source_id,
+            version_id=source.version_id,
+            title=source.title,
+            url=source.url,
+            captured_at=source.captured_at,
+            content_sha256=source.content_sha256,
+            text_is_complete=source.text_is_complete,
+        )
+
 
 class RelationCount(ContractModel):
     """Count of model assessments by relation, without weighting them as truth."""
@@ -180,3 +236,49 @@ class RunReport(ContractModel):
     reviews: list[ReviewRecord]
     relation_counts: list[RelationCount]
     unresolved_dissent: list[str]
+
+
+class ExtractionAttempt(ContractModel):
+    """The outcome of asking one configured model to extract article claims."""
+
+    agent_id: str
+    model: str
+    status: Literal["succeeded", "failed"]
+    error_code: str | None = None
+
+
+class SourceJudgment(ContractModel):
+    """One model's interpretation and exact-match citations for a source."""
+
+    agent_id: str
+    relation: Relation
+    reasoning: str
+    citations: list[VerifiedQuote]
+
+
+class SourceComparison(ContractModel):
+    """All available judgments for one source, in model order."""
+
+    source: SourceSnapshot
+    judgments: list[SourceJudgment]
+
+
+class ClaimComparison(ContractModel):
+    """One extracted claim, its evidence across sources, and all review details."""
+
+    claim_id: str
+    article_quote: VerifiedQuote
+    source_comparison: list[SourceComparison]
+    review: RunReport
+
+
+class ArticleReport(ContractModel):
+    """The claim-by-claim comparison of an original article and supplied sources."""
+
+    case_id: str
+    question: str | None
+    article_source_id: str
+    sources: list[SourceSnapshot]
+    status: RecordStatus | Literal["no_claims"]
+    extraction_attempts: list[ExtractionAttempt]
+    claims: list[ClaimComparison]
