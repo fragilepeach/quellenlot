@@ -11,6 +11,8 @@ from quellenlot_agents.config import WorkflowConfig
 from quellenlot_agents.models import (
     ArticleCaseInput,
     ArticleReport,
+    ArticleUrlInput,
+    ArticleUrlReport,
     CaseInput,
     ClaimComparison,
     DraftArticleExtraction,
@@ -23,6 +25,7 @@ from quellenlot_agents.models import (
     VerifiedQuote,
 )
 from quellenlot_agents.provider import ProviderError, complete_json
+from quellenlot_agents.source_capture import capture_source
 from quellenlot_agents.workflow import run_review, verify_quote
 
 _EXTRACT_SYSTEM: Final[str] = """Extract up to five distinct, checkable factual claims that the
@@ -138,4 +141,40 @@ async def run_article_comparison(case: ArticleCaseInput, config: WorkflowConfig)
         status=status,
         extraction_attempts=attempts,
         claims=comparisons,
+    )
+
+
+async def run_article_url_comparison(
+    case: ArticleUrlInput, config: WorkflowConfig
+) -> ArticleUrlReport:
+    """Capture the article and any available comparisons, then run the article workflow."""
+    article, original = await capture_source(case.article_url, "article")
+    retrievals = [original]
+    review: ArticleReport | None = None
+    if article is not None:
+        sources: list[SourceInput] = []
+        for index, url in enumerate(case.comparison_urls, 1):
+            source, retrieval = await capture_source(url, f"comparison-{index}")
+            retrievals.append(retrieval)
+            if source is not None:
+                sources.append(source)
+        review = await run_article_comparison(
+            ArticleCaseInput(
+                case_id=case.case_id,
+                article=article,
+                question=case.question,
+                comparison_sources=sources,
+            ),
+            config,
+        )
+
+    status = review.status if review is not None else "failed"
+    if status not in {"failed", "partial"} and any(item.status != "captured" for item in retrievals):
+        status = "partial"
+    return ArticleUrlReport(
+        case_id=case.case_id,
+        question=case.question,
+        status=status,
+        retrievals=retrievals,
+        review=review,
     )

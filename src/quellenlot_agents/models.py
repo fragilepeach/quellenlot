@@ -79,6 +79,15 @@ class ArticleCaseInput(ContractModel):
         return self
 
 
+class ArticleUrlInput(ContractModel):
+    """A public article URL and optional comparison URLs and question."""
+
+    case_id: str = Field(min_length=1, max_length=120)
+    article_url: AnyHttpUrl
+    question: NonBlankStatement | None = None
+    comparison_urls: list[AnyHttpUrl] = Field(default_factory=list[AnyHttpUrl], max_length=19)
+
+
 Relation = Literal["supports", "qualifies", "contradicts", "omits", "not_assessable"]
 ReviewOutcome = Literal["agrees", "challenges", "unclear"]
 RecordStatus = Literal["complete", "partial", "failed"]
@@ -282,3 +291,23 @@ class ArticleReport(ContractModel):
     status: RecordStatus | Literal["no_claims"]
     extraction_attempts: list[ExtractionAttempt]
     claims: list[ClaimComparison]
+
+
+class SourceRetrieval(ContractModel):
+    """The result of retrieving a URL and extracting article text."""
+
+    source_id: str
+    requested_url: AnyHttpUrl
+    final_url: AnyHttpUrl | None = None
+    status: Literal["captured", "partial", "failed"]
+    detail: str
+
+
+class ArticleUrlReport(ContractModel):
+    """Retrieval outcomes and the comparison based on available snapshots."""
+
+    case_id: str
+    question: str | None
+    status: RecordStatus | Literal["no_claims"]
+    retrievals: list[SourceRetrieval]
+    review: ArticleReport | None
