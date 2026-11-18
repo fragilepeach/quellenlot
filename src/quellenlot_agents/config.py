@@ -1,30 +1,28 @@
-"""Load validated model configuration without storing API secrets in files."""
+"""Load the local model pool without external credentials."""
 
 from __future__ import annotations
 
-import os
 import tomllib
 from pathlib import Path
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from quellenlot_agents.models import ContractModel
 
 
 class ModelConfig(ContractModel):
-    """Settings for one OpenAI-compatible model endpoint."""
+    """Identity for one locally installed Ollama model."""
 
     id: str = Field(pattern=r"^[a-z][a-z0-9_-]{1,63}$")
     model: str = Field(min_length=1, max_length=200)
-    base_url: AnyHttpUrl
-    api_key_env: str = Field(pattern=r"^[A-Z][A-Z0-9_]{1,100}$")
 
 
 class WorkflowConfig(BaseModel):
-    """Exactly five distinct configured model identities."""
+    """Five distinct local models and one bounded context size."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
     models: list[ModelConfig] = Field(min_length=5, max_length=5)
+    context_length: int = Field(default=8192, ge=4096, le=16384)
 
     @model_validator(mode="after")
     def require_distinct_models(self) -> WorkflowConfig:
@@ -38,25 +36,10 @@ class WorkflowConfig(BaseModel):
 
 
 def load_config(path: Path) -> WorkflowConfig:
-    """Read TOML and require every referenced API key to exist in the environment."""
+    """Read and validate the local model configuration."""
     try:
         raw = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError) as exc:
         msg = f"Could not read TOML configuration at {path}."
         raise ValueError(msg) from exc
-
-    config = WorkflowConfig.model_validate(raw)
-    for model in config.models:
-        if not os.environ.get(model.api_key_env):
-            msg = f"Environment variable {model.api_key_env} is missing or empty."
-            raise ValueError(msg)
-    return config
-
-
-def api_key_for(model: ModelConfig) -> str:
-    """Return the secret value referenced by a validated model configuration."""
-    value = os.environ.get(model.api_key_env)
-    if not value:
-        msg = f"Environment variable {model.api_key_env} is missing or empty."
-        raise ValueError(msg)
-    return value
+    return WorkflowConfig.model_validate(raw)
