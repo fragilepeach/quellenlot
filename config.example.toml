@@ -1,0 +1,32 @@
+# Copy to models.toml. Keep secrets in environment variables, never in this file.
+# Configure five distinct model identifiers. base_url is the provider's API root.
+
+[[models]]
+id = "analyst-a"
+model = "provider/model-a"
+base_url = "https://api.example.org/v1"
+api_key_env = "QUELLENLOT_KEY_A"
+
+[[models]]
+id = "analyst-b"
+model = "provider/model-b"
+base_url = "https://api.example.org/v1"
+api_key_env = "QUELLENLOT_KEY_B"
+
+[[models]]
+id = "analyst-c"
+model = "provider/model-c"
+base_url = "https://api.example.org/v1"
+api_key_env = "QUELLENLOT_KEY_C"
+
+[[models]]
+id = "analyst-d"
+model = "provider/model-d"
+base_url = "https://api.example.org/v1"
+api_key_env = "QUELLENLOT_KEY_D"
+
+[[models]]
+id = "analyst-e"
+model = "provider/model-e"
+base_url = "https://api.example.org/v1"
+api_key_env = "QUELLENLOT_KEY_E"
