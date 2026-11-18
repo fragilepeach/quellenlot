@@ -17,6 +17,7 @@ from quellenlot_agents.models import (
     ExtractionAttempt,
     RunReport,
     SourceComparison,
+    SourceInput,
     SourceJudgment,
     SourceSnapshot,
     VerifiedQuote,
@@ -36,6 +37,21 @@ locator. Return an empty list if the supplied text contains no checkable factual
 Return only JSON matching the requested schema."""
 
 
+def _verify_claims(
+    draft: DraftArticleExtraction,
+    article: SourceInput,
+) -> list[tuple[str, VerifiedQuote]]:
+    claims = [(item.claim, verify_quote(item.quote, [article])) for item in draft.claims]
+    if any(not quote.verified or not quote.text.strip() for _, quote in claims):
+        msg = "Every extracted claim must cite text in the original article."
+        raise ProviderError(msg)
+    distinct = {" ".join(claim.split()).casefold() for claim, _ in claims}
+    if len(distinct) != len(claims):
+        msg = "Extracted claims must be distinct."
+        raise ProviderError(msg)
+    return claims
+
+
 async def _extract_claims(
     case: ArticleCaseInput,
     config: WorkflowConfig,
@@ -50,14 +66,7 @@ async def _extract_claims(
             draft = await complete_json(
                 agent.model, config.context_length, _EXTRACT_SYSTEM, prompt, DraftArticleExtraction
             )
-            claims = [(item.claim, verify_quote(item.quote, [case.article])) for item in draft.claims]
-            if any(not quote.verified or not quote.text.strip() for _, quote in claims):
-                msg = "Every extracted claim must cite text in the original article."
-                raise ProviderError(msg)
-            distinct = {" ".join(claim.split()).casefold() for claim, _ in claims}
-            if len(distinct) != len(claims):
-                msg = "Extracted claims must be distinct."
-                raise ProviderError(msg)
+            claims = _verify_claims(draft, case.article)
         except (ProviderError, ValueError, OSError, httpx.HTTPError) as exc:
             attempts.append(
                 ExtractionAttempt(
