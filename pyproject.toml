@@ -80,4 +80,4 @@ typeCheckingMode = "strict"
 include = ["src"]
 reportAny = "error"
 reportExplicitAny = "error"
-reportMissingTypeStubs = "warning"
+reportMissingTypeStubs = "error"
