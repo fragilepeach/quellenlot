@@ -1,32 +1,31 @@
-# Copy to models.toml. Keep secrets in environment variables, never in this file.
-# Configure five distinct model identifiers. base_url is the provider's API root.
+# Five local Ollama models. Pull them once before running the review:
+# ollama pull qwen3.8:27b
+# ollama pull gpt-oss:20b
+# ollama pull mistral-small3.2:24b
+# ollama pull gemma4:12b
+# ollama pull phi4:14b
+#
+# The workflow calls these sequentially and asks Ollama to unload each model after
+# its response. context_length is deliberately capped to control RAM use.
+
+context_length = 8192
 
 [[models]]
-id = "analyst-a"
-model = "provider/model-a"
-base_url = "https://api.example.org/v1"
-api_key_env = "QUELLENLOT_KEY_A"
+id = "qwen"
+model = "qwen3.8:27b"
 
 [[models]]
-id = "analyst-b"
-model = "provider/model-b"
-base_url = "https://api.example.org/v1"
-api_key_env = "QUELLENLOT_KEY_B"
+id = "gpt_oss"
+model = "gpt-oss:20b"
 
 [[models]]
-id = "analyst-c"
-model = "provider/model-c"
-base_url = "https://api.example.org/v1"
-api_key_env = "QUELLENLOT_KEY_C"
+id = "mistral"
+model = "mistral-small3.2:24b"
 
 [[models]]
-id = "analyst-d"
-model = "provider/model-d"
-base_url = "https://api.example.org/v1"
-api_key_env = "QUELLENLOT_KEY_D"
+id = "gemma"
+model = "gemma4:12b"
 
 [[models]]
-id = "analyst-e"
-model = "provider/model-e"
-base_url = "https://api.example.org/v1"
-api_key_env = "QUELLENLOT_KEY_E"
+id = "phi"
+model = "phi4:14b"
