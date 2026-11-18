@@ -364,9 +364,7 @@ def _synthesize(
 
 async def run_review(case: CaseInput, config: WorkflowConfig) -> RunReport:
     """Run five independent analyses, then one cross-review per successful model."""
-    analyses = [
-        await _run_analysis(agent, case, config.context_length) for agent in config.models
-    ]
+    analyses = [await _run_analysis(agent, case, config.context_length) for agent in config.models]
 
     successful = [item for item in analyses if item.status == "succeeded"]
     agents_by_id = {agent.id: agent for agent in config.models}
