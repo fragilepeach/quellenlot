@@ -7,7 +7,6 @@ from typing import TypeVar
 import httpx
 from pydantic import BaseModel, ConfigDict
 
-
 _LOCAL_CHAT_ENDPOINT = "http://127.0.0.1:11434/api/chat"
 
 
