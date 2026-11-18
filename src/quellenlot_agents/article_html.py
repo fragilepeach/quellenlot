@@ -29,8 +29,12 @@ _BLOCKS: Final = {
     "th",
     "tr",
 }
-_PAYWALL: Final = re.compile(r'"isAccessibleForFree"\s*:\s*(?:false|"false")(?=\s*[,}])', re.I)
-_META_CHARSET: Final = re.compile(br"""<meta\b[^>]*?\bcharset\s*=\s*["']?([a-z0-9_-]+)""", re.I)
+_PAYWALL: Final = re.compile(
+    r'"isAccessibleForFree"\s*:\s*(?:false|"false")(?=\s*[,}])', re.IGNORECASE
+)
+_META_CHARSET: Final = re.compile(
+    br"""<meta\b[^>]*?\bcharset\s*=\s*["']?([a-z0-9_-]+)""", re.IGNORECASE
+)
 
 
 @dataclass(frozen=True)
@@ -104,7 +108,7 @@ class _ArticleParser(HTMLParser):
             self._in_title = False
         if tag in _BLOCKS:
             self._append("\n")
-        if tag in self._depth and self._depth[tag]:
+        if self._depth.get(tag, 0):
             self._depth[tag] -= 1
 
     def handle_data(self, data: str) -> None:

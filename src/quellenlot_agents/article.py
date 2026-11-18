@@ -169,7 +169,8 @@ async def run_article_url_comparison(
         )
 
     status = review.status if review is not None else "failed"
-    if status not in {"failed", "partial"} and any(item.status != "captured" for item in retrievals):
+    limited_retrieval = any(item.status != "captured" for item in retrievals)
+    if limited_retrieval and status not in {"failed", "partial"}:
         status = "partial"
     return ArticleUrlReport(
         case_id=case.case_id,

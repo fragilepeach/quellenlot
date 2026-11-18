@@ -64,7 +64,8 @@ async def _public_addresses(url: httpx.URL) -> list[str]:
     ):
         msg = "Source URL did not resolve exclusively to public Internet addresses."
         raise _RetrievalError(msg)
-    return [str(address) for address in sorted(addresses, key=lambda item: (item.version, int(item)))]
+    ordered = sorted(addresses, key=lambda item: (item.version, int(item)))
+    return [str(address) for address in ordered]
 
 
 async def _download(url: httpx.URL, address: str) -> _Page | httpx.URL:
@@ -174,7 +175,7 @@ def _snapshot(
         text=content.text[:_MAX_SOURCE_CHARS],
         text_is_complete=False,
     )
-    detail = " ".join(partial_reasons) or "Article text captured. Completeness could not be verified."
+    detail = " ".join(partial_reasons) or "Article text captured. Completeness is unverified."
     return source, SourceRetrieval(
         source_id=source_id,
         requested_url=requested_url,
