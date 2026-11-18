@@ -1,0 +1,31 @@
+# Five local Ollama models. Pull them once before running the review:
+# ollama pull qwen3.8:27b
+# ollama pull gpt-oss:20b
+# ollama pull mistral-small3.2:24b
+# ollama pull gemma4:12b
+# ollama pull ministral-3:14b
+#
+# The workflow calls these sequentially and asks Ollama to unload each model after
+# its response. context_length is deliberately capped to control RAM use.
+
+context_length = 8192
+
+[[models]]
+id = "qwen"
+model = "qwen3.8:27b"
+
+[[models]]
+id = "gpt_oss"
+model = "gpt-oss:20b"
+
+[[models]]
+id = "mistral"
+model = "mistral-small3.2:24b"
+
+[[models]]
+id = "gemma"
+model = "gemma4:12b"
+
+[[models]]
+id = "ministral"
+model = "ministral-3:14b"
