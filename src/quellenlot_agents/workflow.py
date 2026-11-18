@@ -8,7 +8,6 @@ from collections import Counter
 from typing import Final
 
 import httpx
-from pydantic import ValidationError
 
 from quellenlot_agents.config import ModelConfig, WorkflowConfig
 from quellenlot_agents.models import (
@@ -90,7 +89,11 @@ def _analysis_record(
             Finding(
                 source_id=source.source_id,
                 version_id=source.version_id,
-                relation=item.relation,
+                relation=(
+                    "not_assessable"
+                    if item.relation == "omits" and not source.text_is_complete
+                    else item.relation
+                ),
                 reasoning=item.reasoning,
                 evidence_status=evidence_status,
                 quotes=quotes,
@@ -209,7 +212,7 @@ async def _run_analysis(
             DraftAnalysis,
         )
         return _analysis_record(agent, draft, case)
-    except (ProviderError, ValidationError, ValueError, OSError, httpx.HTTPError) as exc:
+    except (ProviderError, ValueError, OSError, httpx.HTTPError) as exc:
         return _failure_analysis(agent, exc)
 
 
@@ -302,7 +305,8 @@ def _synthesize(
             grouped.setdefault(finding.source_id, set()).add(finding.relation)
 
     dissent = [
-        f"Models assigned different relations to source {source_id}: {', '.join(sorted(relations))}."
+        f"Models assigned different relations to source {source_id}: "
+        f"{', '.join(sorted(relations))}."
         for source_id, relations in sorted(grouped.items())
         if len(relations) > 1
     ]
