@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 from collections import Counter
 from typing import Final
@@ -200,11 +199,13 @@ def _review_prompt(case: CaseInput, target: AnalysisRecord) -> str:
 async def _run_analysis(
     agent: ModelConfig,
     case: CaseInput,
+    context_length: int,
 ) -> AnalysisRecord:
     """Run one independent analysis and convert expected errors to partial records."""
     try:
         draft = await complete_json(
-            agent,
+            agent.model,
+            context_length,
             _ANALYSIS_SYSTEM,
             _analysis_prompt(case),
             DraftAnalysis,
@@ -259,11 +260,13 @@ async def _run_review(
     reviewer: ModelConfig,
     target: AnalysisRecord,
     case: CaseInput,
+    context_length: int,
 ) -> ReviewRecord:
     """Run one assigned cross-review and retain failures as report records."""
     try:
         draft = await complete_json(
-            reviewer,
+            reviewer.model,
+            context_length,
             _REVIEW_SYSTEM,
             _review_prompt(case, target),
             DraftReview,
@@ -361,7 +364,10 @@ def _synthesize(
 
 async def run_review(case: CaseInput, config: WorkflowConfig) -> RunReport:
     """Run five independent analyses, then one cross-review per successful model."""
-    analyses = list(await asyncio.gather(*(_run_analysis(agent, case) for agent in config.models)))
+    analyses: list[AnalysisRecord] = []
+    for agent in config.models:
+        analyses.append(await _run_analysis(agent, case, config.context_length))
+
     successful = [item for item in analyses if item.status == "succeeded"]
     agents_by_id = {agent.id: agent for agent in config.models}
     reviewers = [agents_by_id[item.agent_id] for item in successful]
@@ -371,9 +377,6 @@ async def run_review(case: CaseInput, config: WorkflowConfig) -> RunReport:
             (reviewers[index], successful[(index + 1) % len(successful)])
             for index in range(len(successful))
         ]
-        reviews = list(
-            await asyncio.gather(
-                *(_run_review(reviewer, target, case) for reviewer, target in pairs)
-            )
-        )
+        for reviewer, target in pairs:
+            reviews.append(await _run_review(reviewer, target, case, config.context_length))
     return _synthesize(case, analyses, reviews)
