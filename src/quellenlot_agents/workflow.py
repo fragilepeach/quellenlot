@@ -74,9 +74,7 @@ def _analysis_record(
     for item in draft.findings:
         source = next(source for source in case.sources if source.source_id == item.source_id)
         quotes = [
-            _verify_quote(quote, case)
-            for quote in item.quotes
-            if quote.source_id == item.source_id
+            _verify_quote(quote, case) for quote in item.quotes if quote.source_id == item.source_id
         ]
         evidence_status = (
             "no_quote"
@@ -363,9 +361,7 @@ def _synthesize(
 
 async def run_review(case: CaseInput, config: WorkflowConfig) -> RunReport:
     """Run five independent analyses, then one cross-review per successful model."""
-    analyses = list(
-        await asyncio.gather(*(_run_analysis(agent, case) for agent in config.models))
-    )
+    analyses = list(await asyncio.gather(*(_run_analysis(agent, case) for agent in config.models)))
     successful = [item for item in analyses if item.status == "succeeded"]
     agents_by_id = {agent.id: agent for agent in config.models}
     reviewers = [agents_by_id[item.agent_id] for item in successful]
