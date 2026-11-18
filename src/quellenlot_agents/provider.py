@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TypeVar
-
 import httpx
+from typing import TypeVar
 from pydantic import BaseModel, ConfigDict
 
 
