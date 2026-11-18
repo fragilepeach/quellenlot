@@ -3,7 +3,7 @@
 # ollama pull gpt-oss:20b
 # ollama pull mistral-small3.2:24b
 # ollama pull gemma4:12b
-# ollama pull phi4:14b
+# ollama pull ministral-3:14b
 #
 # The workflow calls these sequentially and asks Ollama to unload each model after
 # its response. context_length is deliberately capped to control RAM use.
@@ -27,5 +27,5 @@ id = "gemma"
 model = "gemma4:12b"
 
 [[models]]
-id = "phi"
-model = "phi4:14b"
+id = "ministral"
+model = "ministral-3:14b"
