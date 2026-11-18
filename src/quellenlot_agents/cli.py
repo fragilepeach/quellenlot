@@ -18,7 +18,9 @@ def _parser() -> argparse.ArgumentParser:
     """Construct the CLI parser."""
     parser = argparse.ArgumentParser(description="Run an evidence-first Quellenlot model review.")
     parser.add_argument("--config", required=True, type=Path, help="TOML file with five models.")
-    parser.add_argument("--input", required=True, type=Path, help="JSON case with source snapshots.")
+    parser.add_argument(
+        "--input", required=True, type=Path, help="JSON case with source snapshots."
+    )
     parser.add_argument("--output", required=True, type=Path, help="Path for the JSON report.")
     return parser
 
