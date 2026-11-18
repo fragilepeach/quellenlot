@@ -26,8 +26,9 @@ jobs:
       - name: Ruff lint
         run: ruff check .
       - name: Ruff formatting
-        run: ruff format --check .
+        run: ruff format --diff .
       - name: Strict Pyright
+        if: success() || failure()
         run: pyright
       - name: Behavioral tests
         run: python -m unittest discover -s tests -v

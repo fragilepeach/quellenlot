@@ -33,7 +33,7 @@ _PAYWALL: Final = re.compile(
     r'"isAccessibleForFree"\s*:\s*(?:false|"false")(?=\s*[,}])', re.IGNORECASE
 )
 _META_CHARSET: Final = re.compile(
-    br"""<meta\b[^>]*?\bcharset\s*=\s*["']?([a-z0-9_-]+)""", re.IGNORECASE
+    rb"""<meta\b[^>]*?\bcharset\s*=\s*["']?([a-z0-9_-]+)""", re.IGNORECASE
 )
 
 
