@@ -112,10 +112,19 @@ def _url_key(url: AnyHttpUrl) -> str:
     return str(parsed.copy_with(fragment=None, query=query))
 
 
-async def _search_candidates(
+async def search_candidates(
     config: SearchConfig,
     queries: list[str],
 ) -> tuple[list[SearchQuery], list[AnyHttpUrl]]:
+    """Run ordered search queries and rank the resulting URLs.
+
+    Args:
+        config: Trusted JSON search endpoint and language settings.
+        queries: Search strings to send in order.
+
+    Returns:
+        Each search outcome and candidate URLs ordered by priority and rank.
+    """
     attempts: list[SearchQuery] = []
     ranked: list[tuple[int, AnyHttpUrl]] = []
     async with httpx.AsyncClient(
@@ -164,7 +173,7 @@ async def discover_sources(
     Returns:
         Included sources, their retrieval attempts, and the search audit trail.
     """
-    queries, urls = await _search_candidates(config, _queries(claims, question))
+    queries, urls = await search_candidates(config, _queries(claims, question))
     included_urls = {_url_key(requested_url)}
     if original.url is not None:
         included_urls.add(_url_key(original.url))

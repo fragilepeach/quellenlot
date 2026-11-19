@@ -93,11 +93,42 @@ class _OllamaReplies:
         self.assessment_sources: list[list[dict[str, _Json]]] = []
         self.peer_review_sources: list[list[dict[str, _Json]]] = []
         self.reviewed_claims: list[str] = []
+        self.interest_subjects: list[str] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         payload = cast("_Chat", json.loads(request.content))
         task = cast("dict[str, _Json]", json.loads(payload["messages"][1]["content"]))
-        if "article" in task:
+        if "publisher_subject" in task:
+            subject = cast("str", task["publisher_subject"])
+            self.interest_subjects.append(subject)
+            evidence = task["evidence"]
+            if not isinstance(evidence, list):
+                msg = "Interest evidence must be a list."
+                raise ValueError(msg)
+            first_evidence = evidence[0]
+            if not isinstance(first_evidence, dict):
+                msg = "Interest evidence must contain a source object."
+                raise ValueError(msg)
+            evidence_id = first_evidence["source_id"]
+            if not isinstance(evidence_id, str):
+                msg = "Interest evidence source ID must be text."
+                raise ValueError(msg)
+            document = {
+                "findings": [
+                    {
+                        "category": "ownership",
+                        "subject": subject,
+                        "related_entity": "Mediengruppe Nord",
+                        "relationship": "Die Zeitung gehört zur Mediengruppe.",
+                        "quote": {
+                            "source_id": evidence_id,
+                            "locator": "Absatz 1",
+                            "text": "Die Morgenpost gehört zur Mediengruppe Nord.",
+                        },
+                    }
+                ]
+            }
+        elif "article" in task:
             self.questions.append(cast("str | None", task.get("question")))
             article = cast("dict[str, _Json]", task["article"])
             self.article_texts.append(cast("str", article["text"]))
@@ -177,6 +208,7 @@ class ArticleCliTests(unittest.TestCase):
         expected_exit: int | None = None,
         web: Callable[[httpx.Request], httpx.Response] | None = None,
         search_enabled: bool = False,
+        interests_enabled: bool = False,
     ) -> bytes:
         client = httpx.AsyncClient
 
@@ -205,11 +237,18 @@ class ArticleCliTests(unittest.TestCase):
             output_path = Path(directory) / "report.json"
             input_path.write_text(json.dumps(dict(case)), encoding="utf-8")
             config_path = _CONFIG
-            if search_enabled:
+            if search_enabled or interests_enabled:
                 config_path = Path(directory) / "config.toml"
+                content = _CONFIG.read_text(encoding="utf-8")
+                if interests_enabled:
+                    content = content.replace("check_interests = false", "check_interests = true")
                 config_path.write_text(
-                    _CONFIG.read_text(encoding="utf-8")
-                    + '\n[search]\nendpoint = "http://127.0.0.1:8888/search"\nmax_sources = 2\n',
+                    content
+                    + (
+                        '\n[search]\nendpoint = "http://127.0.0.1:8888/search"\nmax_sources = 2\n'
+                        if search_enabled
+                        else ""
+                    ),
                     encoding="utf-8",
                 )
             args = [
@@ -534,6 +573,145 @@ class ArticleCliTests(unittest.TestCase):
         claim = RunReport.model_validate_json(self._run(claim_case, _OllamaReplies()))
         self.assertEqual(claim.shared_wording, article.shared_wording)
         self.assertEqual(claim.source_diff, article.claims[0].review.source_diff)
+
+    def test_manual_interest_evidence_runs_five_models(self) -> None:
+        """Expose verified ownership evidence and unknown fields in the article report."""
+        article: dict[str, _Json] = {
+            **_ARTICLE,
+            "publisher": "Morgenpost",
+            "authors": ["Lea Winter"],
+        }
+        imprint = {
+            **_ARTICLE,
+            "source_id": "imprint",
+            "version_id": "imprint-v1",
+            "text": "Die Morgenpost gehört zur Mediengruppe Nord.",
+        }
+        case: dict[str, _Json] = {
+            "case_id": "library-interests",
+            "article": article,
+            "interest_evidence": [{"target_source_id": "article", "source": imprint}],
+        }
+        replies = _OllamaReplies(claims=(_FIRST_CLAIM,))
+        report = ArticleReport.model_validate_json(self._run(case, replies))
+        self.assertEqual(replies.interest_subjects, ["Morgenpost"] * 5)
+        self.assertIsNotNone(report.interests)
+        if report.interests is None:
+            return
+        self.assertEqual(report.interests.status, "complete")
+        source = report.interests.sources[0]
+        self.assertEqual(len(source.assessments), 5)
+        finding = source.assessments[0].findings[0]
+        self.assertEqual(finding.category, "ownership")
+        self.assertEqual(finding.evidence.source_id, "imprint")
+        self.assertTrue(finding.evidence.verified)
+        self.assertIn("funding", source.unresolved_categories)
+
+    def test_interest_search_fetches_evidence_for_original_article(self) -> None:
+        """Discover affiliation evidence, retain its query, and report unavailable categories."""
+        article_html = _ARTICLE_HTML.replace(
+            "</head>",
+            '<meta property="og:site_name" content="Morgenpost">'
+            '<meta name="author" content="Lea Winter"></head>',
+        )
+        queries: list[str] = []
+        replies = _OllamaReplies(claims=(_FIRST_CLAIM,))
+
+        def web(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/link":
+                return _html_response(article_html)
+            if request.url.path == "/search":
+                query = request.url.params["q"]
+                queries.append(query)
+                if "Morgenpost" in query:
+                    return httpx.Response(
+                        200,
+                        json={"results": [{"url": "https://news.example.test/imprint"}]},
+                    )
+                return httpx.Response(200, json={"results": []})
+            if request.url.path == "/imprint":
+                return _html_response(
+                    "<article>Die Morgenpost gehört zur Mediengruppe Nord.</article>"
+                )
+            self.fail(f"Unexpected path {request.url.path}")
+            return httpx.Response(500)
+
+        case: dict[str, _Json] = {
+            "case_id": "library-interests",
+            "article_url": _ARTICLE_URL,
+        }
+        report = ArticleUrlReport.model_validate_json(
+            self._run(
+                case,
+                replies,
+                web=web,
+                search_enabled=True,
+                interests_enabled=True,
+            )
+        )
+        self.assertEqual(len(queries), 3)
+        self.assertIn('"Morgenpost" Eigentümer Finanzierung Impressum', queries)
+        self.assertIn('"Lea Winter" Arbeitgeber Verbindung', queries)
+        self.assertEqual(replies.interest_subjects, ["Morgenpost"] * 5)
+        self.assertEqual(
+            [item.source_id for item in report.retrievals],
+            [
+                "article",
+                "interest-evidence-1",
+            ],
+        )
+        self.assertIsNotNone(report.review)
+        if report.review is None or report.review.interests is None:
+            return
+        interest = report.review.interests
+        self.assertEqual(interest.sources[0].source.publisher, "Morgenpost")
+        self.assertEqual(interest.sources[0].source.authors, ["Lea Winter"])
+        self.assertEqual(len(interest.sources[0].searches), 2)
+        self.assertEqual(len(interest.sources[0].retrievals), 1)
+        self.assertEqual(
+            interest.sources[0].assessments[0].findings[0].evidence.source_id, "interest-evidence-1"
+        )
+
+    def test_explicit_interest_url_runs_without_automatic_search(self) -> None:
+        """Keep evidence for an available source when a requested comparison fails."""
+        article_html = _ARTICLE_HTML.replace(
+            "</head>", '<meta property="og:site_name" content="Morgenpost"></head>'
+        )
+        replies = _OllamaReplies(claims=(_FIRST_CLAIM,))
+
+        def web(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/link":
+                return _html_response(article_html)
+            if request.url.path == "/unavailable":
+                return httpx.Response(503)
+            if request.url.path == "/imprint":
+                return _html_response(
+                    "<article>Die Morgenpost gehört zur Mediengruppe Nord.</article>"
+                )
+            self.fail(f"Unexpected path {request.url.path}")
+            return httpx.Response(500)
+
+        url = "https://news.example.test/imprint"
+        case: dict[str, _Json] = {
+            "case_id": "explicit-interest",
+            "article_url": _ARTICLE_URL,
+            "comparison_urls": ["https://news.example.test/unavailable"],
+            "interest_urls": [
+                {"target_source_id": "article", "url": url},
+                {"target_source_id": "comparison-1", "url": "https://news.example.test/not-used"},
+            ],
+        }
+        report = ArticleUrlReport.model_validate_json(self._run(case, replies, web=web))
+        self.assertEqual(report.status, "partial")
+        self.assertEqual(report.retrievals[1].status, "failed")
+        self.assertEqual(replies.interest_subjects, ["Morgenpost"] * 5)
+        self.assertEqual(str(report.retrievals[-1].requested_url), url)
+        interests = report.review.interests if report.review is not None else None
+        self.assertIsNotNone(interests)
+        if interests is not None:
+            self.assertEqual(interests.status, "complete")
+            self.assertEqual(interests.sources[0].searches, [])
+            self.assertEqual(str(interests.sources[0].evidence_sources[0].url), url)
 
     def test_source_diff_separates_shared_and_distinct_cited_evidence(self) -> None:
         """Group a repeated release and show original reporting, qualification, and gaps."""

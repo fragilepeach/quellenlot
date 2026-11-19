@@ -65,6 +65,8 @@ class ArticleText:
     paywall_indicated: bool
     published_at: SourceDate | None = None
     updated_at: SourceDate | None = None
+    publisher: str | None = None
+    authors: tuple[str, ...] = ()
 
 
 def _normalize(parts: list[str]) -> str:
@@ -115,6 +117,43 @@ def _json_ld_dates(data: str) -> Iterator[tuple[_DateKind, str]]:
             pending.extend([node.get("@graph"), node.get("mainEntity")])
 
 
+def _entity_names(value: JsonValue) -> Iterator[str]:
+    """Read named entities from common JSON-LD person and organization structures."""
+    if isinstance(value, list):
+        for item in value:
+            yield from _entity_names(item)
+    elif isinstance(value, dict):
+        name = value.get("name")
+        if isinstance(name, str) and name.strip():
+            yield name.strip()
+    elif (
+        isinstance(value, str)
+        and value.strip()
+        and not value.lstrip().lower().startswith(("http://", "https://"))
+    ):
+        yield value.strip()
+
+
+def _json_ld_attribution(data: str) -> Iterator[tuple[str, str]]:
+    """Extract author and publisher names declared on article entities."""
+    try:
+        graph = _StructuredData.model_validate_json(data).root
+    except ValidationError:
+        return
+    pending = [graph]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, list):
+            pending.extend(node)
+        elif isinstance(node, dict):
+            if _article_type(node.get("@type")):
+                for name in _entity_names(node.get("publisher")):
+                    yield "publisher", name
+                for name in _entity_names(node.get("author")):
+                    yield "author", name
+            pending.extend([node.get("@graph"), node.get("mainEntity")])
+
+
 class _ArticleParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
@@ -131,6 +170,8 @@ class _ArticleParser(HTMLParser):
             "published": {},
             "updated": {},
         }
+        self._publishers: dict[str, set[str]] = {"json_ld": set(), "open_graph": set()}
+        self._authors: dict[str, set[str]] = {"json_ld": set(), "meta": set()}
 
     def _record_date(
         self, kind: _DateKind | None, text: str | None, origin: DateProvenance
@@ -170,6 +211,14 @@ class _ArticleParser(HTMLParser):
         if tag == "meta":
             kind = _OPEN_GRAPH.get((values.get("property") or "").lower())
             self._record_date(kind, values.get("content"), "open_graph")
+            if (values.get("property") or "").lower() == "og:site_name":
+                name = values.get("content")
+                if name is not None and name.strip():
+                    self._publishers["open_graph"].add(name.strip())
+            if (values.get("name") or "").lower() == "author":
+                name = values.get("content")
+                if name is not None and name.strip():
+                    self._authors["meta"].add(name.strip())
         elif tag == "time" and self._depth["article"]:
             kind = _HTML_TIME.get((values.get("itemprop") or "").lower())
             self._record_date(kind, values.get("datetime"), "html_time")
@@ -212,6 +261,11 @@ class _ArticleParser(HTMLParser):
                 self._paywall_indicated = True
             for kind, value in _json_ld_dates(data):
                 self._record_date(kind, value, "json_ld")
+            for kind, value in _json_ld_attribution(data):
+                if kind == "publisher":
+                    self._publishers["json_ld"].add(value)
+                else:
+                    self._authors["json_ld"].add(value)
         if self._skipped:
             return
         if self._in_title:
@@ -224,14 +278,31 @@ class _ArticleParser(HTMLParser):
         title = " ".join("".join(self._title).split())
         published_at = self._source_date("published")
         updated_at = self._source_date("updated")
+        publishers = self._publishers["json_ld"] or self._publishers["open_graph"]
+        publisher = next(iter(publishers)) if len(publishers) == 1 else None
+        authors = tuple(sorted(self._authors["json_ld"] or self._authors["meta"]))
         for tag in _REGIONS:
             text = max((_normalize(parts) for parts in self._regions[tag]), key=len, default="")
             if text:
                 return ArticleText(
-                    title, text, tag == "article", self._paywall_indicated, published_at, updated_at
+                    title,
+                    text,
+                    tag == "article",
+                    self._paywall_indicated,
+                    published_at,
+                    updated_at,
+                    publisher,
+                    authors,
                 )
         return ArticleText(
-            title, _normalize(self._page), False, self._paywall_indicated, published_at, updated_at
+            title,
+            _normalize(self._page),
+            False,
+            self._paywall_indicated,
+            published_at,
+            updated_at,
+            publisher,
+            authors,
         )
 
 

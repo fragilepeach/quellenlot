@@ -9,6 +9,7 @@ import httpx
 
 from quellenlot_agents.config import WorkflowConfig
 from quellenlot_agents.discovery import discover_sources
+from quellenlot_agents.interests import review_interests
 from quellenlot_agents.models import (
     ArticleCaseInput,
     ArticleReport,
@@ -18,11 +19,13 @@ from quellenlot_agents.models import (
     ClaimComparison,
     DraftArticleExtraction,
     ExtractionAttempt,
+    InterestUrlInput,
     RunReport,
     SourceComparison,
     SourceDiscovery,
     SourceInput,
     SourceJudgment,
+    SourceRetrieval,
     SourceSnapshot,
     VerifiedQuote,
 )
@@ -122,7 +125,8 @@ async def run_article_comparison(case: ArticleCaseInput, config: WorkflowConfig)
         The extraction attempts and one source comparison per extracted claim.
     """
     extracted, attempts = await _extract_claims(case.article, case.question, config)
-    return await _compare_extracted(case, config, extracted, attempts)
+    report, _ = await _compare_extracted(case, config, extracted, attempts)
+    return report
 
 
 async def _compare_extracted(
@@ -130,7 +134,8 @@ async def _compare_extracted(
     config: WorkflowConfig,
     extracted: list[tuple[str, VerifiedQuote]] | None,
     attempts: list[ExtractionAttempt],
-) -> ArticleReport:
+    interest_urls: list[InterestUrlInput] | None = None,
+) -> tuple[ArticleReport, list[SourceRetrieval]]:
     """Review pre-extracted claims against all selected source snapshots."""
     sources = case.sources
     shared_wording = find_shared_wording(sources)
@@ -160,6 +165,16 @@ async def _compare_extracted(
         status = "complete"
     else:
         status = "partial"
+    interests = None
+    interest_retrievals: list[SourceRetrieval] = []
+    if config.check_interests or case.interest_evidence or bool(interest_urls):
+        interests, interest_retrievals = await review_interests(
+            sources,
+            config,
+            question=case.question,
+            evidence=case.interest_evidence,
+            evidence_urls=interest_urls or [],
+        )
     return ArticleReport(
         case_id=case.case_id,
         question=case.question,
@@ -169,7 +184,8 @@ async def _compare_extracted(
         extraction_attempts=attempts,
         claims=comparisons,
         shared_wording=shared_wording,
-    )
+        interests=interests,
+    ), interest_retrievals
 
 
 async def run_article_url_comparison(
@@ -210,7 +226,7 @@ async def run_article_url_comparison(
                 config=config.search,
             )
             retrievals.extend(discovered_retrievals)
-        review = await _compare_extracted(
+        review, interest_retrievals = await _compare_extracted(
             ArticleCaseInput(
                 case_id=case.case_id,
                 article=article,
@@ -220,7 +236,9 @@ async def run_article_url_comparison(
             config,
             extracted,
             attempts,
+            case.interest_urls,
         )
+        retrievals.extend(interest_retrievals)
 
     status = review.status if review is not None else "failed"
     limited_retrieval = any(item.status != "captured" for item in retrievals)
