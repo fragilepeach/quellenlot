@@ -2,7 +2,6 @@ name: Python quality
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -23,6 +22,13 @@ jobs:
           cache: pip
       - name: Install project and strict checkers
         run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Prepare pinned checker wheels for migration diagnostics
+        run: python -m pip download --dest "$RUNNER_TEMP/quality-wheels" ruff==0.17.2 ty==0.0.91 pyright==1.1.414 crosshair-tool==0.0.112 import-linter==2.15 vulture==2.16
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: migration-checker-wheels
+          path: ${{ runner.temp }}/quality-wheels
+          retention-days: 1
       - name: Ruff lint
         run: ruff check .
       - name: Ruff formatting
