@@ -357,7 +357,12 @@ function readReport(data) {
       evidence: normalizedEvidence(claim.source_comparison, report.article_source_id),
     };
   });
-  const runStatus = data.status === "partial" || report.status === "partial" ? " · Teilbericht" : "";
+  const failed = data.status === "failed" || report.status === "failed";
+  const partial = data.status === "partial" || report.status === "partial";
+  const runStatus = failed ? " · Analyse fehlgeschlagen" : partial ? " · Teilbericht" : "";
+  const empty = failed
+    ? "Die Analyse konnte keine Aussagen ermitteln, weil die Extraktion fehlgeschlagen ist."
+    : "Der Bericht enthält keine prüfbaren Aussagen.";
   return {
     meta: "Importierter Bericht" + runStatus,
     title: article?.title || "Artikelprüfung",
@@ -365,7 +370,7 @@ function readReport(data) {
     article,
     summary: ["Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung."],
     claims,
-    empty: claims.length ? "" : "Der Bericht enthält keine prüfbaren Aussagen.",
+    empty: claims.length ? "" : empty,
   };
 }
 

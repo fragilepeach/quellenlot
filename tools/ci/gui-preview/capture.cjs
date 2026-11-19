@@ -83,6 +83,39 @@ async function captureWalkthrough(browser, frames) {
   }
 }
 
+async function checkImportOutcomes(browser) {
+  const { page, errors } = await openDemo(browser, { width: 1280, height: 960 });
+  const report = {
+    case_id: "tankrabatt-import-test",
+    question: null,
+    article_source_id: "article",
+    sources: [{ source_id: "article", title: "Artikel mit offenem Ergebnis" }],
+    extraction_attempts: [],
+    claims: [],
+  };
+
+  async function importReport(data) {
+    await page.locator("#report-file").setInputFiles({
+      name: "report.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(data)),
+    });
+  }
+
+  try {
+    await importReport({ ...report, status: "no_claims" });
+    await page.getByText("Der Bericht enthält keine prüfbaren Aussagen.", { exact: true }).waitFor();
+
+    const status = "failed";
+    await importReport({ status, retrievals: [], review: { ...report, status } });
+    await page.getByText("Importierter Bericht · Analyse fehlgeschlagen", { exact: true }).waitFor();
+    assert.match(await page.locator("#empty-report").textContent(), /Extraktion fehlgeschlagen/);
+    assert.deepEqual(errors, []);
+  } finally {
+    await page.close();
+  }
+}
+
 function encodeGif(frames) {
   execFileSync(commands.ffmpeg, [
     "-hide_banner", "-loglevel", "error", "-y", "-filter_complex_threads", "1",
@@ -127,6 +160,7 @@ async function main() {
       await captureOverview(browser, 1280, 960, "desktop.png");
       await captureOverview(browser, 390, 844, "mobile.png");
       count = await captureWalkthrough(browser, frames);
+      await checkImportOutcomes(browser);
     } finally {
       await browser.close();
     }
