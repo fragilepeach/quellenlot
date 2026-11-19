@@ -1,0 +1,76 @@
+name: GUI previews
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'tools/ci/gui-preview/**'
+      - '.github/workflows/gui-previews.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'tools/ci/gui-preview/**'
+      - '.github/workflows/gui-previews.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: Capture and validate GUI previews
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out tested revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Chromium and the capture tools
+        run: |
+          tools_dir="$RUNNER_TEMP/quellenlot-playwright"
+          npm install --prefix "$tools_dir" --no-save --no-package-lock --ignore-scripts playwright@1.58.2
+          "$tools_dir/node_modules/.bin/playwright" install --with-deps chromium
+          echo "NODE_PATH=$tools_dir/node_modules" >> "$GITHUB_ENV"
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+      - name: Capture the Tankrabatt walkthrough
+        run: node tools/ci/gui-preview/capture.cjs
+      - name: Upload validated previews
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: quellenlot-gui-previews
+          path: artifacts/gui-preview/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Refresh documentation media
+    needs: capture
+    if: ${{ github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    concurrency:
+      group: quellenlot-gui-preview-publication
+      cancel-in-progress: false
+    steps:
+      - name: Check out capture revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download this run's previews
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: quellenlot-gui-previews
+          path: ${{ runner.temp }}/quellenlot-gui-preview
+      - name: Publish tracked documentation media
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh auth setup-git --hostname github.com
+          bash tools/ci/gui-preview/publish.sh "$RUNNER_TEMP/quellenlot-gui-preview"
