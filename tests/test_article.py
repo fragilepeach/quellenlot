@@ -500,6 +500,40 @@ class ArticleCliTests(unittest.TestCase):
         self.assertEqual(len(report.review.sources), 1)
         self.assertEqual(report.review.status, "complete")
 
+    def test_shared_wording_is_reported_in_both_cli_modes(self) -> None:
+        """Expose one shared-wording report while preserving distinct source findings."""
+        shared = (
+            "Nach einer sechsmonatigen Sanierung kann die Bibliothek wieder Besucherinnen "
+            "und Besucher aus dem gesamten Landkreis zu den üblichen Zeiten empfangen."
+        )
+        original = {**_ARTICLE, "text": f"{_FIRST_CLAIM}\n{shared}"}
+        comparison = {
+            **_COMPARISON,
+            "text": (
+                f"{shared.replace('üblichen', 'regulären')}\n"
+                "Für Kinder wird am Dienstag eine Führung angeboten."
+            ),
+        }
+        article_case: dict[str, _Json] = {
+            "case_id": "library-wording",
+            "article": original,
+            "comparison_sources": [comparison],
+        }
+        article = ArticleReport.model_validate_json(
+            self._run(article_case, _OllamaReplies(claims=(_FIRST_CLAIM,)))
+        )
+        self.assertEqual(len(article.shared_wording.matches), 1)
+        self.assertIsNone(article.claims[0].review.shared_wording)
+        self.assertEqual(len(article.claims[0].source_comparison), 2)
+
+        claim_case: dict[str, _Json] = {
+            "case_id": "library-wording",
+            "claim": _FIRST_CLAIM,
+            "sources": [original, comparison],
+        }
+        claim = RunReport.model_validate_json(self._run(claim_case, _OllamaReplies()))
+        self.assertEqual(claim.shared_wording, article.shared_wording)
+
     def test_declared_dates_reach_models_and_report(self) -> None:
         """Keep publisher dates and capture time distinct across the full comparison."""
         replies = _OllamaReplies(claims=(_FIRST_CLAIM,))
