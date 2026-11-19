@@ -37,6 +37,8 @@ from the article. A question is not itself a claim. Do not browse or add outside
 Write claims in the article's language as self-contained statements. Preserve important
 qualifications, scope, time periods, and units. Distinguish reported statements from established
 facts when attribution matters. Skip opinions, predictions, and unsupported inferences.
+Use declared article dates as timeline context where relevant. Keep the time of the events
+distinct from publication, updates, and capture. Leave unstated event dates uncertain.
 For each statement, return one short verbatim quote from the article with its source ID and
 locator. Return an empty list if the supplied text contains no checkable factual claims.
 Return only JSON matching the requested schema."""
