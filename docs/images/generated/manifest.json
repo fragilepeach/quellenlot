@@ -1,0 +1,32 @@
+{
+  "source_commit": "9909638317ef0d58693d58f17ad71afbfd0f66fd",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44627796848",
+  "scenario": "Tankrabatt fixture, article claim investigation",
+  "playwright": "1.58.2",
+  "media": [
+    {
+      "file": "desktop.png",
+      "width": 1280,
+      "height": 1480,
+      "frames": 1,
+      "bytes": 232854,
+      "sha256": "bbe0ee4d86bbe6960071f7d8a200aeee53d73bd703d558a816bee1f2bac02112"
+    },
+    {
+      "file": "mobile.png",
+      "width": 390,
+      "height": 2595,
+      "frames": 1,
+      "bytes": 224877,
+      "sha256": "badaab9586691d0c875e5ea9d8a4f3d300d0768d701c6d8ac983e0bcf510ed6d"
+    },
+    {
+      "file": "usage.gif",
+      "width": 960,
+      "height": 669,
+      "frames": 4,
+      "bytes": 398784,
+      "sha256": "19553c51ce98cc5fed921967fa9fc9ade701868466ff762dec621972200724e0"
+    }
+  ]
+}

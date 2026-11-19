@@ -2,6 +2,41 @@
 
 Open `web/index.html` in a modern browser. The prototype uses local HTML, CSS and JavaScript with no build step. The Tankrabatt case opens by default. Its input article and summary are written for the demo. Its evidence passages and external links come from published sources.
 
+## Screenshots and walkthrough
+
+![Desktop view showing the Tankrabatt summary and the selected claim's evidence and citation path](../docs/images/generated/desktop.png)
+
+<details>
+<summary>Mobile view</summary>
+
+<img src="../docs/images/generated/mobile.png" alt="Mobile Quellenlot layout with the URL form, Tankrabatt summary, claims and evidence stacked vertically" width="350">
+
+</details>
+
+### Follow an article claim to its source
+
+1. Open the Tankrabatt example and select **in allen drei Monaten gleich stark gewirkt**.
+2. Choose **TU Dresden** to read the passage that disputes the claim. Open **Datum und Version** to inspect when the report was published and updated.
+3. In **Herkunft & Belege**, follow **verweist auf** to **Freitas & Syga**. The evidence panel switches to the study and provides a link to the quoted passage.
+
+![Animated walkthrough from the highlighted Tankrabatt claim to the TU Dresden passage and its cited Freitas–Syga study](../docs/images/generated/usage.gif)
+
+## How the previews are generated
+
+The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates and mobile focus behavior before uploading the screenshots and GIF. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
+
+Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`.
+
+To generate the files locally from the repository root, install Node.js and FFmpeg (including `ffprobe`), then run:
+
+```sh
+npm ci --prefix tools/ci/gui-preview --ignore-scripts
+tools/ci/gui-preview/node_modules/.bin/playwright install chromium
+node tools/ci/gui-preview/capture.cjs
+```
+
+The output is written to `artifacts/gui-preview/`. The walkthrough uses the built-in fixture and runs without Ollama.
+
 ## Design research
 
 | Reference | Design decision |

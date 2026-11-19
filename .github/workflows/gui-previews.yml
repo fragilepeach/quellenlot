@@ -29,10 +29,8 @@ jobs:
           persist-credentials: false
       - name: Install Chromium and the capture tools
         run: |
-          tools_dir="$RUNNER_TEMP/quellenlot-playwright"
-          npm install --prefix "$tools_dir" --no-save --no-package-lock --ignore-scripts playwright@1.58.2
-          "$tools_dir/node_modules/.bin/playwright" install --with-deps chromium
-          echo "NODE_PATH=$tools_dir/node_modules" >> "$GITHUB_ENV"
+          npm ci --prefix tools/ci/gui-preview --ignore-scripts
+          tools/ci/gui-preview/node_modules/.bin/playwright install --with-deps chromium
           if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
             sudo apt-get update -qq
             sudo apt-get install -y --no-install-recommends ffmpeg
