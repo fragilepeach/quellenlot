@@ -168,6 +168,7 @@ class ArticleCliTests(unittest.TestCase):
         *,
         expected_exit: int | None = None,
         web: Callable[[httpx.Request], httpx.Response] | None = None,
+        search_enabled: bool = False,
     ) -> bytes:
         client = httpx.AsyncClient
 
@@ -195,10 +196,18 @@ class ArticleCliTests(unittest.TestCase):
             input_path = Path(directory) / "case.json"
             output_path = Path(directory) / "report.json"
             input_path.write_text(json.dumps(dict(case)), encoding="utf-8")
+            config_path = _CONFIG
+            if search_enabled:
+                config_path = Path(directory) / "config.toml"
+                config_path.write_text(
+                    _CONFIG.read_text(encoding="utf-8")
+                    + '\n[search]\nendpoint = "http://127.0.0.1:8888/search"\nmax_sources = 2\n',
+                    encoding="utf-8",
+                )
             args = [
                 "quellenlot-agents",
                 "--config",
-                str(_CONFIG),
+                str(config_path),
                 "--input",
                 str(input_path),
                 "--output",
@@ -391,6 +400,118 @@ class ArticleCliTests(unittest.TestCase):
         self.assertIn("HTTP 404", report.retrievals[0].detail)
         self.assertIsNone(report.review)
         self.assertEqual(replies.questions, [])
+
+    def test_automatic_discovery_prioritizes_and_deduplicates_comparisons(self) -> None:
+        """Search from accepted claims, use source retrieval, and retain selection decisions."""
+        requested_paths: list[str] = []
+        queries: list[str] = []
+        replies = _OllamaReplies(claims=(_FIRST_CLAIM,))
+
+        def web(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/search":
+                self.assertEqual(request.url.port, 8888)
+                self.assertEqual(request.url.params["language"], "de-DE")
+                self.assertEqual(request.url.params["format"], "json")
+                queries.append(request.url.params["q"])
+                return httpx.Response(
+                    200,
+                    json={
+                        "results": [
+                            {"url": "https://news.example.test/link?utm_source=search#body"},
+                            {"url": "https://media.example.test/general"},
+                            {"url": "https://stats.bund.de/blocked"},
+                            {"url": "https://stats.bund.de/official"},
+                            {"url": "https://stats.bund.de/official?utm_campaign=duplicate"},
+                            {"url": "https://stats.bund.de/mirror"},
+                            {"url": "file:///etc/passwd"},
+                        ]
+                    },
+                )
+            requested_paths.append(request.url.path)
+            if request.url.path == "/link":
+                return _html_response(_ARTICLE_HTML)
+            if request.url.path == "/blocked":
+                return httpx.Response(403)
+            if request.url.path in {"/official", "/mirror"}:
+                return _html_response(_COMPARISON_HTML)
+            return _html_response("<article><p>Die Bibliothek öffnet am Mittwoch.</p></article>")
+
+        case = {"case_id": "find-library", "article_url": _ARTICLE_URL, "question": _QUESTION}
+        report = ArticleUrlReport.model_validate_json(
+            self._run(case, replies, web=web, search_enabled=True)
+        )
+        self.assertEqual(queries, [f"{_QUESTION} {_FIRST_CLAIM}", _FIRST_CLAIM])
+        self.assertEqual(replies.questions, [_QUESTION, _QUESTION])
+        self.assertEqual(requested_paths, ["/link", "/blocked", "/official", "/mirror", "/general"])
+        self.assertEqual(report.status, "partial")
+        if report.discovery is None or report.review is None:
+            self.fail("The report must include discovery and claim comparison.")
+        self.assertEqual([record.query for record in report.discovery.queries], queries)
+        self.assertEqual(
+            [candidate.status for candidate in report.discovery.candidates],
+            ["unavailable", "included", "duplicate", "included"],
+        )
+        self.assertEqual(
+            [item.source_id for item in report.retrievals],
+            [
+                "article",
+                "comparison-1",
+                "comparison-2",
+                "comparison-3",
+                "comparison-4",
+            ],
+        )
+        comparison = report.review.claims[0].source_comparison
+        self.assertEqual(
+            [entry.source.source_id for entry in comparison],
+            ["article", "comparison-2", "comparison-4"],
+        )
+        self.assertEqual(
+            comparison[1].judgments[0].citations[0].text, "Die Bibliothek öffnet am Dienstag."
+        )
+
+    def test_search_failure_preserves_article_review(self) -> None:
+        """Report an inaccessible search service while reviewing the original snapshot."""
+        replies = _OllamaReplies(claims=(_FIRST_CLAIM,))
+
+        def web(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/search":
+                return httpx.Response(403)
+            return _html_response(_ARTICLE_HTML)
+
+        case = {"case_id": "find-library", "article_url": _ARTICLE_URL}
+        report = ArticleUrlReport.model_validate_json(
+            self._run(case, replies, web=web, search_enabled=True)
+        )
+        self.assertEqual(report.status, "partial")
+        if report.discovery is None or report.review is None:
+            self.fail("The report must include the search failure and the original review.")
+        self.assertEqual(report.discovery.queries[0].status, "failed")
+        self.assertEqual(report.discovery.queries[0].detail, "Search endpoint returned HTTP 403.")
+        self.assertEqual(report.discovery.candidates, [])
+        self.assertEqual(len(report.review.sources), 1)
+        self.assertEqual(report.review.status, "complete")
+
+    def test_manual_urls_take_precedence_over_configured_discovery(self) -> None:
+        """Review explicitly selected sources without sending search queries."""
+        replies = _OllamaReplies(claims=(_FIRST_CLAIM,))
+
+        def web(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/link":
+                return _html_response(_ARTICLE_HTML)
+            self.assertEqual(request.url.path, "/library")
+            return _html_response(_COMPARISON_HTML)
+
+        case: dict[str, _Json] = {
+            "case_id": "manual-library",
+            "article_url": _ARTICLE_URL,
+            "comparison_urls": [_COMPARISON_URL],
+        }
+        output = self._run(case, replies, web=web, search_enabled=True)
+        self.assertNotIn(b'"discovery"', output)
+        report = ArticleUrlReport.model_validate_json(output)
+        self.assertEqual(report.status, "complete")
+        self.assertEqual(len(report.retrievals), 2)
 
     def test_redirect_to_nonpublic_destination_is_blocked(self) -> None:
         """Reject a redirect after resolving its destination and before contacting it."""

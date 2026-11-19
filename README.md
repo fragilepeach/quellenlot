@@ -103,6 +103,21 @@ The CLI fetches public HTTP(S) pages on the default ports and extracts readable 
 
 Fetched text is always marked as having unverified completeness. The retrieval report also flags observable limits such as restricted access, a partial HTTP response, fallback to page text, or snapshot clipping. Omissions from these snapshots are reported as `not_assessable`. Use the text input mode to supply a complete snapshot you have verified. URL intake works with server-rendered HTML. Pages that require login, JavaScript rendering, or another document format may need text input.
 
+### Automatic comparison search
+
+To discover comparison sources from an article URL, add a `[search]` section to `models.toml` and omit `comparison_urls` from the input JSON. Supply a trusted [SearXNG endpoint](https://docs.searxng.org/dev/search_api) with JSON enabled in its `search.formats` settings. A locally hosted instance works without an API key.
+
+```toml
+[search]
+endpoint = "http://127.0.0.1:8888/search"
+language = "de-DE"
+max_sources = 3
+```
+
+Quellenlot searches the extracted claims and, if supplied, the question anchored to the first claim. The configured search instance and its upstream search providers receive these queries. The search samples up to 20 results per query, gives preference to government and public institution domains in a fixed list, then tries up to twice `max_sources` URLs to capture unique articles. This preference is based on the publisher's domain. The normal evidence review assesses each captured source and its quotes.
+
+The report lists the executed queries under `discovery.queries`, shows attempted candidates and selection outcomes under `discovery.candidates`, and records individual fetch failures under `retrievals`. Search failures and searches with zero usable comparisons produce a partial report when the original can still be reviewed. Explicit comparison URLs take precedence whenever you supply them.
+
 ## Development checks
 
 ```bash
@@ -124,4 +139,4 @@ GitHub Actions runs the full suite on pushes, pull request updates, merge-queue 
 
 ## Scope boundary
 
-This is a backend library and CLI. Automatic source search, persistence/version history, access control, editorial approval, and a public web application remain separate work. Local model quality for German political research still needs evaluation against a held-out set before relying on the results.
+This is a backend library and CLI. Persistence/version history, access control, editorial approval, and a public web application remain separate work. Local model quality for German political research still needs evaluation against a held-out set before relying on the results.
