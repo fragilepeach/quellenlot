@@ -137,9 +137,10 @@ function selectedClaim() {
   return state.report.claims[state.claimIndex];
 }
 
-function updatePressed(root, key, selected) {
+function updateSelection(root, key, selected) {
   for (const control of root.querySelectorAll("[data-" + key + "]")) {
-    control.setAttribute("aria-pressed", String(control.dataset[key] === selected));
+    const attribute = control.tagName === "A" ? "aria-current" : "aria-pressed";
+    control.setAttribute(attribute, String(control.dataset[key] === selected));
   }
 }
 
@@ -155,7 +156,8 @@ function renderReport(report) {
   $("workspace").hidden = Boolean(report.empty);
   $("summary-text").replaceChildren(...report.summary.map((part) => {
     if (typeof part === "string") return document.createTextNode(part);
-    const control = button(part.text, "highlight");
+    const control = element("a", "highlight", part.text);
+    control.href = "#evidence-panel";
     control.dataset.claim = String(part.claim);
     control.setAttribute("aria-controls", "evidence-panel");
     const number = element("sup", "", String(part.claim + 1).padStart(2, "0"));
@@ -183,7 +185,7 @@ function selectClaim(index) {
   state.claimIndex = index;
   const claim = selectedClaim();
   const number = String(index + 1).padStart(2, "0");
-  updatePressed($("workspace"), "claim", String(index));
+  updateSelection($("workspace"), "claim", String(index));
   $("active-claim").textContent = "Aussage " + number;
   $("claim-description").textContent = claim.text;
   $("original-quote").textContent = claim.quote || "Kein geprüfter Wortlaut verfügbar.";
@@ -251,8 +253,8 @@ function renderJudgment(judgment) {
 function selectSource(id) {
   const evidence = selectedClaim().evidence.find(({ source }) => source.id === id);
   state.sourceId = evidence?.source.id;
-  updatePressed($("source-controls"), "source", state.sourceId);
-  updatePressed($("graph"), "source", state.sourceId);
+  updateSelection($("source-controls"), "source", state.sourceId);
+  updateSelection($("graph"), "source", state.sourceId);
 
   const detail = $("source-detail");
   detail.replaceChildren();
@@ -368,10 +370,11 @@ function readReport(data) {
 }
 
 $("workspace").addEventListener("click", (event) => {
-  const control = event.target.closest("button[data-claim], button[data-source]");
+  const control = event.target.closest("[data-claim], button[data-source]");
   if (!control) return;
   const index = control.dataset.claim;
   if (index !== undefined) {
+    event.preventDefault();
     selectClaim(Number(index));
     if (matchMedia("(max-width: 820px)").matches) {
       $("evidence-heading").focus();

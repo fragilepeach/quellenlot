@@ -163,7 +163,7 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 735; letter-spacing: -
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
-.highlight:hover, .highlight[aria-pressed="true"] { background: #d6e3ff; text-decoration-color: currentColor; }
+.highlight:hover, .highlight[aria-current="true"] { background: #d6e3ff; text-decoration-color: currentColor; }
 .highlight sup { padding-inline-start: 4px; font-weight: 750; font-size: 0.72em; vertical-align: super; line-height: 0; }
 .section-heading, .card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .section-heading { margin-bottom: 9px; }
