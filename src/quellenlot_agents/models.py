@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, StringConstraints, model_validator
@@ -15,6 +15,16 @@ class ContractModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
 
+DateProvenance = Literal["json_ld", "open_graph", "html_time", "provided"]
+
+
+class SourceDate(ContractModel):
+    """A source's declared date or timestamp and the metadata that supplied it."""
+
+    value: date | datetime
+    provenance: DateProvenance = "provided"
+
+
 class SourceInput(ContractModel):
     """An immutable source snapshot supplied to a review."""
 
@@ -23,6 +33,8 @@ class SourceInput(ContractModel):
     title: str = Field(min_length=1, max_length=500)
     url: AnyHttpUrl | None = None
     captured_at: datetime
+    published_at: SourceDate | None = None
+    updated_at: SourceDate | None = None
     text: str = Field(min_length=1, max_length=200_000)
     text_is_complete: bool
 
@@ -231,6 +243,8 @@ class SourceSnapshot(ContractModel):
     title: str
     url: AnyHttpUrl | None
     captured_at: datetime
+    published_at: SourceDate | None = None
+    updated_at: SourceDate | None = None
     content_sha256: str
     text_is_complete: bool
 
@@ -250,6 +264,8 @@ class SourceSnapshot(ContractModel):
             title=source.title,
             url=source.url,
             captured_at=source.captured_at,
+            published_at=source.published_at,
+            updated_at=source.updated_at,
             content_sha256=source.content_sha256,
             text_is_complete=source.text_is_complete,
         )

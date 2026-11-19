@@ -177,6 +177,8 @@ def _snapshot(
         title=(content.title or page.url.host)[:500],
         url=final_url,
         captured_at=captured_at,
+        published_at=content.published_at,
+        updated_at=content.updated_at,
         text=content.text[:_MAX_SOURCE_CHARS],
         text_is_complete=False,
     )

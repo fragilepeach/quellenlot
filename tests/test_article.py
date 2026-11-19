@@ -89,6 +89,9 @@ class _OllamaReplies:
         self.failed_claim = failed_claim
         self.questions: list[str | None] = []
         self.article_texts: list[str] = []
+        self.extraction_sources: list[dict[str, _Json]] = []
+        self.assessment_sources: list[list[dict[str, _Json]]] = []
+        self.peer_review_sources: list[list[dict[str, _Json]]] = []
         self.reviewed_claims: list[str] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
@@ -98,6 +101,7 @@ class _OllamaReplies:
             self.questions.append(cast("str | None", task.get("question")))
             article = cast("dict[str, _Json]", task["article"])
             self.article_texts.append(cast("str", article["text"]))
+            self.extraction_sources.append(article)
             anchor_is_valid = not self.bad_extraction and len(self.questions) > 1
             document: dict[str, _Json] = {
                 "claims": [
@@ -119,6 +123,10 @@ class _OllamaReplies:
             if claim == self.failed_claim:
                 return httpx.Response(503)
             target = review_task["required_output"].get("reviewed_agent_id")
+            if target is None:
+                self.assessment_sources.append(review_task["sources"])
+            else:
+                self.peer_review_sources.append(review_task["sources"])
             document = (
                 self._assess(claim, review_task["sources"])
                 if target is None
@@ -491,6 +499,47 @@ class ArticleCliTests(unittest.TestCase):
         self.assertEqual(report.discovery.candidates, [])
         self.assertEqual(len(report.review.sources), 1)
         self.assertEqual(report.review.status, "complete")
+
+    def test_declared_dates_reach_models_and_report(self) -> None:
+        """Keep publisher dates and capture time distinct across the full comparison."""
+        replies = _OllamaReplies(claims=(_FIRST_CLAIM,))
+        publication = {"value": "2024-03-04", "provenance": "json_ld"}
+        update = {"value": "2024-03-07T10:30:00+01:00", "provenance": "open_graph"}
+
+        def web(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/link":
+                metadata = (
+                    '<script type="application/ld+json">'
+                    '{"@type":"NewsArticle","datePublished":"2024-03-04"}'
+                    "</script>"
+                )
+                return _html_response(_ARTICLE_HTML.replace("</head>", metadata + "</head>"))
+            metadata = '<meta property="article:modified_time" content="2024-03-07T10:30:00+01:00">'
+            return _html_response(_COMPARISON_HTML.replace("</head>", metadata + "</head>"))
+
+        case: dict[str, _Json] = {
+            "case_id": "library-dates",
+            "article_url": _ARTICLE_URL,
+            "comparison_urls": [_COMPARISON_URL],
+        }
+        report = ArticleUrlReport.model_validate_json(self._run(case, replies, web=web))
+        if report.review is None:
+            self.fail("The fixture must produce a review.")
+        original, comparison = report.review.sources
+        self.assertIsNotNone(original.published_at)
+        self.assertIsNotNone(comparison.updated_at)
+        if original.published_at is not None and comparison.updated_at is not None:
+            self.assertEqual(original.published_at.model_dump(mode="json"), publication)
+            self.assertEqual(comparison.updated_at.model_dump(mode="json"), update)
+            self.assertNotEqual(original.captured_at.date().isoformat(), publication["value"])
+        self.assertIsNone(original.updated_at)
+        self.assertIsNone(comparison.published_at)
+        self.assertEqual(replies.extraction_sources[0]["published_at"], publication)
+        self.assertEqual(len(replies.assessment_sources), 5)
+        self.assertEqual(len(replies.peer_review_sources), 5)
+        for sources in [*replies.assessment_sources, *replies.peer_review_sources]:
+            self.assertEqual(sources[0]["published_at"], publication)
+            self.assertEqual(sources[1]["updated_at"], update)
 
     def test_manual_urls_take_precedence_over_configured_discovery(self) -> None:
         """Review explicitly selected sources without sending search queries."""

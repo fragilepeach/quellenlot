@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import date, datetime
 from html.parser import HTMLParser
-from typing import Final, override
+from typing import Final, Literal, override
+
+from pydantic import JsonValue, RootModel, ValidationError
+
+from quellenlot_agents.models import DateProvenance, SourceDate
 
 _REGIONS: Final[tuple[str, ...]] = ("article", "main")
 _SKIP: Final = {"aside", "footer", "form", "nav", "noscript", "script", "style", "svg", "template"}
@@ -35,6 +41,18 @@ _PAYWALL: Final = re.compile(
 _META_CHARSET: Final = re.compile(
     rb"""<meta\b[^>]*?\bcharset\s*=\s*["']?([a-z0-9_-]+)""", re.IGNORECASE
 )
+_ISO_DATE_PREFIX: Final = re.compile(r"^\d{4}-\d{2}-\d{2}(?:$|[T ]\d{2}:\d{2})")
+type _DateKind = Literal["published", "updated"]
+_OPEN_GRAPH: Final[dict[str, _DateKind]] = {
+    "article:published_time": "published",
+    "article:modified_time": "updated",
+}
+_HTML_TIME: Final[dict[str, _DateKind]] = {"datepublished": "published", "datemodified": "updated"}
+_DATE_PRIORITY: Final[tuple[DateProvenance, ...]] = ("json_ld", "open_graph", "html_time")
+
+
+class _StructuredData(RootModel[JsonValue]):
+    """Validate an arbitrary JSON-LD value before inspecting article nodes."""
 
 
 @dataclass(frozen=True)
@@ -45,11 +63,56 @@ class ArticleText:
     text: str
     in_article_element: bool
     paywall_indicated: bool
+    published_at: SourceDate | None = None
+    updated_at: SourceDate | None = None
 
 
 def _normalize(parts: list[str]) -> str:
     lines = (" ".join(line.split()) for line in "".join(parts).splitlines())
     return "\n".join(line for line in lines if line)
+
+
+def _parse_date(text: str) -> date | datetime | None:
+    """Preserve the stated date precision and offset without filling in absent metadata."""
+    value = text.strip()
+    if not _ISO_DATE_PREFIX.match(value):
+        return None
+    try:
+        return date.fromisoformat(value) if len(value) == 10 else datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _article_type(value: JsonValue) -> bool:
+    names = value if isinstance(value, list) else [value]
+    terms = (
+        name.rsplit("/", 1)[-1].rsplit(":", 1)[-1].lower()
+        for name in names
+        if isinstance(name, str)
+    )
+    return any(term.endswith("article") or term == "blogposting" for term in terms)
+
+
+def _json_ld_dates(data: str) -> Iterator[tuple[_DateKind, str]]:
+    """Read declarations on article entities and avoid dates on page or publisher nodes."""
+    try:
+        graph = _StructuredData.model_validate_json(data).root
+    except ValidationError:
+        return
+    pending = [graph]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, list):
+            pending.extend(node)
+        elif isinstance(node, dict):
+            if _article_type(node.get("@type")):
+                published = node.get("datePublished")
+                updated = node.get("dateModified")
+                if isinstance(published, str):
+                    yield "published", published
+                if isinstance(updated, str):
+                    yield "updated", updated
+            pending.extend([node.get("@graph"), node.get("mainEntity")])
 
 
 class _ArticleParser(HTMLParser):
@@ -64,6 +127,28 @@ class _ArticleParser(HTMLParser):
         self._skipped: list[str] = []
         self._depth: dict[str, int] = dict.fromkeys(_REGIONS, 0)
         self._regions: dict[str, list[list[str]]] = {tag: [] for tag in _REGIONS}
+        self._dates: dict[_DateKind, dict[DateProvenance, set[date | datetime]]] = {
+            "published": {},
+            "updated": {},
+        }
+
+    def _record_date(
+        self, kind: _DateKind | None, text: str | None, origin: DateProvenance
+    ) -> None:
+        if kind is not None and text is not None:
+            value = _parse_date(text)
+            if value is not None:
+                self._dates[kind].setdefault(origin, set()).add(value)
+
+    def _source_date(self, kind: _DateKind) -> SourceDate | None:
+        """Use the best available metadata channel if its declarations agree."""
+        for origin in _DATE_PRIORITY:
+            dates = self._dates[kind].get(origin)
+            if dates is not None:
+                if len(dates) != 1:
+                    return None
+                return SourceDate(value=next(iter(dates)), provenance=origin)
+        return None
 
     def _append(self, text: str) -> None:
         self._page.append(text)
@@ -82,6 +167,12 @@ class _ArticleParser(HTMLParser):
         if self._skipped:
             return
         values = dict(attrs)
+        if tag == "meta":
+            kind = _OPEN_GRAPH.get((values.get("property") or "").lower())
+            self._record_date(kind, values.get("content"), "open_graph")
+        elif tag == "time" and self._depth["article"]:
+            kind = _HTML_TIME.get((values.get("itemprop") or "").lower())
+            self._record_date(kind, values.get("datetime"), "html_time")
         if "data-paywall" in values and values["data-paywall"] not in {"false", "0"}:
             self._paywall_indicated = True
         if tag == "head":
@@ -116,8 +207,11 @@ class _ArticleParser(HTMLParser):
     @override
     def handle_data(self, data: str) -> None:
         """Collect readable text and inspect structured availability metadata."""
-        if self._structured_data and _PAYWALL.search(data):
-            self._paywall_indicated = True
+        if self._structured_data:
+            if _PAYWALL.search(data):
+                self._paywall_indicated = True
+            for kind, value in _json_ld_dates(data):
+                self._record_date(kind, value, "json_ld")
         if self._skipped:
             return
         if self._in_title:
@@ -128,11 +222,17 @@ class _ArticleParser(HTMLParser):
     def extract(self) -> ArticleText:
         """Prefer the largest article region, then main content, then visible page text."""
         title = " ".join("".join(self._title).split())
+        published_at = self._source_date("published")
+        updated_at = self._source_date("updated")
         for tag in _REGIONS:
             text = max((_normalize(parts) for parts in self._regions[tag]), key=len, default="")
             if text:
-                return ArticleText(title, text, tag == "article", self._paywall_indicated)
-        return ArticleText(title, _normalize(self._page), False, self._paywall_indicated)
+                return ArticleText(
+                    title, text, tag == "article", self._paywall_indicated, published_at, updated_at
+                )
+        return ArticleText(
+            title, _normalize(self._page), False, self._paywall_indicated, published_at, updated_at
+        )
 
 
 def extract_article(html: bytes, charset: str | None) -> ArticleText:
@@ -143,7 +243,7 @@ def extract_article(html: bytes, charset: str | None) -> ArticleText:
         charset: Declared HTTP character encoding, when available.
 
     Returns:
-        The readable title and body with signals of restricted or fallback extraction.
+        The readable article, declared dates, and signals of restricted or fallback extraction.
     """
     if charset is None:
         meta = _META_CHARSET.search(html[:4096])
