@@ -51,7 +51,12 @@ def main() -> None:
         else:
             report = asyncio.run(run_review(case, config))
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(report.model_dump_json(indent=2), encoding="utf-8")
+        exclude = (
+            {"discovery"}
+            if isinstance(report, ArticleUrlReport) and report.discovery is None
+            else None
+        )
+        args.output.write_text(report.model_dump_json(indent=2, exclude=exclude), encoding="utf-8")
     except (OSError, ValueError, ValidationError) as exc:
         _parser().error(str(exc))
     if report.status == "failed":

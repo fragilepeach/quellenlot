@@ -332,6 +332,31 @@ class SourceRetrieval(ContractModel):
     detail: str
 
 
+class SearchQuery(ContractModel):
+    """Record a search query and its outcome independently of source retrieval."""
+
+    query: str
+    status: Literal["completed", "failed"]
+    result_count: int
+    detail: str | None = None
+
+
+class DiscoveredSource(ContractModel):
+    """Link an attempted search result to its retrieval and selection outcome."""
+
+    source_id: str
+    url: AnyHttpUrl
+    publisher_priority: bool
+    status: Literal["included", "duplicate", "unavailable"]
+
+
+class SourceDiscovery(ContractModel):
+    """Keep the search queries and retrieval decisions for an article case."""
+
+    queries: list[SearchQuery]
+    candidates: list[DiscoveredSource]
+
+
 class ArticleUrlReport(ContractModel):
     """Retrieval outcomes and the comparison based on available snapshots."""
 
@@ -340,3 +365,4 @@ class ArticleUrlReport(ContractModel):
     status: RecordStatus | Literal["no_claims"]
     retrievals: list[SourceRetrieval]
     review: ArticleReport | None
+    discovery: SourceDiscovery | None = None

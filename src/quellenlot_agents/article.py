@@ -8,6 +8,7 @@ from typing import Final
 import httpx
 
 from quellenlot_agents.config import WorkflowConfig
+from quellenlot_agents.discovery import discover_sources
 from quellenlot_agents.models import (
     ArticleCaseInput,
     ArticleReport,
@@ -19,6 +20,7 @@ from quellenlot_agents.models import (
     ExtractionAttempt,
     RunReport,
     SourceComparison,
+    SourceDiscovery,
     SourceInput,
     SourceJudgment,
     SourceSnapshot,
@@ -56,11 +58,12 @@ def _verify_claims(
 
 
 async def _extract_claims(
-    case: ArticleCaseInput,
+    article: SourceInput,
+    question: str | None,
     config: WorkflowConfig,
 ) -> tuple[list[tuple[str, VerifiedQuote]] | None, list[ExtractionAttempt]]:
     prompt = json.dumps(
-        {"question": case.question, "article": case.article.model_dump(mode="json")},
+        {"question": question, "article": article.model_dump(mode="json")},
         ensure_ascii=False,
     )
     attempts: list[ExtractionAttempt] = []
@@ -69,7 +72,7 @@ async def _extract_claims(
             draft = await complete_json(
                 agent.model, config.context_length, _EXTRACT_SYSTEM, prompt, DraftArticleExtraction
             )
-            claims = _verify_claims(draft, case.article)
+            claims = _verify_claims(draft, article)
         except (ProviderError, ValueError, OSError, httpx.HTTPError) as exc:
             attempts.append(
                 ExtractionAttempt(
@@ -115,7 +118,17 @@ async def run_article_comparison(case: ArticleCaseInput, config: WorkflowConfig)
     Returns:
         The extraction attempts and one source comparison per extracted claim.
     """
-    extracted, attempts = await _extract_claims(case, config)
+    extracted, attempts = await _extract_claims(case.article, case.question, config)
+    return await _compare_extracted(case, config, extracted, attempts)
+
+
+async def _compare_extracted(
+    case: ArticleCaseInput,
+    config: WorkflowConfig,
+    extracted: list[tuple[str, VerifiedQuote]] | None,
+    attempts: list[ExtractionAttempt],
+) -> ArticleReport:
+    """Review pre-extracted claims against all selected source snapshots."""
     sources = case.sources
     comparisons: list[ClaimComparison] = []
     for index, (claim, quote) in enumerate(extracted or [], 1):
@@ -167,6 +180,7 @@ async def run_article_url_comparison(
     article, original = await capture_source(case.article_url, "article")
     retrievals = [original]
     review: ArticleReport | None = None
+    discovery: SourceDiscovery | None = None
     if article is not None:
         sources: list[SourceInput] = []
         for index, url in enumerate(case.comparison_urls, 1):
@@ -174,7 +188,22 @@ async def run_article_url_comparison(
             retrievals.append(retrieval)
             if source is not None:
                 sources.append(source)
-        review = await run_article_comparison(
+        extracted, attempts = await _extract_claims(article, case.question, config)
+        if (
+            config.search is not None
+            and not case.comparison_urls
+            and extracted is not None
+            and extracted
+        ):
+            sources, discovered_retrievals, discovery = await discover_sources(
+                original=article,
+                requested_url=case.article_url,
+                claims=[claim for claim, _ in extracted],
+                question=case.question,
+                config=config.search,
+            )
+            retrievals.extend(discovered_retrievals)
+        review = await _compare_extracted(
             ArticleCaseInput(
                 case_id=case.case_id,
                 article=article,
@@ -182,11 +211,17 @@ async def run_article_url_comparison(
                 comparison_sources=sources,
             ),
             config,
+            extracted,
+            attempts,
         )
 
     status = review.status if review is not None else "failed"
     limited_retrieval = any(item.status != "captured" for item in retrievals)
-    if limited_retrieval and status not in {"failed", "partial"}:
+    limited_search = discovery is not None and (
+        any(query.status == "failed" for query in discovery.queries)
+        or all(item.status != "included" for item in discovery.candidates)
+    )
+    if (limited_retrieval or limited_search) and status not in {"failed", "partial"}:
         status = "partial"
     return ArticleUrlReport(
         case_id=case.case_id,
@@ -194,4 +229,5 @@ async def run_article_url_comparison(
         status=status,
         retrievals=retrievals,
         review=review,
+        discovery=discovery,
     )

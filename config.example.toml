@@ -29,3 +29,10 @@ model = "gemma4:12b"
 [[models]]
 id = "ministral"
 model = "ministral-3:14b"
+
+# Enable automatic comparison search for cases with an article_url and no comparison_urls.
+# The configured SearXNG instance must enable JSON output.
+# [search]
+# endpoint = "http://127.0.0.1:8888/search"
+# language = "de-DE"
+# max_sources = 3
