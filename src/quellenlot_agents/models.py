@@ -303,6 +303,49 @@ class SharedWordingReport(ContractModel):
     limited: bool = False
 
 
+class DiffCitation(ContractModel):
+    """Locate cited wording in one source version and link overlapping passages."""
+
+    source_id: str
+    version_id: str
+    locators: list[str]
+    start: int | None = Field(default=None, ge=0)
+    end: int | None = Field(default=None, gt=0)
+    shared_wording_match_indexes: list[int]
+
+
+class DiffEvidence(ContractModel):
+    """Store one exact cited excerpt and the source versions that cite it."""
+
+    evidence_id: str
+    kind: Literal["shared_wording", "source_specific"]
+    text: str
+    citations: list[DiffCitation]
+
+
+class DiffJudgment(ContractModel):
+    """Show one model's conclusion and references to its verified evidence."""
+
+    agent_id: str
+    relation: Relation
+    reasoning: str
+    evidence_ids: list[str]
+
+
+class DiffSource(ContractModel):
+    """Show a versioned source and the independent judgments it received."""
+
+    source: SourceSnapshot
+    judgments: list[DiffJudgment]
+
+
+class ClaimSourceDiff(ContractModel):
+    """Show sources side by side and consolidate repeated cited evidence."""
+
+    sources: list[DiffSource] = Field(default_factory=list[DiffSource])
+    evidence: list[DiffEvidence] = Field(default_factory=list[DiffEvidence])
+
+
 class RunReport(ContractModel):
     """Auditable output of the independent and peer-review phases."""
 
@@ -316,6 +359,7 @@ class RunReport(ContractModel):
     relation_counts: list[RelationCount]
     unresolved_dissent: list[str]
     shared_wording: SharedWordingReport | None = None
+    source_diff: ClaimSourceDiff = Field(default_factory=ClaimSourceDiff)
 
 
 class ExtractionAttempt(ContractModel):
