@@ -106,7 +106,15 @@ def _compare_sources(review: RunReport) -> list[SourceComparison]:
 
 
 async def run_article_comparison(case: ArticleCaseInput, config: WorkflowConfig) -> ArticleReport:
-    """Run claim extraction and sequentially review each claim against every source."""
+    """Run claim extraction and sequentially review each claim against every source.
+
+    Args:
+        case: Original snapshot, optional question, and comparison snapshots.
+        config: Ordered local model pool and context limit.
+
+    Returns:
+        The extraction attempts and one source comparison per extracted claim.
+    """
     extracted, attempts = await _extract_claims(case, config)
     sources = case.sources
     comparisons: list[ClaimComparison] = []
@@ -147,7 +155,15 @@ async def run_article_comparison(case: ArticleCaseInput, config: WorkflowConfig)
 async def run_article_url_comparison(
     case: ArticleUrlInput, config: WorkflowConfig
 ) -> ArticleUrlReport:
-    """Capture the article and any available comparisons, then run the article workflow."""
+    """Capture the article and any available comparisons, then run the article workflow.
+
+    Args:
+        case: Original URL, optional comparison URLs, and optional question.
+        config: Ordered local model pool and context limit.
+
+    Returns:
+        Retrieval statuses and the review when the original yields readable text.
+    """
     article, original = await capture_source(case.article_url, "article")
     retrievals = [original]
     review: ArticleReport | None = None

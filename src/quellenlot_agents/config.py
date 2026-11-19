@@ -26,7 +26,14 @@ class WorkflowConfig(BaseModel):
 
     @model_validator(mode="after")
     def require_distinct_models(self) -> WorkflowConfig:
-        """Reject duplicate IDs or model names before any provider is called."""
+        """Reject duplicate IDs or model names before any provider is called.
+
+        Returns:
+            The validated configuration with distinct models.
+
+        Raises:
+            ValueError: Model identifiers or model names are repeated.
+        """
         ids = [item.id for item in self.models]
         names = [item.model for item in self.models]
         if len(set(ids)) != len(ids) or len(set(names)) != len(names):
@@ -36,7 +43,17 @@ class WorkflowConfig(BaseModel):
 
 
 def load_config(path: Path) -> WorkflowConfig:
-    """Read and validate the local model configuration."""
+    """Read and validate the local model configuration.
+
+    Args:
+        path: Path of the TOML configuration file.
+
+    Returns:
+        The validated model order and context length.
+
+    Raises:
+        ValueError: The configuration cannot be read, parsed, or validated.
+    """
     try:
         raw = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError) as exc:

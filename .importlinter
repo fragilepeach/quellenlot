@@ -1,0 +1,12 @@
+[importlinter]
+root_package = quellenlot_agents
+
+[importlinter:contract:layers]
+name = Entry points depend on workflows, workflows depend on adapters and contracts
+type = layers
+layers =
+    quellenlot_agents.cli
+    quellenlot_agents.article
+    quellenlot_agents.workflow | quellenlot_agents.source_capture
+    quellenlot_agents.article_html | quellenlot_agents.provider | quellenlot_agents.config | quellenlot_agents.review_rules
+    quellenlot_agents.models

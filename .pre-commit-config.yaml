@@ -1,32 +1,79 @@
-minimum_pre_commit_version: "4.2.0"
+minimum_pre_commit_version: "4.7.0"
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-ast
       - id: check-merge-conflict
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
+        args: [--assume-in-merge]
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.13
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
     hooks:
-      - id: ruff-check
-        args: [--no-fix]
-      - id: ruff-format
-        args: [--check]
+      - id: actionlint
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.29.0
+    hooks:
+      - id: zizmor
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args: [-c, .yamllint.yaml]
 
   - repo: local
     hooks:
+      - id: ruff-check
+        name: Ruff lint
+        entry: ruff check --no-fix
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: Ruff formatting
+        entry: ruff format --diff
+        language: system
+        types_or: [python, pyi]
+      - id: python-contract
+        name: Python documentation and annotation contract
+        entry: python tools/check_python_contract.py
+        language: system
+        types_or: [python, pyi]
       - id: pyright
-        name: Pyright strict type checking
-        entry: pyright
+        name: Pyright strict
+        entry: pyright --warnings
         language: system
         pass_filenames: false
         always_run: true
+      - id: ty
+        name: ty type checking
+        entry: ty check
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: import-linter
+        name: Python import architecture
+        entry: lint-imports
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: vulture
+        name: High-confidence dead code
+        entry: vulture src tests tools --min-confidence 100
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: crosshair
+        name: CrossHair review contracts
+        entry: crosshair check --analysis_kind PEP316 --per_condition_timeout 12 --report_all tools/crosshair_contracts.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
       - id: bandit
-        name: Bandit security checks
+        name: Bandit security scan
         entry: bandit -r src -ll
         language: system
         pass_filenames: false

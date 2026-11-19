@@ -41,6 +41,7 @@ class _Page:
 
 
 async def _public_addresses(url: httpx.URL) -> list[str]:
+    """Reject URLs whose scheme, credentials, port, or resolved addresses are unsafe."""
     port = _DEFAULT_PORTS.get(url.scheme)
     if port is None or url.port not in {None, port} or not url.host or url.userinfo:
         msg = "Source URLs must use public HTTP(S), default ports and no credentials."
@@ -69,6 +70,7 @@ async def _public_addresses(url: httpx.URL) -> list[str]:
 
 
 async def _download(url: httpx.URL, address: str) -> _Page | httpx.URL:
+    """Read one bounded HTML response or return its redirect without following it."""
     # Pin the connection to the checked address, retaining the hostname for HTTP and TLS.
     # The fresh client prevents connection and cookie reuse across different hostnames.
     pinned_url = url.copy_with(host=address, fragment=None)
@@ -118,6 +120,7 @@ async def _download(url: httpx.URL, address: str) -> _Page | httpx.URL:
 
 
 async def _download_from_public_address(url: httpx.URL) -> _Page | httpx.URL:
+    """Retry connection failures against the other validated addresses for this host."""
     last_error: httpx.ConnectError | httpx.ConnectTimeout | None = None
     for address in await _public_addresses(url):
         try:
@@ -131,6 +134,7 @@ async def _download_from_public_address(url: httpx.URL) -> _Page | httpx.URL:
 
 
 async def _fetch_page(original_url: AnyHttpUrl) -> _Page:
+    """Resolve and validate each redirect destination independently."""
     url = httpx.URL(str(original_url)).copy_with(fragment=None)
     for _ in range(6):
         page = await _download_from_public_address(url)
@@ -146,6 +150,7 @@ def _snapshot(
     source_id: str,
     requested_url: AnyHttpUrl,
 ) -> tuple[SourceInput, SourceRetrieval]:
+    """Create a versioned snapshot and record visible limits on its completeness."""
     try:
         content = extract_article(page.body, page.charset)
     except (AssertionError, ValueError) as exc:
@@ -189,7 +194,15 @@ async def capture_source(
     url: AnyHttpUrl,
     source_id: str,
 ) -> tuple[SourceInput | None, SourceRetrieval]:
-    """Fetch and extract a source, including explicit errors and incomplete captures."""
+    """Fetch and extract a source, including explicit errors and incomplete captures.
+
+    Args:
+        url: Public article URL to fetch and validate through redirects.
+        source_id: Unique case-local identifier for the retrieved snapshot.
+
+    Returns:
+        A snapshot when readable text is available and a retrieval record in every case.
+    """
     try:
         async with asyncio.timeout(20):
             page = await _fetch_page(url)

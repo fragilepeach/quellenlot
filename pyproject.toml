@@ -38,6 +38,7 @@ where = ["src"]
 target-version = "py312"
 line-length = 100
 respect-gitignore = true
+force-exclude = false
 
 [tool.ruff.lint]
 select = [
@@ -80,6 +81,7 @@ docstring-code-format = true
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 include = ["."]
+reportImplicitOverride = "error"
 reportUnnecessaryTypeIgnoreComment = "error"
 reportMissingTypeStubs = "error"
 
