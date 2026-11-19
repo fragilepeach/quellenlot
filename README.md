@@ -1,6 +1,6 @@
 # Quellenlot local agent core
 
-Quellenlot's first Python component runs an evidence-first, multi-model review over source snapshots supplied by the user. Inference runs locally through Ollama; no cloud model API, account, or API key is used.
+Quellenlot runs an evidence-first, multi-model review over supplied source snapshots or public article URLs. Inference runs locally through Ollama and requires no cloud model API, account, or API key.
 
 ## Workflow
 
@@ -86,6 +86,23 @@ Each claim entry contains the original quote, a source comparison in input order
 
 The detailed review holds the claim text, model disagreements, and peer review records. A peer review is successful only when it covers every assigned finding exactly once. If extraction finds no claims, the article report has status `no_claims`. An article run can make up to ten model calls per extracted claim after extraction. Keep source snapshots short enough for the configured context length.
 
+### Article URLs
+
+Pass the same command a case with `article_url` and optionally `comparison_urls` and `question`.
+
+```json
+{
+  "case_id": "bibliothek-url-001",
+  "article_url": "https://example.org/meldung",
+  "question": "Wann öffnet die Bibliothek?",
+  "comparison_urls": ["https://example.org/stadt"]
+}
+```
+
+The CLI fetches public HTTP(S) pages on the default ports and extracts readable text from static HTML. Each snapshot records the final URL and capture time. The JSON report records each attempted URL under `retrievals` and puts the article comparison under `review`. Failed comparison fetches leave the remaining sources available for review and mark the overall report `partial`. If the original cannot be fetched, the CLI writes the retrieval failure and exits with code 2.
+
+Fetched text is always marked as having unverified completeness. The retrieval report also flags observable limits such as restricted access, a partial HTTP response, fallback to page text, or snapshot clipping. Omissions from these snapshots are reported as `not_assessable`. Use the text input mode to supply a complete snapshot you have verified. URL intake works with server-rendered HTML. Pages that require login, JavaScript rendering, or another document format may need text input.
+
 ## Development checks
 
 ```bash
@@ -99,8 +116,8 @@ bandit -r src -ll
 pip-audit
 ```
 
-CI runs the checks over the full repository with no changed-file baselines or auto-fixes. It also runs the behavioral tests with simulated Ollama responses and validates the package build.
+CI runs the checks over the full repository with no changed-file baselines or auto-fixes. It also runs the behavioral tests with fixture HTML and simulated Ollama responses and validates the package build.
 
 ## Scope boundary
 
-This is a backend library and CLI, not the planned web application. It accepts source snapshots rather than fetching URLs; retrieval, persistence/version history, access control, editorial approval, and public release remain separate work. Local model quality for German political research still needs evaluation against a held-out set before relying on the results.
+This is a backend library and CLI. Automatic source search, persistence/version history, access control, editorial approval, and a public web application remain separate work. Local model quality for German political research still needs evaluation against a held-out set before relying on the results.

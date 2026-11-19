@@ -9,13 +9,20 @@ from pathlib import Path
 
 from pydantic import RootModel, ValidationError
 
-from quellenlot_agents.article import run_article_comparison
+from quellenlot_agents.article import run_article_comparison, run_article_url_comparison
 from quellenlot_agents.config import load_config
-from quellenlot_agents.models import ArticleCaseInput, ArticleReport, CaseInput, RunReport
+from quellenlot_agents.models import (
+    ArticleCaseInput,
+    ArticleReport,
+    ArticleUrlInput,
+    ArticleUrlReport,
+    CaseInput,
+    RunReport,
+)
 from quellenlot_agents.workflow import run_review
 
 
-class _CaseInput(RootModel[CaseInput | ArticleCaseInput]):
+class _CaseInput(RootModel[CaseInput | ArticleCaseInput | ArticleUrlInput]):
     """The accepted JSON input shapes for the CLI."""
 
 
@@ -24,7 +31,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run an evidence-first Quellenlot model review.")
     parser.add_argument("--config", required=True, type=Path, help="TOML file with five models.")
     parser.add_argument(
-        "--input", required=True, type=Path, help="JSON claim or article case with source text."
+        "--input", required=True, type=Path, help="JSON case with source text or article URLs."
     )
     parser.add_argument("--output", required=True, type=Path, help="Path for the JSON report.")
     return parser
@@ -36,8 +43,10 @@ def main() -> None:
     try:
         config = load_config(args.config)
         case = _CaseInput.model_validate_json(args.input.read_bytes()).root
-        report: RunReport | ArticleReport
-        if isinstance(case, ArticleCaseInput):
+        report: RunReport | ArticleReport | ArticleUrlReport
+        if isinstance(case, ArticleUrlInput):
+            report = asyncio.run(run_article_url_comparison(case, config))
+        elif isinstance(case, ArticleCaseInput):
             report = asyncio.run(run_article_comparison(case, config))
         else:
             report = asyncio.run(run_review(case, config))
