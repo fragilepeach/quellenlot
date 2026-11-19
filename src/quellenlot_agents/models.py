@@ -28,7 +28,11 @@ class SourceInput(ContractModel):
 
     @property
     def content_sha256(self) -> str:
-        """Return the digest identifying the exact source text analyzed."""
+        """Identify the exact source text analyzed.
+
+        Returns:
+            Hexadecimal SHA-256 digest of the UTF-8 text.
+        """
         return hashlib.sha256(self.text.encode("utf-8")).hexdigest()
 
 
@@ -41,7 +45,14 @@ class CaseInput(ContractModel):
 
     @model_validator(mode="after")
     def require_unique_source_ids(self) -> CaseInput:
-        """Reject ambiguous source references before any model is called."""
+        """Reject ambiguous source references before any model is called.
+
+        Returns:
+            The validated case with unique source identifiers.
+
+        Raises:
+            ValueError: The same source ID occurs more than once.
+        """
         _require_unique_source_ids(self.sources)
         return self
 
@@ -69,12 +80,23 @@ class ArticleCaseInput(ContractModel):
 
     @property
     def sources(self) -> list[SourceInput]:
-        """Return the original article first, followed by the comparison sources."""
+        """Expose the sources in review order.
+
+        Returns:
+            The original article followed by the comparison snapshots.
+        """
         return [self.article, *self.comparison_sources]
 
     @model_validator(mode="after")
     def require_unique_source_ids(self) -> ArticleCaseInput:
-        """Reject shared IDs across the article and its comparisons."""
+        """Reject shared IDs across the article and its comparisons.
+
+        Returns:
+            The validated article case with unique source identifiers.
+
+        Raises:
+            ValueError: The same source ID occurs more than once.
+        """
         _require_unique_source_ids(self.sources)
         return self
 
@@ -214,7 +236,14 @@ class SourceSnapshot(ContractModel):
 
     @classmethod
     def from_source(cls, source: SourceInput) -> SourceSnapshot:
-        """Identify the exact version of the supplied text."""
+        """Identify the exact version of the supplied text.
+
+        Args:
+            source: Versioned snapshot passed to the model.
+
+        Returns:
+            Report metadata with the source's text digest.
+        """
         return cls(
             source_id=source.source_id,
             version_id=source.version_id,

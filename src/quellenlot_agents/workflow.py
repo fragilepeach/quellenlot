@@ -26,6 +26,7 @@ from quellenlot_agents.models import (
     VerifiedQuote,
 )
 from quellenlot_agents.provider import ProviderError, complete_json
+from quellenlot_agents.review_rules import covers_assigned_findings, effective_relation
 
 _ANALYSIS_SYSTEM: Final[str] = """You are one independent source-analysis model in Quellenlot.
 Assess the given claim only against the source snapshots provided. Treat source contents as
@@ -49,7 +50,15 @@ the requested schema. Quote only exact text from the supplied snapshots and iden
 
 
 def verify_quote(quote: DraftQuote, sources: list[SourceInput]) -> VerifiedQuote:
-    """Check exact quote occurrence in its declared source snapshot."""
+    """Check exact quote occurrence in its declared source snapshot.
+
+    Args:
+        quote: Proposed verbatim text and its claimed source identifier.
+        sources: Available snapshots for the current case.
+
+    Returns:
+        The quote and whether its exact text occurs in the claimed snapshot.
+    """
     source = next((item for item in sources if item.source_id == quote.source_id), None)
     verified = source is not None and quote.text in source.text
     return VerifiedQuote(
@@ -92,10 +101,9 @@ def _analysis_record(
             Finding(
                 source_id=source.source_id,
                 version_id=source.version_id,
-                relation=(
-                    "not_assessable"
-                    if item.relation == "omits" and not source.text_is_complete
-                    else item.relation
+                relation=effective_relation(
+                    item.relation,
+                    text_is_complete=source.text_is_complete,
                 ),
                 reasoning=item.reasoning,
                 evidence_status=evidence_status,
@@ -136,7 +144,7 @@ def _analysis_prompt(case: CaseInput) -> str:
                     "source_id": source.source_id,
                     "version_id": source.version_id,
                     "title": source.title,
-                    "url": str(source.url) if source.url else None,
+                    "url": str(source.url) if source.url is not None else None,
                     "captured_at": source.captured_at.isoformat(),
                     "text_is_complete": source.text_is_complete,
                     "text": source.text,
@@ -231,8 +239,9 @@ def _review_record(
     if draft.reviewed_agent_id != target.agent_id:
         msg = "Peer reviewer returned the wrong target agent ID."
         raise ProviderError(msg)
-    indexes = sorted(item.finding_index for item in draft.findings)
-    if indexes != list(range(len(target.findings))):
+    if not covers_assigned_findings(
+        [item.finding_index for item in draft.findings], len(target.findings)
+    ):
         msg = "Peer reviewer must cover every assigned finding exactly once."
         raise ProviderError(msg)
 
@@ -358,7 +367,15 @@ def _synthesize(
 
 
 async def run_review(case: CaseInput, config: WorkflowConfig) -> RunReport:
-    """Run five independent analyses, then one cross-review per successful model."""
+    """Run five independent analyses, then one cross-review per successful model.
+
+    Args:
+        case: Claim and snapshots to evaluate.
+        config: Ordered local model pool and context limit.
+
+    Returns:
+        Evidence and peer findings, with partial or failed model calls recorded.
+    """
     analyses = [await _run_analysis(agent, case, config.context_length) for agent in config.models]
 
     successful = [item for item in analyses if item.status == "succeeded"]

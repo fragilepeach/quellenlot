@@ -115,8 +115,15 @@ class ReviewWorkflowTests(unittest.IsolatedAsyncioTestCase):
 
         transport = httpx.MockTransport(respond)
 
-        def make_client(**_kwargs: object) -> httpx.AsyncClient:
-            return client(transport=transport)
+        def make_client(
+            *, timeout: httpx.Timeout, follow_redirects: bool, trust_env: bool
+        ) -> httpx.AsyncClient:
+            return client(
+                transport=transport,
+                timeout=timeout,
+                follow_redirects=follow_redirects,
+                trust_env=trust_env,
+            )
 
         with patch(
             "quellenlot_agents.provider.httpx.AsyncClient",

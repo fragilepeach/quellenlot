@@ -14,10 +14,12 @@ import httpx
 from quellenlot_agents.cli import main
 from quellenlot_agents.models import ArticleReport, ArticleUrlReport, RunReport
 
+type _Json = bool | int | float | str | list[_Json] | dict[str, _Json] | None
+
 _FIRST_CLAIM = "Die Bibliothek öffnet am Montag."
 _SECOND_CLAIM = "Der Eintritt ist frei."
 _QUESTION = "Wann öffnet die Bibliothek?"
-_ARTICLE = {
+_ARTICLE: dict[str, _Json] = {
     "source_id": "article",
     "version_id": "original-v1",
     "title": "Neue Bibliothek",
@@ -26,7 +28,7 @@ _ARTICLE = {
     "text": f"{_FIRST_CLAIM} {_SECOND_CLAIM}",
     "text_is_complete": True,
 }
-_COMPARISON = {
+_COMPARISON: dict[str, _Json] = {
     **_ARTICLE,
     "source_id": "comparison",
     "version_id": "comparison-v1",
@@ -49,7 +51,12 @@ _COMPARISON_URL = "https://city.example.test/library"
 
 
 def _fixture_dns(
-    host: str, port: int, *_args: object, **_kwargs: object
+    host: str,
+    port: int,
+    _family: int,
+    _type: int,
+    _proto: int,
+    _flags: int,
 ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
     ip = "127.0.0.1" if host == "internal.example.test" else _PUBLIC_IP
     return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (ip, port))]
@@ -65,7 +72,7 @@ class _Chat(TypedDict):
 
 class _ReviewTask(TypedDict):
     claim: str
-    sources: list[dict[str, object]]
+    sources: list[dict[str, _Json]]
     required_output: dict[str, str]
 
 
@@ -86,13 +93,13 @@ class _OllamaReplies:
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         payload = cast("_Chat", json.loads(request.content))
-        task = cast("dict[str, object]", json.loads(payload["messages"][1]["content"]))
+        task = cast("dict[str, _Json]", json.loads(payload["messages"][1]["content"]))
         if "article" in task:
             self.questions.append(cast("str | None", task.get("question")))
-            article = cast("dict[str, object]", task["article"])
+            article = cast("dict[str, _Json]", task["article"])
             self.article_texts.append(cast("str", article["text"]))
             anchor_is_valid = not self.bad_extraction and len(self.questions) > 1
-            document: dict[str, object] = {
+            document: dict[str, _Json] = {
                 "claims": [
                     {
                         "claim": claim,
@@ -127,8 +134,8 @@ class _OllamaReplies:
         return httpx.Response(200, json={"message": {"content": json.dumps(document)}})
 
     @staticmethod
-    def _assess(claim: str, sources: list[dict[str, object]]) -> dict[str, object]:
-        findings: list[dict[str, object]] = []
+    def _assess(claim: str, sources: list[dict[str, _Json]]) -> dict[str, _Json]:
+        findings: list[_Json] = []
         for source in reversed(sources):
             source_id = source["source_id"]
             if source_id == "article":
@@ -156,7 +163,7 @@ class ArticleCliTests(unittest.TestCase):
 
     def _run(
         self,
-        case: Mapping[str, object],
+        case: Mapping[str, _Json],
         replies: _OllamaReplies,
         *,
         expected_exit: int | None = None,
@@ -174,8 +181,15 @@ class ArticleCliTests(unittest.TestCase):
 
         transport = httpx.MockTransport(respond)
 
-        def make_client(**_kwargs: object) -> httpx.AsyncClient:
-            return client(transport=transport)
+        def make_client(
+            *, timeout: httpx.Timeout, follow_redirects: bool, trust_env: bool
+        ) -> httpx.AsyncClient:
+            return client(
+                transport=transport,
+                timeout=timeout,
+                follow_redirects=follow_redirects,
+                trust_env=trust_env,
+            )
 
         with TemporaryDirectory() as directory:
             input_path = Path(directory) / "case.json"
@@ -206,7 +220,7 @@ class ArticleCliTests(unittest.TestCase):
     def test_question_and_each_claim_get_a_source_comparison(self) -> None:
         """Exact citations remain linked to source versions and follow the input source order."""
         replies = _OllamaReplies()
-        case = {
+        case: dict[str, _Json] = {
             "case_id": "library",
             "article": _ARTICLE,
             "question": _QUESTION,
@@ -240,7 +254,7 @@ class ArticleCliTests(unittest.TestCase):
     def test_article_only(self) -> None:
         """An article alone gets reviewed with no question or comparison sources."""
         replies = _OllamaReplies(claims=(_FIRST_CLAIM,))
-        case = {"case_id": "library", "article": _ARTICLE}
+        case: dict[str, _Json] = {"case_id": "library", "article": _ARTICLE}
         report = ArticleReport.model_validate_json(self._run(case, replies))
         self.assertEqual(report.status, "complete")
         self.assertIsNone(report.question)
@@ -249,7 +263,7 @@ class ArticleCliTests(unittest.TestCase):
 
     def test_no_claims_and_extraction_failure_are_distinct(self) -> None:
         """An empty valid response skips review, while bad anchors exhaust the model pool."""
-        case = {"case_id": "library", "article": _ARTICLE}
+        case: dict[str, _Json] = {"case_id": "library", "article": _ARTICLE}
         empty = _OllamaReplies(claims=())
         empty_report = ArticleReport.model_validate_json(self._run(case, empty))
         self.assertEqual(empty_report.status, "no_claims")
@@ -265,7 +279,7 @@ class ArticleCliTests(unittest.TestCase):
     def test_one_failed_claim_keeps_the_other_comparison(self) -> None:
         """A failed claim review yields a partial report with both claim records."""
         replies = _OllamaReplies(failed_claim=_SECOND_CLAIM)
-        case = {"case_id": "library", "article": _ARTICLE}
+        case: dict[str, _Json] = {"case_id": "library", "article": _ARTICLE}
         report = ArticleReport.model_validate_json(self._run(case, replies))
         self.assertEqual(report.status, "partial")
         self.assertEqual([claim.review.status for claim in report.claims], ["complete", "failed"])
@@ -274,7 +288,11 @@ class ArticleCliTests(unittest.TestCase):
     def test_explicit_claim_keeps_legacy_report(self) -> None:
         """The original claim-input JSON continues to use the original workflow."""
         replies = _OllamaReplies()
-        case = {"case_id": "library", "claim": _FIRST_CLAIM, "sources": [_ARTICLE]}
+        case: dict[str, _Json] = {
+            "case_id": "library",
+            "claim": _FIRST_CLAIM,
+            "sources": [_ARTICLE],
+        }
         report = RunReport.model_validate_json(self._run(case, replies))
         self.assertEqual(report.status, "complete")
         self.assertEqual(report.claim, _FIRST_CLAIM)
@@ -298,7 +316,7 @@ class ArticleCliTests(unittest.TestCase):
             self.assertEqual(request.headers["host"], "city.example.test")
             return _html_response(_COMPARISON_HTML)
 
-        request_case = {
+        request_case: dict[str, _Json] = {
             "case_id": "url-library",
             "article_url": _ARTICLE_URL,
             "question": _QUESTION,
@@ -338,7 +356,7 @@ class ArticleCliTests(unittest.TestCase):
                 )
             return _html_response(_ARTICLE_HTML)
 
-        case = {
+        case: dict[str, _Json] = {
             "case_id": "url-library",
             "article_url": _ARTICLE_URL,
             "comparison_urls": [

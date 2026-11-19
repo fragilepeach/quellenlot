@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from typing import Final
+from typing import Final, override
 
 _REGIONS: Final[tuple[str, ...]] = ("article", "main")
 _SKIP: Final = {"aside", "footer", "form", "nav", "noscript", "script", "style", "svg", "template"}
@@ -71,6 +71,7 @@ class _ArticleParser(HTMLParser):
             if self._depth[tag]:
                 self._regions[tag][-1].append(text)
 
+    @override
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         """Track content regions, structural breaks, title and paywall signals."""
         if tag in _SKIP:
@@ -94,6 +95,7 @@ class _ArticleParser(HTMLParser):
         if tag in _BLOCKS:
             self._append("\n")
 
+    @override
     def handle_endtag(self, tag: str) -> None:
         """Close content regions and preserve block boundaries."""
         if self._skipped:
@@ -111,6 +113,7 @@ class _ArticleParser(HTMLParser):
         if self._depth.get(tag, 0):
             self._depth[tag] -= 1
 
+    @override
     def handle_data(self, data: str) -> None:
         """Collect readable text and inspect structured availability metadata."""
         if self._structured_data and _PAYWALL.search(data):
@@ -133,11 +136,20 @@ class _ArticleParser(HTMLParser):
 
 
 def extract_article(html: bytes, charset: str | None) -> ArticleText:
-    """Decode and extract a snapshot from a static HTML document."""
+    """Decode and extract a snapshot from a static HTML document.
+
+    Args:
+        html: Bounded response bytes from the source page.
+        charset: Declared HTTP character encoding, when available.
+
+    Returns:
+        The readable title and body with signals of restricted or fallback extraction.
+    """
     if charset is None:
         meta = _META_CHARSET.search(html[:4096])
-        if meta is not None:
-            charset = meta[1].decode("ascii")
+        match = meta.group(1) if meta is not None else None
+        if isinstance(match, bytes):
+            charset = match.decode("ascii")
     try:
         decoded = html.decode(charset or "utf-8-sig")
     except (LookupError, UnicodeError):

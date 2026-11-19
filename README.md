@@ -108,15 +108,19 @@ Fetched text is always marked as having unverified completeness. The retrieval r
 ```bash
 python -m pip install -e ".[dev]"
 pre-commit install
-ruff check .
-ruff format --check .
-pyright
+pre-commit run --all-files
 python -m unittest discover -s tests -v
-bandit -r src -ll
 pip-audit
+python -m build
+twine check dist/*
 ```
 
-CI runs the checks over the full repository with no changed-file baselines or auto-fixes. It also runs the behavioral tests with fixture HTML and simulated Ollama responses and validates the package build.
+GitHub Actions runs the full suite on pushes, pull request updates, merge-queue events, and manual runs. The checks cover every tracked Python source and stub, including tests and tooling, without a changed-file baseline or CI auto-fixes.
+
+- Ruff enforces linting, formatting, annotations, and Google-style docstrings. The documentation contract checks descriptive summaries and applicable `Args`, `Returns`, `Yields`, and `Raises` sections for public APIs. It rejects explicit generic annotations and inline diagnostic suppressions.
+- Pyright runs in strict mode with warnings treated as failures. Astral's ty enables every rule as an error.
+- CrossHair checks exact peer-review coverage and how the workflow handles apparent omissions in incomplete sources. The symbolic coverage check uses assignments of up to three findings. Import Linter enforces the package layers, and Vulture checks high-confidence dead code.
+- Actionlint, Zizmor, and Yamllint validate workflow definitions. CI also runs Bandit, the dependency audit, deterministic behavioral tests with fixture HTML and simulated Ollama responses, and the package build checks.
 
 ## Scope boundary
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import TypeVar
-
 import httpx
 from pydantic import BaseModel, ConfigDict
 
@@ -12,9 +10,6 @@ _LOCAL_CHAT_ENDPOINT = "http://127.0.0.1:11434/api/chat"
 
 class ProviderError(RuntimeError):
     """A local model request or response could not be used."""
-
-
-OutputModel = TypeVar("OutputModel", bound=BaseModel)
 
 
 class _Message(BaseModel):
@@ -31,14 +26,28 @@ class _Completion(BaseModel):
     message: _Message
 
 
-async def complete_json(
+async def complete_json[OutputModel: BaseModel](
     model_name: str,
     context_length: int,
     system_prompt: str,
     user_prompt: str,
     output_model: type[OutputModel],
 ) -> OutputModel:
-    """Call the local Ollama server and validate its structured JSON response."""
+    """Call the local Ollama server and validate its structured JSON response.
+
+    Args:
+        model_name: Name of the installed Ollama model.
+        context_length: Maximum context length in tokens.
+        system_prompt: Instructions for the model role and evidence policy.
+        user_prompt: Serialized task data sent to that role.
+        output_model: Pydantic model for the required JSON response.
+
+    Returns:
+        An instance validated against the supplied output model.
+
+    Raises:
+        ProviderError: The local response is unavailable, empty, or invalid.
+    """
     payload = {
         "model": model_name,
         "messages": [
