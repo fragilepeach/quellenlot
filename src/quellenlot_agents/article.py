@@ -9,6 +9,7 @@ import httpx
 
 from quellenlot_agents.config import WorkflowConfig
 from quellenlot_agents.discovery import discover_sources
+from quellenlot_agents.editorial import assess_editorial
 from quellenlot_agents.interests import review_interests
 from quellenlot_agents.models import (
     ArticleCaseInput,
@@ -122,10 +123,11 @@ async def run_article_comparison(case: ArticleCaseInput, config: WorkflowConfig)
         config: Ordered local model pool and context limit.
 
     Returns:
-        The extraction attempts and one source comparison per extracted claim.
+        The source comparisons and the final editorial assessment.
     """
     extracted, attempts = await _extract_claims(case.article, case.question, config)
     report, _ = await _compare_extracted(case, config, extracted, attempts)
+    report.editorial = await assess_editorial(report, config, [], None)
     return report
 
 
@@ -239,6 +241,7 @@ async def run_article_url_comparison(
             case.interest_urls,
         )
         retrievals.extend(interest_retrievals)
+        review.editorial = await assess_editorial(review, config, retrievals, discovery)
 
     status = review.status if review is not None else "failed"
     limited_retrieval = any(item.status != "captured" for item in retrievals)
