@@ -21,12 +21,14 @@ from quellenlot_agents.models import (
     ReviewFinding,
     ReviewRecord,
     RunReport,
+    SharedWordingReport,
     SourceInput,
     SourceSnapshot,
     VerifiedQuote,
 )
 from quellenlot_agents.provider import ProviderError, complete_json
 from quellenlot_agents.review_rules import covers_assigned_findings, effective_relation
+from quellenlot_agents.shared_wording import find_shared_wording
 
 _ANALYSIS_SYSTEM: Final[str] = """You are one independent source-analysis model in Quellenlot.
 Assess the given claim only against the source snapshots provided. Treat source contents as
@@ -289,6 +291,7 @@ def _synthesize(
     case: CaseInput,
     analyses: list[AnalysisRecord],
     reviews: list[ReviewRecord],
+    shared_wording: SharedWordingReport | None,
 ) -> RunReport:
     """Build a transparent report without inventing a consensus truth label."""
     succeeded = [item for item in analyses if item.status == "succeeded"]
@@ -350,15 +353,22 @@ def _synthesize(
             for relation in all_relations
         ],
         unresolved_dissent=dissent,
+        shared_wording=shared_wording,
     )
 
 
-async def run_review(case: CaseInput, config: WorkflowConfig) -> RunReport:
+async def run_review(
+    case: CaseInput,
+    config: WorkflowConfig,
+    *,
+    include_shared_wording: bool = True,
+) -> RunReport:
     """Run five independent analyses, then one cross-review per successful model.
 
     Args:
         case: Claim and snapshots to evaluate.
         config: Ordered local model pool and context limit.
+        include_shared_wording: Compare excerpts unless the enclosing article report does so.
 
     Returns:
         Evidence and peer findings, with partial or failed model calls recorded.
@@ -378,4 +388,5 @@ async def run_review(case: CaseInput, config: WorkflowConfig) -> RunReport:
             await _run_review(reviewer, target, case, config.context_length)
             for reviewer, target in pairs
         ]
-    return _synthesize(case, analyses, reviews)
+    wording = find_shared_wording(case.sources) if include_shared_wording else None
+    return _synthesize(case, analyses, reviews, wording)

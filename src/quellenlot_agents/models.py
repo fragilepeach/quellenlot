@@ -278,6 +278,31 @@ class RelationCount(ContractModel):
     count: int
 
 
+class SourcePassage(ContractModel):
+    """Link an exact excerpt to character offsets in a supplied source version."""
+
+    source_id: str
+    version_id: str
+    start: int = Field(ge=0)
+    end: int = Field(gt=0)
+    text: str = Field(min_length=1)
+
+
+class SharedPassage(ContractModel):
+    """Report similar wording and the original excerpts on both sides."""
+
+    first: SourcePassage
+    second: SourcePassage
+    similarity: float = Field(ge=0, le=100)
+
+
+class SharedWordingReport(ContractModel):
+    """Record bounded passage comparisons between sources in a case."""
+
+    matches: list[SharedPassage] = Field(default_factory=list[SharedPassage])
+    limited: bool = False
+
+
 class RunReport(ContractModel):
     """Auditable output of the independent and peer-review phases."""
 
@@ -290,6 +315,7 @@ class RunReport(ContractModel):
     reviews: list[ReviewRecord]
     relation_counts: list[RelationCount]
     unresolved_dissent: list[str]
+    shared_wording: SharedWordingReport | None = None
 
 
 class ExtractionAttempt(ContractModel):
@@ -336,6 +362,7 @@ class ArticleReport(ContractModel):
     status: RecordStatus | Literal["no_claims"]
     extraction_attempts: list[ExtractionAttempt]
     claims: list[ClaimComparison]
+    shared_wording: SharedWordingReport = Field(default_factory=SharedWordingReport)
 
 
 class SourceRetrieval(ContractModel):

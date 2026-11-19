@@ -27,6 +27,7 @@ from quellenlot_agents.models import (
     VerifiedQuote,
 )
 from quellenlot_agents.provider import ProviderError, complete_json
+from quellenlot_agents.shared_wording import find_shared_wording
 from quellenlot_agents.source_capture import capture_source
 from quellenlot_agents.workflow import run_review, verify_quote
 
@@ -137,6 +138,7 @@ async def _compare_extracted(
         review = await run_review(
             CaseInput(case_id=case.case_id, claim=claim, sources=sources),
             config,
+            include_shared_wording=False,
         )
         comparisons.append(
             ClaimComparison(
@@ -164,6 +166,7 @@ async def _compare_extracted(
         status=status,
         extraction_attempts=attempts,
         claims=comparisons,
+        shared_wording=find_shared_wording(sources),
     )
 
 

@@ -122,6 +122,14 @@ Quellenlot searches the extracted claims and, if supplied, the question anchored
 
 The report lists the executed queries under `discovery.queries`, shows attempted candidates and selection outcomes under `discovery.candidates`, and records individual fetch failures under `retrievals`. Search failures and searches with zero usable comparisons produce a partial report when the original can still be reviewed. Explicit comparison URLs take precedence whenever you supply them.
 
+### Shared wording
+
+Quellenlot compares the captured source text locally using RapidFuzz. The `shared_wording` field appears in the standalone claim report or once on the article report (`review.shared_wording` for a URL case). Each match contains excerpts from both source versions, their zero-based character offsets in those snapshots, and an ordered-token similarity score from 0 to 100. The ending offset is exclusive.
+
+The matcher looks for lightly edited paragraphs, sentences, and quoted passages. It requires at least 12 tokens and a similarity score of 90. It samples up to 160 passage windows per source and reports up to three matches per source pair and 60 per case. The `limited` flag indicates when a candidate or reporting cap was reached.
+
+Shared wording can come from syndication, attributed quotations, or a common press release. The report retains all source findings so that additions, changes in numbers or wording, and distinct reporting are visible. Source publication, update, and capture dates describe the available snapshots. Establishing who first published a particular passage requires dated versions of the passage itself.
+
 ## Development checks
 
 ```bash
