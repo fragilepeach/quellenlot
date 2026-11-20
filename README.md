@@ -115,7 +115,9 @@ Article reports can include an `article_summary` of up to three sentences drafte
 
 Each claim entry contains the original quote, a source comparison in input order, and the detailed review. The comparison groups judgments by source and links exact-match citations to the supplied URL and snapshot version. A judgment may have no exact-match citation. Incomplete snapshots are marked unassessable when a model would otherwise report an omission.
 
-The detailed review holds the claim text, model disagreements, and peer review records. A peer review is successful only when it covers every assigned finding exactly once. If extraction finds no claims, the article report has status `no_claims`. An article run can make up to ten model calls per extracted claim after extraction. Keep source snapshots short enough for the configured context length.
+The detailed review holds the claim text, model disagreements, and peer review records. A peer review is successful only when it covers every assigned finding exactly once. If extraction finds no claims, the article report has status `no_claims`. Open **KI-Plenum** on a claim in the GUI to inspect the independent analyses, directed peer reviews, verified review quotes, and unresolved objections. [GUI guide](web/README.md#ki-plenum)
+
+An article run can make up to ten model calls per extracted claim after extraction. Keep source snapshots short enough for the configured context length.
 
 Sources record optional `published_at` and `updated_at` separately from `captured_at`. A manually supplied snapshot can include `"published_at": {"value": "2024-04-02"}`. Use an ISO date or timestamp and include the UTC offset when known. Missing dates are represented as `null`. The extraction, comparison, and peer-review prompts use the dates as context for time-sensitive claims and distinguish them from the times of events described in the article.
 

@@ -105,6 +105,12 @@ The search checks up to five distinct candidate DOIs. The first configured Ollam
 
 Results are saved with the run for that claim, separately from the private editorial report. Start the search again to refresh the results. Publisher paywalls and PDFs outside the supported repository can leave a paper at abstract or metadata access.
 
+## KI-Plenum
+
+Open **KI-Plenum** under **Belege zur Aussage** to read each model’s independent summary and see which model checked each finding. A peer review shows the original source judgment, the reviewer’s outcome and reasoning, and any verified review quote that matches the finding’s source and captured version. Open the quote through **Beleg öffnen** when the source has a URL. The panel lists unresolved objections and recorded failures. Reports created before analysis and review records were included can still be opened.
+
+The GUI previews workflow checks this panel on desktop and mobile and includes `plenum.png` in its uploaded artifact.
+
 ## Private editorial review
 
 Open a report containing interests or editorial results to see **Private Redaktionsprüfung**. For each investigated source, the panel shows documented ownership, funding and affiliations, verified evidence passages and unresolved categories. Each editorial claim shows earlier dissent, the assigned findings and the individual reviewers’ outcomes.

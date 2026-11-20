@@ -407,6 +407,26 @@ async function checkClaimDiff(browser) {
     article_quote: { ...passage(original, release), verified: true },
     review: {
       claim: "Die Bibliothek hat wieder regulär geöffnet.", status: "complete",
+      sources,
+      unresolved_dissent: ["Öffnungszeiten bleiben umstritten."],
+      analyses: [
+        { agent_id: "eins", model: "modell-eins", status: "succeeded", summary: "Die Mitteilung nennt reguläre Zeiten.",
+          findings: [{ source_id: news.source_id, version_id: "v1", relation: "qualifies", reasoning: "Die Zeitung nennt kürzere Zeiten." }] },
+        { agent_id: "zwei", model: "modell-zwei", status: "succeeded", findings: [
+          { source_id: news.source_id, version_id: "v1", relation: "contradicts", reasoning: "Die Zeiten weichen ab." },
+        ] },
+      ],
+      reviews: [
+        { reviewer_agent_id: "zwei", reviewed_agent_id: "eins", status: "succeeded", findings: [{
+          finding_index: 0, outcome: "challenges", reasoning: "Die Änderung betrifft alle Öffnungstage.",
+          quote: { ...passage(news, revised), verified: true },
+        }] },
+        { reviewer_agent_id: "eins", reviewed_agent_id: "zwei", status: "succeeded", findings: [{
+          finding_index: 0, outcome: "unclear", reasoning: "Die Gültigkeit ist offen.",
+          quote: { ...passage({ ...news, version_id: "old" }, "Falsche Belegversion"), verified: true },
+        }] },
+        { reviewer_agent_id: "drei", reviewed_agent_id: "eins", status: "failed", findings: [] },
+      ],
       source_diff: {
         sources: [
           { source: original, judgments: [judgment("eins", "supports", "common")] },
@@ -487,6 +507,19 @@ async function checkClaimDiff(browser) {
       await names.first().waitFor();
       await page.locator(".source-provenance > summary").click();
       await page.locator(".source-provenance").getByText("2 Quellen verlinken dieses Ziel.").waitFor();
+      const plenum = page.locator("#claim-plenum");
+      await plenum.locator("summary").click();
+      await plenum.getByText("zwei prüft eins", { exact: true }).waitFor();
+      await plenum.getByText("Die Zeitung nennt kürzere Zeiten.", { exact: true }).waitFor();
+      await plenum.getByText("Die Änderung betrifft alle Öffnungstage.", { exact: true }).waitFor();
+      await plenum.getByText("Öffnungszeiten bleiben umstritten.", { exact: true }).waitFor();
+      await plenum.getByText("Gegenprüfung fehlgeschlagen.", { exact: true }).waitFor();
+      assert.deepEqual(await plenum.locator("blockquote").allTextContents(), [revised]);
+      const reviewLink = new URL(await plenum.getByRole("link", { name: "Beleg öffnen" }).getAttribute("href"));
+      assert.equal(reviewLink.origin + reviewLink.pathname, news.url);
+      assert.equal(decodeURIComponent(reviewLink.hash), "#:~:text=" + revised);
+      if (width === 1280) await plenum.screenshot({ path: join(output, "plenum.png") });
+      await plenum.locator("summary").click();
       const privateReview = page.locator("#private-review");
       await privateReview.getByText(first.review.claim, { exact: true }).click();
       await privateReview.getByText("In der Schlussprüfung umstritten oder unklar.").waitFor();
@@ -527,6 +560,7 @@ async function checkClaimDiff(browser) {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
       await page.locator("#claim-list button").nth(1).click();
       assert.equal(await matches.count(), 0);
+      assert.equal(await plenum.isVisible(), false);
       assert.equal(await detail.locator("blockquote").textContent(), `„${legacyQuote}“`);
       assert.deepEqual(errors, []);
     } finally {

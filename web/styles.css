@@ -403,6 +403,18 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .diff-side del { color: var(--error); background: var(--error-wash); }
 .diff-side ins { color: var(--green); background: var(--green-wash); text-decoration: underline; }
 
+.claim-plenum { margin-top: 15px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.claim-plenum summary { padding: 8px 0; color: var(--purple); }
+.claim-plenum h5, .claim-plenum h6 { margin: 0 0 6px; font-size: 0.9rem; }
+.claim-plenum h5 { margin-top: 12px; }
+.claim-plenum p, .claim-plenum ul { margin: 5px 0; }
+.plenum-entry { margin: 6px 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 4px; }
+.plenum-finding { margin-top: 8px; padding: 8px; border-radius: 4px; background: var(--input); }
+.plenum-dissent { padding: 0 10px 6px; border-left: 2px solid var(--caution); }
+.plenum-outcome { color: var(--caution); }
+.plenum-outcome[data-outcome="agrees"] { color: var(--green); }
+.plenum-outcome[data-outcome="challenges"] { color: var(--error); }
+
 .graph-card { margin-top: 20px; }
 .graph-canvas {
   position: relative;
