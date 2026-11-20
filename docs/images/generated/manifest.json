@@ -1,6 +1,6 @@
 {
-  "source_commit": "8878ee07b87dd33c0287e6870eef3d81301c344f",
-  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44732094322",
+  "source_commit": "703fda9a969e287ed6342a4055bb15aedeae74de",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44735608322",
   "scenario": "Tankrabatt article investigation, claim studies, and 2025 Bundestag records",
   "playwright": "1.58.2",
   "media": [
@@ -26,8 +26,8 @@
       "height": 585,
       "frames": 191,
       "fps": 20,
-      "bytes": 761802,
-      "sha256": "341ad9f136e3c3ceddf7122458c7da147326e06deb11e848ba382f999b934893"
+      "bytes": 761810,
+      "sha256": "5bffedb9879c8a762e82b8378fcd975f2399088aee9e7e32c76333215a72c109"
     },
     {
       "file": "parliament.png",
