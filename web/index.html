@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Quellenlot · Artikel prüfen</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Zum Inhalt</a>
+  <header class="masthead">
+    <div class="shell masthead-inner">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>quellenlot</div>
+      <div class="masthead-actions">
+        <button id="demo" class="quiet-button" type="button">Beispiel öffnen</button>
+        <button id="open-report" class="outline-button" type="button">Bericht öffnen</button>
+        <input id="report-file" type="file" accept=".json,application/json" hidden>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="shell">
+    <section class="intake" aria-labelledby="intake-heading">
+      <h1 id="intake-heading">Was möchtest du überprüfen?</h1>
+      <p class="intro">Füge einen Artikel und bei Bedarf Vergleichsquellen hinzu.</p>
+      <form id="composer" class="composer">
+        <div class="composer-fields">
+          <div class="field">
+            <label for="urls">Artikel- und Quellenlinks</label>
+            <textarea id="urls" rows="2" required placeholder="https://…" aria-describedby="urls-help form-feedback" spellcheck="false" autocapitalize="none"></textarea>
+            <p class="field-help" id="urls-help">Ein Link pro Zeile. Der erste ist der Artikel.</p>
+          </div>
+          <div class="field">
+            <label for="question">Deine Frage <span>(optional)</span></label>
+            <textarea id="question" rows="2" maxlength="4000" placeholder="Kommt der Tankrabatt bei den Verbraucher*innen an?"></textarea>
+            <p class="field-help">Ohne Frage prüft Quellenlot die zentralen Aussagen.</p>
+          </div>
+        </div>
+        <div class="composer-footer">
+          <p id="form-feedback" role="status">Der lokale Quellenlot-Agent liest die gespeicherte Anfrage.</p>
+          <button class="primary-button" type="submit">Anfrage speichern</button>
+        </div>
+      </form>
+      <p id="file-feedback" class="file-feedback" role="status"></p>
+    </section>
+
+    <section class="review" id="review" aria-labelledby="case-title">
+      <div class="case-heading">
+        <p class="case-meta" id="case-meta"></p>
+        <h2 id="case-title" tabindex="-1"></h2>
+        <p id="case-question" class="case-question"></p>
+      </div>
+
+      <p id="selection-status" class="visually-hidden" role="status"></p>
+      <p id="empty-report" class="empty-report" hidden></p>
+      <div id="workspace" class="workspace">
+        <div class="reading">
+          <section class="card summary-card" aria-labelledby="summary-heading">
+            <h3 id="summary-heading">Artikelzusammenfassung</h3>
+            <div id="summary-text" class="summary-text"></div>
+            <p id="summary-note" class="summary-note"></p>
+          </section>
+          <section class="claim-section" aria-labelledby="claims-heading">
+            <div class="section-heading">
+              <h3 id="claims-heading">Aussagen im Artikel</h3>
+              <span class="count" id="claim-count"></span>
+            </div>
+            <div id="claim-list" class="claim-list"></div>
+          </section>
+        </div>
+
+        <div class="inspection">
+          <section id="evidence-panel" class="card evidence-card" aria-labelledby="evidence-heading">
+            <div class="card-heading">
+              <h3 id="evidence-heading" tabindex="-1">Belege zur Aussage</h3>
+              <span id="active-claim" class="count"></span>
+            </div>
+            <p id="claim-description" class="claim-description"></p>
+            <details class="article-excerpt">
+              <summary>Wortlaut im Artikel</summary>
+              <blockquote id="original-quote"></blockquote>
+              <div id="original-link"></div>
+            </details>
+            <div id="source-controls" class="source-controls" aria-label="Quellen für diese Aussage"></div>
+            <div id="source-detail" class="source-detail"></div>
+            <button id="back-to-claim" class="quiet-button back-to-claim" type="button">Zur ausgewählten Aussage</button>
+          </section>
+          <section class="card graph-card" aria-labelledby="graph-heading">
+            <div class="card-heading"><h3 id="graph-heading">Herkunft &amp; Belege</h3></div>
+            <div id="graph"></div>
+            <p id="graph-note" class="graph-note"></p>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

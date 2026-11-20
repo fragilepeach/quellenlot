@@ -1,6 +1,21 @@
-# Quellenlot local agent core
+# Quellenlot
 
 Quellenlot runs an evidence-first, multi-model review over supplied source snapshots or public article URLs. Inference runs locally through Ollama and requires no cloud model API, account, or API key.
+
+## GUI preview
+
+Open `web/index.html` to explore the Tankrabatt case. Select a highlighted claim to inspect its source passage and follow the citation from a report to the study it uses.
+
+![Quellenlot desktop preview with the Tankrabatt summary, claim list, evidence passage and source graph](docs/images/generated/desktop.png)
+
+<details>
+<summary>Watch the claim-to-source walkthrough</summary>
+
+![Quellenlot walkthrough selecting a claim, inspecting the TU Dresden report and following its citation to the original study](docs/images/generated/usage.gif)
+
+</details>
+
+[GUI guide and mobile preview](web/README.md) · [Capture provenance](docs/images/generated/manifest.json)
 
 ## Workflow
 
@@ -176,4 +191,4 @@ GitHub Actions runs the full suite on pushes, pull request updates, merge-queue 
 
 ## Scope boundary
 
-This is a backend library and CLI. Persistence/version history, access control, editorial approval, and a public web application remain separate work. Local model quality for German political research still needs evaluation against a held-out set before relying on the results.
+Quellenlot includes a local agent library, a CLI and a browser prototype. Persistence, access control, editorial approval and a public web application remain separate work. Local model quality for German political research still needs evaluation against a held-out set before relying on the results.

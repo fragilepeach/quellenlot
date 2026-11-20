@@ -6,3 +6,5 @@ __pycache__/
 .ty_cache/
 build/
 dist/
+/artifacts/gui-preview/
+/tools/ci/gui-preview/node_modules/
