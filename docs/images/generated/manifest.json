@@ -1,6 +1,6 @@
 {
-  "source_commit": "37e0979dd159c2f05f3b678542d015729dfcef61",
-  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44738375491",
+  "source_commit": "8c5beb5883b3e7770a960f716030bf75b6c1398d",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44739316294",
   "scenario": "Tankrabatt demo, fixture-backed analyses and trends, and curated Bundestag records",
   "playwright": "1.58.2",
   "media": [
@@ -60,8 +60,8 @@
       "height": 630,
       "frames": 178,
       "fps": 25,
-      "bytes": 905805,
-      "sha256": "e91c83c48f0cf441ec3b89dd7b593a010dc4c9204afb948a157c3341ed17fa64"
+      "bytes": 905787,
+      "sha256": "c694dd23988333c10bd7c3e2b953c8e4c623ba14f6b6edd0b0fb0967dba94bb9"
     },
     {
       "file": "claim-diff.png",
@@ -77,24 +77,24 @@
       "height": 591,
       "frames": 138,
       "fps": 25,
-      "bytes": 685696,
-      "sha256": "fa7d200de7ed81ccf5a6d49c3f1d7d8c19c0485c1378307a7a977cea8ded16ba"
+      "bytes": 684908,
+      "sha256": "7ea902193bca24de5e3fc20acb1e8653eb83aa05d9ccf79dbf0b09a9c7814e91"
     },
     {
       "file": "source-similarity.png",
       "width": 1280,
       "height": 900,
       "frames": 1,
-      "bytes": 100189,
-      "sha256": "6ceb5666541413cef047bb8856c00bffbaf96bbeacfcb96096d3443a77cd7b69"
+      "bytes": 99891,
+      "sha256": "5e04276d76b1d55e95849d9b8be22394a7e1dd54cd66076e9d967db041176bf0"
     },
     {
       "file": "source-similarity-mobile.png",
       "width": 390,
       "height": 900,
       "frames": 1,
-      "bytes": 77237,
-      "sha256": "a4c13f093fb31509db3e9d8dd90f35d90881737143dff45d4d2877a73b58c522"
+      "bytes": 76846,
+      "sha256": "4ca21a5db77356c8643b5e2cbedd9e0b183ed9da26f0842d2d9b9a24e735e71c"
     },
     {
       "file": "shared-provenance.png",
@@ -185,8 +185,8 @@
       "height": 591,
       "frames": 176,
       "fps": 25,
-      "bytes": 1756774,
-      "sha256": "5bd4cdd6cd452e1c373f4db6346f9bc525b1308234a4dde7f8f8d32b44c4ddb3"
+      "bytes": 1756782,
+      "sha256": "3d2ac5f3bcc458c82bfcc01670e0a4484b1accfb4a4639ff8d2ad248da05b20f"
     },
     {
       "file": "source-interests.png",
