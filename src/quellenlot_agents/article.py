@@ -70,9 +70,7 @@ def _verify_claims(
     return claims
 
 
-def _link_summary(
-    draft: DraftArticleExtraction, claim_count: int
-) -> list[ArticleSummarySentence]:
+def _link_summary(draft: DraftArticleExtraction, claim_count: int) -> list[ArticleSummarySentence]:
     """Link summary sentences to distinct claims whose article quotes were verified."""
     indexes = {sentence.claim_index for sentence in draft.summary}
     if len(indexes) != len(draft.summary) or any(index > claim_count for index in indexes):
