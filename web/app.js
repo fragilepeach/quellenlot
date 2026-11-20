@@ -53,7 +53,7 @@ function demoEvidence(source, relation, passage, reason) {
 }
 
 const demo = {
-  meta: "Beispielfall · Deutschland 2022",
+  meta: "Beispiel · Fiktiver Artikel · Deutschland 2022",
   title: "Kam der Tankrabatt an?",
   question: "Wie viel von der Steuersenkung haben Tankstellen an Verbraucher*innen weitergegeben?",
   summary: [
@@ -65,12 +65,9 @@ const demo = {
     { claim: 2, text: "in allen Regionen gleichermaßen angekommen" },
     ".",
   ],
-  summaryNote: "Redaktionelles Beispiel mit fiktivem Eingabeartikel und realen Belegquellen.",
-  graphNote: "Die TU-Meldung verweist auf die Studie von Freitas & Syga. Beide beziehen sich auf dieselbe Auswertung.",
   claims: [
     {
       text: "Der Tankrabatt wurde im Durchschnitt vollständig weitergegeben.",
-      status: "Studien kommen zu unterschiedlichen Schätzungen",
       quote: "Über alle drei Monate betrachtet wurde die Steuersenkung im Durchschnitt vollständig an die Kundschaft weitergegeben.",
       evidence: [
         demoEvidence("ifo", "supports", "durchschnittlich 35 Cent weniger pro Liter Benzin und 17 Cent weniger pro Liter Diesel",
@@ -83,7 +80,6 @@ const demo = {
     },
     {
       text: "Der Tankrabatt wirkte in allen drei Monaten gleich stark.",
-      status: "Quellen beschreiben Schwankungen über die Zeit",
       quote: "In allen drei Monaten wirkte der Tankrabatt gleich stark.",
       evidence: [
         demoEvidence("ifo", "contradicts", "wurde der Steuernachlass nur teilweise weitergegeben",
@@ -96,7 +92,6 @@ const demo = {
     },
     {
       text: "Der Tankrabatt kam in allen Regionen gleichermaßen an.",
-      status: "RWI berichtet regionale Unterschiede",
       quote: "Auch regional wurde der Tankrabatt überall gleichermaßen weitergegeben.",
       evidence: [
         demoEvidence("rwi", "contradicts", "regional sehr unterschiedlich ausgefallen",
@@ -107,7 +102,7 @@ const demo = {
 };
 
 const $ = (id) => document.getElementById(id);
-const state = { report: demo, claimIndex: 0, sourceId: null };
+const state = { report: demo, claimIndex: 0, sourceId: null, graph: null };
 const dateFormatter = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeZone: "UTC" });
 
 function element(tag, className, text) {
@@ -167,10 +162,6 @@ function renderReport(report) {
   $("empty-report").textContent = report.empty || "";
   $("empty-report").hidden = !report.empty;
   $("workspace").hidden = Boolean(report.empty);
-  const emptyProvenance = $("provenance-without-claims");
-  emptyProvenance.replaceChildren();
-  if (report.empty) renderSourceProvenance(report.provenance, emptyProvenance);
-  emptyProvenance.hidden = !emptyProvenance.hasChildNodes();
   $("summary-text").replaceChildren(...report.summary.map((part) => {
     if (typeof part === "string") return document.createTextNode(part);
     const control = element("a", "highlight", part.text);
@@ -182,7 +173,7 @@ function renderReport(report) {
     control.append(number);
     return control;
   }));
-  $("summary-note").textContent = report.summaryNote || "";
+  $("summary-heading").textContent = report.generatedSummary ? "KI-Zusammenfassung" : "Artikelzusammenfassung";
   $("claim-count").textContent = String(report.claims.length);
   $("claim-list").replaceChildren(...report.claims.map((claim, index) => {
     const control = button("", "claim-button");
@@ -191,11 +182,13 @@ function renderReport(report) {
     const number = element("span", "claim-id", String(index + 1).padStart(2, "0"));
     number.setAttribute("aria-hidden", "true");
     const text = element("span");
-    text.append(element("span", "claim-label", claim.text), element("span", "claim-status", claim.status));
+    text.append(element("span", "claim-label", claim.text));
+    if (claim.status) text.append(element("span", "claim-status", claim.status));
     control.append(number, text);
     return control;
   }));
   if (report.claims.length) selectClaim(0);
+  else renderGraph();
   renderPrivateReview(report);
 }
 
@@ -429,7 +422,8 @@ function selectSource(id) {
   const evidence = selectedClaim().evidence.find(({ source }) => source.id === id);
   state.sourceId = evidence?.source.id;
   updateSelection($("diff-sources"), "source", state.sourceId);
-  updateSelection($("graph"), "source", state.sourceId);
+  state.graph?.select(state.sourceId);
+  $("graph-selection").hidden = true;
 
   const detail = $("source-detail");
   detail.replaceChildren();
@@ -448,48 +442,106 @@ function selectSource(id) {
 }
 
 function renderGraph(claim, number) {
-  const graph = element("div", "graph");
-  const branches = element("ul", "graph-branches");
-  graph.append(element("div", "graph-root", "Aussage " + number), branches);
+  state.graph?.dispose();
+  state.graph = null;
+  $("graph").replaceChildren();
+  $("graph-provenance").replaceChildren();
+  $("graph-selection").hidden = true;
 
-  for (const { source, judgments } of claim.evidence) {
-    const branch = element("li", "graph-branch");
-    const labels = new Set(judgments.map(({ relation }) => relation));
-    const label = labels.size === 1 ? relationLabels[judgments[0].relation]
-      : labels.size ? "Uneinheitliche Einordnung" : "Keine Modellbeurteilung";
-    branch.append(element("span", "graph-edge", label || "Bezug"), sourceButton(source, "source-button graph-node"));
-    for (const originId of source.cites || []) {
-      const origin = claim.evidence.find((item) => item.source.id === originId);
-      if (origin) {
-        const path = element("div", "graph-origin");
-        path.append(element("span", "graph-edge", "verweist auf"), sourceButton(origin.source, "source-button graph-node"));
-        branch.append(path);
-      }
+  const provenance = state.report.provenance;
+  const sources = new Map();
+  const citations = new Map();
+  const edges = [];
+  const claimId = Symbol("claim");
+  function addSource(source, kind, relation, note) {
+    if (!sources.has(source.id)) {
+      sources.set(source.id, { id: source.id, label: sourceName(source), source, kind, relation,
+        note: kind === "source" ? sourceAvailability(source) : note });
     }
-    branches.append(branch);
   }
-  $("graph").replaceChildren(graph);
-  const hasCitation = claim.evidence.some(({ source }) => source.cites?.length);
-  $("graph-note").textContent = hasCitation
-    ? state.report.graphNote
-    : "Für diese Aussage sind keine Verweise zwischen den Quellen dokumentiert.";
-  renderSourceProvenance(state.report.provenance, $("graph"));
+  function addCitation(from, to) {
+    if (!sources.has(from) || !sources.has(to) || from === to) return;
+    if (!citations.has(from)) citations.set(from, new Set());
+    const linked = citations.get(from);
+    if (linked.has(to)) return;
+    linked.add(to);
+    edges.push({ from, to, kind: "citation" });
+  }
+  for (const { source, judgments } of claim?.evidence || []) {
+    const labels = new Set(judgments.map(({ relation }) => relation));
+    const relation = labels.size === 1 ? judgments[0].relation : null;
+    const note = labels.size > 1 ? "Gemischte Befunde" : labels.size === 0 ? "Keine Beurteilung" : null;
+    addSource(source, "evidence", relation, note);
+    edges.push({ from: claimId, to: source.id, kind: relation || "assessment" });
+  }
+  for (const { target, incoming } of provenance?.groups || []) {
+    addSource(target, "source");
+    for (const { source } of incoming) {
+      addSource(source, "source");
+      addCitation(source.id, target.id);
+    }
+  }
+  for (const { source } of claim?.evidence || []) {
+    for (const target of source.cites || []) addCitation(source.id, target);
+  }
+
+  $("graph-card").hidden = !sources.size && !provenance?.limited;
+  if (sources.size) {
+    const nodes = [...sources.values()];
+    if (claim) nodes.unshift({ id: claimId, kind: "claim", label: "Aussage " + number });
+    state.graph = createEvidenceGraph(nodes, edges, selectGraphNode);
+    $("graph").append(state.graph.canvas);
+    if (citations.size) $("graph").append(element("p", "graph-legend", "→ Verweist auf"));
+  }
+  renderSourceProvenance(provenance, $("graph-provenance"));
+}
+
+function sourceAvailability(source) {
+  if (source.status === "partial") return "Teilweise erfasst";
+  if (source.status === "failed") return "Nicht abrufbar";
+  return "";
+}
+
+function selectGraphNode(node) {
+  const details = $("graph-selection");
+  const title = element("strong", "", node.label);
+  details.replaceChildren(title);
+
+  if (node.kind === "claim") {
+    $("original-quote").closest("details").open = true;
+    const link = element("a", "", "Wortlaut ansehen");
+    link.href = "#original-quote";
+    details.append(link);
+  } else if (node.kind === "evidence") {
+    selectSource(node.id);
+    const link = element("a", "", "Beurteilungen ansehen");
+    link.href = "#source-detail";
+    details.append(link);
+  } else {
+    const link = sourceLink(node.source, null);
+    if (link) details.append(link);
+    const status = sourceAvailability(node.source);
+    if (status) details.append(element("span", "graph-node-note", status));
+  }
+  details.hidden = false;
+  state.graph.select(node.id);
+  $("selection-status").textContent = node.label + " ausgewählt.";
 }
 
 function renderSourceProvenance(provenance, container) {
   if (!provenance) return;
   const { groups, limited } = provenance;
   if (!groups.length && !limited) return;
-  const section = element("section", "source-provenance");
-  section.append(element("h3", "", "Verweise in den Artikeln"));
+  const section = element("details", "source-provenance");
+  section.append(element("summary", "", "Verweise in den Artikeln"));
   const targets = element("ul", "provenance-targets");
   for (const { target, incoming } of groups) {
     const item = element("li");
     item.append(sourceLink(target, null, target.name) || element("strong", "", target.name));
     const count = new Set(incoming.map(({ source }) => source.id)).size;
     if (count > 1) item.append(element("p", "graph-note", `${count} Quellen verlinken dieses Ziel.`));
-    if (target.status !== "captured") {
-      const status = target.status === "partial" ? "Teilweise erfasst" : "Nicht abrufbar";
+    const status = sourceAvailability(target);
+    if (status) {
       item.append(element("p", "graph-note", status + (target.detail ? ` · ${target.detail}` : "")));
     }
     if (target.captured) item.append(sourceMetadata(target));
@@ -777,7 +829,7 @@ function renderPrivateReview(report) {
   panel.hidden = !review;
   form.hidden = true;
   $("save-release").disabled = true;
-  $("release-status").textContent = "Der Entwurf wird als Datei heruntergeladen.";
+  $("release-status").textContent = "";
   const content = $("private-review-content");
   content.replaceChildren();
   if (!review) return;
@@ -835,7 +887,7 @@ function readReport(data) {
       id: claim.claim_id,
       text: claim.review.claim,
       dissent: claim.review.unresolved_dissent,
-      status: claim.review.status === "complete" ? "Modellbefunde verfügbar" : "Modellprüfung unvollständig",
+      status: claim.review.status === "complete" ? "" : "Modellprüfung unvollständig",
       quote: quote?.verified === true && typeof quote.text === "string" && article &&
         quote.source_id === article.source_id &&
         quote.version_id === article.version_id ? quote.text : null,
@@ -862,13 +914,28 @@ function readReport(data) {
     summary: summary.length
       ? summary
       : ["Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung."],
-    summaryNote: summary.length
-      ? "KI-Zusammenfassung des Artikels. Jeder Satz führt zu einer Aussage mit Originalzitat."
-      : "",
+    generatedSummary: summary.length > 0,
     claims,
     provenance: retrievalReport ? readSourceProvenance(data) : null,
     empty: claims.length ? "" : empty,
   };
+}
+
+for (const help of document.querySelectorAll(".help-button")) {
+  const control = help.parentElement;
+  const close = () => help.setAttribute("aria-expanded", "false");
+  help.addEventListener("click", () => {
+    const opening = help.getAttribute("aria-expanded") === "false";
+    control.classList.toggle("dismissed", !opening);
+    help.setAttribute("aria-expanded", String(opening));
+  });
+  control.addEventListener("pointerleave", () => control.classList.remove("dismissed"));
+  help.addEventListener("blur", close);
+  help.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    control.classList.add("dismissed");
+    close();
+  });
 }
 
 $("workspace").addEventListener("click", (event) => {
@@ -985,7 +1052,7 @@ $("release-form").addEventListener("submit", (event) => {
 $("urls").addEventListener("input", () => {
   $("urls").removeAttribute("aria-invalid");
   $("form-feedback").classList.remove("error");
-  $("form-feedback").textContent = "Der lokale Quellenlot-Agent liest die gespeicherte Anfrage.";
+  $("form-feedback").textContent = "";
 });
 
 $("composer").addEventListener("submit", (event) => {
