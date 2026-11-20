@@ -76,7 +76,7 @@ body {
   background-size: auto, 24px 24px, 24px 24px;
 }
 h1, h2, h3, p, blockquote { margin: 0; }
-h1, h2, h3, blockquote, q, .brand { font-family: var(--mono); }
+h1, h2, h3, h4, h5, h6, blockquote, q, .brand { font-family: var(--mono); }
 button, textarea { font: inherit; }
 button, summary { cursor: pointer; }
 button { color: inherit; }
