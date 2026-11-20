@@ -48,6 +48,7 @@ class WorkflowConfig(BaseModel):
     models: list[ModelConfig] = Field(min_length=5, max_length=5)
     context_length: int = Field(default=8192, ge=4096, le=16384)
     search: SearchConfig | None = None
+    check_interests: bool = False
 
     @model_validator(mode="after")
     def require_distinct_models(self) -> WorkflowConfig:

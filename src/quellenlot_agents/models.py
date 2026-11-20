@@ -35,6 +35,8 @@ class SourceInput(ContractModel):
     captured_at: datetime
     published_at: SourceDate | None = None
     updated_at: SourceDate | None = None
+    publisher: str | None = Field(default=None, min_length=1, max_length=300)
+    authors: list[str] = Field(default_factory=list[str], max_length=20)
     text: str = Field(min_length=1, max_length=200_000)
     text_is_complete: bool
 
@@ -82,6 +84,20 @@ NonBlankStatement = Annotated[
 ]
 
 
+class InterestUrlInput(ContractModel):
+    """Identify a public evidence page for one source in a URL case."""
+
+    target_source_id: str = Field(min_length=1, max_length=120)
+    url: AnyHttpUrl
+
+
+class InterestEvidenceInput(ContractModel):
+    """Attach a supplied evidence snapshot to the source whose interests it describes."""
+
+    target_source_id: str = Field(min_length=1, max_length=120)
+    source: SourceInput
+
+
 class ArticleCaseInput(ContractModel):
     """An original article, an optional question, and manually supplied comparisons."""
 
@@ -89,6 +105,9 @@ class ArticleCaseInput(ContractModel):
     article: SourceInput
     question: NonBlankStatement | None = None
     comparison_sources: list[SourceInput] = Field(default_factory=list[SourceInput], max_length=19)
+    interest_evidence: list[InterestEvidenceInput] = Field(
+        default_factory=list[InterestEvidenceInput], max_length=40
+    )
 
     @property
     def sources(self) -> list[SourceInput]:
@@ -110,6 +129,14 @@ class ArticleCaseInput(ContractModel):
             ValueError: The same source ID occurs more than once.
         """
         _require_unique_source_ids(self.sources)
+        source_ids = {source.source_id for source in self.sources}
+        evidence_ids = [item.source.source_id for item in self.interest_evidence]
+        if len(evidence_ids) != len(set(evidence_ids)) or source_ids.intersection(evidence_ids):
+            msg = "Interest evidence IDs must be unique and distinct from article source IDs."
+            raise ValueError(msg)
+        if any(item.target_source_id not in source_ids for item in self.interest_evidence):
+            msg = "Interest evidence must target a source in the article case."
+            raise ValueError(msg)
         return self
 
 
@@ -120,6 +147,25 @@ class ArticleUrlInput(ContractModel):
     article_url: AnyHttpUrl
     question: NonBlankStatement | None = None
     comparison_urls: list[AnyHttpUrl] = Field(default_factory=list[AnyHttpUrl], max_length=19)
+    interest_urls: list[InterestUrlInput] = Field(
+        default_factory=list[InterestUrlInput], max_length=40
+    )
+
+    @model_validator(mode="after")
+    def require_requested_interest_targets(self) -> ArticleUrlInput:
+        """Validate evidence targets against the requested URLs.
+
+        Returns:
+            The validated case with every evidence target present in the request.
+
+        Raises:
+            ValueError: Evidence targets neither the article nor a requested comparison.
+        """
+        source_ids = {"article", *(f"comparison-{i + 1}" for i in range(len(self.comparison_urls)))}
+        if any(item.target_source_id not in source_ids for item in self.interest_urls):
+            msg = "Interest evidence URLs must target the article or a requested comparison."
+            raise ValueError(msg)
+        return self
 
 
 Relation = Literal["supports", "qualifies", "contradicts", "omits", "not_assessable"]
@@ -142,10 +188,20 @@ class DraftArticleClaim(ContractModel):
     quote: DraftQuote
 
 
+class DraftArticleSummarySentence(ContractModel):
+    """One summary sentence and the one-based index of its extracted claim."""
+
+    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+    claim_index: int = Field(ge=1, le=5)
+
+
 class DraftArticleExtraction(ContractModel):
-    """The checkable claims found in the original article."""
+    """The article's checkable claims and optional model-drafted summary."""
 
     claims: list[DraftArticleClaim] = Field(max_length=5)
+    summary: list[DraftArticleSummarySentence] = Field(
+        default_factory=list[DraftArticleSummarySentence], max_length=3
+    )
 
 
 class DraftFinding(ContractModel):
@@ -247,6 +303,8 @@ class SourceSnapshot(ContractModel):
     captured_at: datetime
     published_at: SourceDate | None = None
     updated_at: SourceDate | None = None
+    publisher: str | None = None
+    authors: list[str] = Field(default_factory=list[str])
     content_sha256: str
     text_is_complete: bool
 
@@ -268,6 +326,8 @@ class SourceSnapshot(ContractModel):
             captured_at=source.captured_at,
             published_at=source.published_at,
             updated_at=source.updated_at,
+            publisher=source.publisher,
+            authors=source.authors,
             content_sha256=source.content_sha256,
             text_is_complete=source.text_is_complete,
         )
@@ -305,6 +365,49 @@ class SharedWordingReport(ContractModel):
     limited: bool = False
 
 
+class DiffCitation(ContractModel):
+    """Locate cited wording in one source version and link overlapping passages."""
+
+    source_id: str
+    version_id: str
+    locators: list[str]
+    start: int | None = Field(default=None, ge=0)
+    end: int | None = Field(default=None, gt=0)
+    shared_wording_match_indexes: list[int]
+
+
+class DiffEvidence(ContractModel):
+    """Store one exact cited excerpt and the source versions that cite it."""
+
+    evidence_id: str
+    kind: Literal["shared_wording", "source_specific"]
+    text: str
+    citations: list[DiffCitation]
+
+
+class DiffJudgment(ContractModel):
+    """Show one model's conclusion and references to its verified evidence."""
+
+    agent_id: str
+    relation: Relation
+    reasoning: str
+    evidence_ids: list[str]
+
+
+class DiffSource(ContractModel):
+    """Show a versioned source and the independent judgments it received."""
+
+    source: SourceSnapshot
+    judgments: list[DiffJudgment]
+
+
+class ClaimSourceDiff(ContractModel):
+    """Show sources side by side and consolidate repeated cited evidence."""
+
+    sources: list[DiffSource] = Field(default_factory=list[DiffSource])
+    evidence: list[DiffEvidence] = Field(default_factory=list[DiffEvidence])
+
+
 class RunReport(ContractModel):
     """Auditable output of the independent and peer-review phases."""
 
@@ -318,6 +421,7 @@ class RunReport(ContractModel):
     relation_counts: list[RelationCount]
     unresolved_dissent: list[str]
     shared_wording: SharedWordingReport | None = None
+    source_diff: ClaimSourceDiff = Field(default_factory=ClaimSourceDiff)
 
 
 class ExtractionAttempt(ContractModel):
@@ -354,17 +458,58 @@ class ClaimComparison(ContractModel):
     review: RunReport
 
 
-class ArticleReport(ContractModel):
-    """The claim-by-claim comparison of an original article and supplied sources."""
+InterestCategory = Literal[
+    "ownership",
+    "funding",
+    "author_affiliation",
+    "political_affiliation",
+]
 
-    case_id: str
-    question: str | None
-    article_source_id: str
-    sources: list[SourceSnapshot]
-    status: RecordStatus | Literal["no_claims"]
-    extraction_attempts: list[ExtractionAttempt]
-    claims: list[ClaimComparison]
-    shared_wording: SharedWordingReport = Field(default_factory=SharedWordingReport)
+
+class DraftInterestFinding(ContractModel):
+    """A model-proposed relationship backed by one exact evidence quotation."""
+
+    category: InterestCategory
+    subject: str = Field(min_length=1, max_length=300)
+    related_entity: str = Field(min_length=1, max_length=300)
+    relationship: str = Field(min_length=1, max_length=2_000)
+    quote: DraftQuote
+
+
+class DraftInterestAssessment(ContractModel):
+    """Independent model findings about a source's documented interests."""
+
+    findings: list[DraftInterestFinding] = Field(max_length=12)
+
+
+class InterestFinding(ContractModel):
+    """An identified relationship and the exact source quote supporting it."""
+
+    category: InterestCategory
+    subject: str
+    related_entity: str
+    relationship: str
+    evidence: VerifiedQuote
+
+
+class InterestAssessment(ContractModel):
+    """Retain one independent model's conclusions or failure."""
+
+    agent_id: str
+    model: str
+    status: Literal["succeeded", "failed"]
+    findings: list[InterestFinding]
+    unknown_categories: list[InterestCategory]
+    error_code: str | None = None
+
+
+class InterestSearch(ContractModel):
+    """Document a search query issued for a source's affiliations."""
+
+    query: str
+    status: Literal["completed", "failed"]
+    result_count: int = Field(ge=0)
+    detail: str | None = None
 
 
 class SourceLink(ContractModel):
@@ -402,6 +547,142 @@ class SourceProvenance(ContractModel):
 
     citations: list[SourceCitation]
     limited: bool
+
+
+class InterestSourceReview(ContractModel):
+    """Document evidence availability and independent assessments for one source."""
+
+    source: SourceSnapshot
+    evidence_sources: list[SourceSnapshot]
+    searches: list[InterestSearch]
+    retrievals: list[SourceRetrieval]
+    assessments: list[InterestAssessment]
+    unresolved_categories: list[InterestCategory]
+
+
+class InterestReport(ContractModel):
+    """Keep all source-interest investigations and missing-evidence outcomes."""
+
+    status: Literal["complete", "partial", "no_evidence"]
+    sources: list[InterestSourceReview]
+    limitation: str = (
+        "Reported relationships are model interpretations of supplied evidence. "
+        "Exact quotes confirm text occurrence only. Editorial verification is required."
+    )
+
+
+class EditorialFindingAssignment(ContractModel):
+    """Identify an individual source finding included in the final review."""
+
+    finding_id: str
+    source_id: str
+    agent_id: str
+    relation: Relation
+    evidence_ids: list[str]
+    reasoning: str
+
+
+class EditorialClaimCoverage(ContractModel):
+    """Show available comparison evidence and unresolved issues for one claim."""
+
+    claim_id: str
+    review_status: RecordStatus
+    comparison_evidence_ids: list[str]
+    evidence_shown_to_models: list[str]
+    comparison_sources_without_quotes: list[str]
+    unresolved_dissent_count: int
+    unresolved_dissent: list[str] = Field(default_factory=list[str])
+    assigned_findings: list[EditorialFindingAssignment] = Field(
+        default_factory=list[EditorialFindingAssignment]
+    )
+    unassigned_finding_count: int = 0
+    unresolved_finding_ids: list[str] = Field(default_factory=list[str])
+
+
+class EditorialFindingNote(ContractModel):
+    """A final reviewer's judgment on one explicitly assigned finding."""
+
+    finding_id: str
+    outcome: ReviewOutcome
+    reasoning: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=220)
+    ]
+
+
+class EditorialClaimNote(ContractModel):
+    """One model's editorial reading of a claim and the passages it uses."""
+
+    claim_id: str
+    evidence_ids: list[str] = Field(min_length=1, max_length=3)
+    assessment: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=650)
+    ]
+    next_check: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+        | None
+    )
+    findings: list[EditorialFindingNote] = Field(
+        default_factory=list[EditorialFindingNote], max_length=3
+    )
+
+
+class DraftEditorialAssessment(ContractModel):
+    """A model's structured response for the claims assigned to it."""
+
+    claims: list[EditorialClaimNote] = Field(min_length=1, max_length=5)
+
+
+class EditorialAssessment(ContractModel):
+    """One local model's final notes or its recorded failure."""
+
+    agent_id: str
+    model: str
+    status: Literal["succeeded", "failed"]
+    claims: list[EditorialClaimNote]
+    error_code: str | None = None
+
+
+class EditorialReport(ContractModel):
+    """An evidence inventory and independent notes for human review."""
+
+    status: RecordStatus | Literal["no_claims", "no_comparison_evidence"]
+    claims: list[EditorialClaimCoverage]
+    incomplete_source_ids: list[str]
+    retrieval_gaps: list[SourceRetrieval]
+    discovery_incomplete: bool
+    interest_status: Literal["complete", "partial", "no_evidence"] | None
+    interest_sources_with_findings: list[str]
+    assessments: list[EditorialAssessment]
+    limitation: str = (
+        "The notes use selected excerpts from the available source versions. "
+        "Quote matching verifies text occurrence only. A human editor must verify "
+        "the interpretation, source independence, and any publication decision."
+    )
+
+
+class ArticleSummarySentence(ContractModel):
+    """One model-written summary sentence linked to a verified article claim."""
+
+    text: str
+    claim_id: str
+
+
+class ArticleReport(ContractModel):
+    """The claim-by-claim comparison of an original article and supplied sources."""
+
+    case_id: str
+    question: str | None
+    article_source_id: str
+    sources: list[SourceSnapshot]
+    status: RecordStatus | Literal["no_claims"]
+    extraction_attempts: list[ExtractionAttempt]
+    article_summary: list[ArticleSummarySentence] = Field(
+        default_factory=list[ArticleSummarySentence]
+    )
+    claims: list[ClaimComparison]
+    shared_wording: SharedWordingReport = Field(default_factory=SharedWordingReport)
+    interests: InterestReport | None = None
+    editorial: EditorialReport | None = None
 
 
 class SearchQuery(ContractModel):

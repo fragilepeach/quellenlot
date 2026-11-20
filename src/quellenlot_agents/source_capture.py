@@ -234,6 +234,8 @@ def _snapshot(
         captured_at=captured_at,
         published_at=content.published_at,
         updated_at=content.updated_at,
+        publisher=content.publisher,
+        authors=list(content.authors),
         text=content.text[:_MAX_SOURCE_CHARS],
         text_is_complete=False,
     )

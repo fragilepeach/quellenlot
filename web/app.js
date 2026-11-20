@@ -9,6 +9,19 @@ const relationLabels = {
   not_assessable: "Nicht beurteilbar",
 };
 
+const interestLabels = {
+  ownership: "Eigentümerschaft",
+  funding: "Finanzierung",
+  author_affiliation: "Verbindungen der Autor*innen",
+  political_affiliation: "Politische Verbindungen",
+};
+
+const outcomeLabels = {
+  agrees: "Zustimmung",
+  challenges: "Einwand",
+  unclear: "Unklar",
+};
+
 const demoSources = {
   ifo: {
     id: "ifo",
@@ -183,6 +196,7 @@ function renderReport(report) {
     return control;
   }));
   if (report.claims.length) selectClaim(0);
+  renderPrivateReview(report);
 }
 
 function selectClaim(index) {
@@ -195,9 +209,9 @@ function selectClaim(index) {
   $("original-quote").textContent = claim.quote || "Kein geprüfter Wortlaut verfügbar.";
   const originalLink = sourceLink(state.report.article || {}, claim.quote, "Eingabeartikel öffnen");
   $("original-link").replaceChildren(...(originalLink ? [originalLink] : []));
-  $("source-controls").replaceChildren(...claim.evidence.map(({ source }) => sourceButton(source, "source-button")));
+  renderClaimDiff(claim);
   renderGraph(claim, number);
-  selectSource(claim.evidence[0]?.source.id);
+  selectSource(claim.evidence.find(({ source }) => !source.original)?.source.id || claim.evidence[0]?.source.id);
 }
 
 function formatDate(value) {
@@ -237,16 +251,173 @@ function sourceLink(source, passage, label = "Originalquelle öffnen") {
   return link;
 }
 
+function relationBadge(value) {
+  const relation = element("span", "relation", relationLabels[value] || "Ohne Einordnung");
+  relation.dataset.kind = value;
+  return relation;
+}
+
+function byPublication(left, right) {
+  const day = (source) => /^\d{4}-\d{2}-\d{2}(?=T|$)/.exec(source.published)?.[0] || "9999-99-99";
+  return day(left).localeCompare(day(right));
+}
+
+function evidenceLink(excerpt) {
+  const link = element("a", "diff-reference", excerpt.label);
+  link.href = "#" + excerpt.anchor;
+  return link;
+}
+
+function renderDiffSource({ source, judgments }) {
+  const row = element("li", "diff-source");
+  const title = sourceButton(source, "source-button diff-source-title");
+  const dates = element("div", "diff-dates");
+  dates.append(element("span", "", source.published ? "Veröffentlicht " + formatDate(source.published) : "Veröffentlichung unbekannt"));
+  if (source.updated) dates.append(element("span", "", "Aktualisiert " + formatDate(source.updated)));
+  const findings = element("div", "diff-tags");
+  for (const relation of new Set(judgments.map((judgment) => judgment.relation))) {
+    findings.append(relationBadge(relation));
+  }
+  if (!judgments.length) findings.append(element("span", "diff-note", "Keine Modellbeurteilung"));
+  row.append(title, dates, findings);
+  if (source.original || source.complete === false) {
+    const labels = [source.original && "Eingabeartikel", source.complete === false && "Nur Auszug"].filter(Boolean);
+    row.append(element("p", "diff-note", labels.join(" · ")));
+  }
+  const references = new Set(judgments.flatMap((judgment) => judgment.excerpts || []));
+  if (references.size) {
+    const links = element("div", "diff-tags");
+    links.append(...Array.from(references, evidenceLink));
+    row.append(links);
+  } else if (judgments[0]?.passage) {
+    row.append(element("blockquote", "diff-quote", judgments[0].passage));
+  }
+  return row;
+}
+
+function renderDiffExcerpt(excerpt) {
+  const row = element("div", "diff-excerpt");
+  row.id = excerpt.anchor;
+  row.tabIndex = -1;
+  row.append(element("h5", "", excerpt.label + (excerpt.citations.length > 1 ? " · Gemeinsamer Wortlaut" : "")));
+  row.append(element("blockquote", "diff-quote", excerpt.text));
+  const occurrences = element("ul", "diff-occurrences");
+  for (const { source, locators } of excerpt.citations) {
+    const item = element("li");
+    item.append(sourceLink(source, excerpt.text, sourceName(source)) || document.createTextNode(sourceName(source)));
+    if (locators.length) item.append(document.createTextNode(" · " + locators.join(" · ")));
+    occurrences.append(item);
+  }
+  row.append(occurrences);
+  return row;
+}
+
+function wordingDiff(before, after) {
+  const tokens = (text) => text.match(/[\p{L}\p{M}\p{N}_]+|\s+|[^\s]/gu) || [];
+  const left = tokens(before);
+  const right = tokens(after);
+  if (left.length > 600 || right.length > 600) return [before, after];
+  const width = right.length + 1;
+  const common = new Uint16Array((left.length + 1) * width);
+  for (let i = left.length - 1; i >= 0; i -= 1) {
+    for (let j = right.length - 1; j >= 0; j -= 1) {
+      common[i * width + j] = left[i] === right[j]
+        ? common[(i + 1) * width + j + 1] + 1
+        : Math.max(common[(i + 1) * width + j], common[i * width + j + 1]);
+    }
+  }
+  const render = (parts, tag) => {
+    const fragment = document.createDocumentFragment();
+    for (const { text, changed } of parts) {
+      const last = fragment.lastChild;
+      if (changed && last?.nodeName === tag.toUpperCase()) last.append(text);
+      else fragment.append(changed ? element(tag, "", text) : document.createTextNode(text));
+    }
+    return fragment;
+  };
+  const removed = [];
+  const added = [];
+  let i = 0;
+  let j = 0;
+  while (i < left.length || j < right.length) {
+    if (i < left.length && left[i] === right[j]) {
+      removed.push({ text: left[i], changed: false });
+      added.push({ text: right[j], changed: false });
+      i += 1;
+      j += 1;
+    } else if (j === right.length || (i < left.length && common[(i + 1) * width + j] >= common[i * width + j + 1])) {
+      removed.push({ text: left[i], changed: true });
+      i += 1;
+    } else {
+      added.push({ text: right[j], changed: true });
+      j += 1;
+    }
+  }
+  return [render(removed, "del"), render(added, "ins")];
+}
+
+function renderWordingMatch({ passages, similarity }, excerpts) {
+  const [first, second] = [...passages].sort((a, b) => byPublication(a.source, b.source));
+  const exact = first.text === second.text;
+  const details = element("details", "diff-match");
+  const names = [first, second].map(({ source }) => sourceName(source)).join(" · ");
+  const score = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 2 }).format(similarity);
+  details.append(element("summary", "", names + " · " + score + " / 100"));
+  if (exact) {
+    const cited = excerpts.find(({ text, citations }) => text === first.text &&
+      passages.every(({ source }) => citations.some((citation) => citation.source === source)));
+    details.append(cited ? evidenceLink(cited) : element("blockquote", "diff-quote", first.text));
+  } else {
+    details.append(element("p", "diff-note diff-legend", "− Durchgestrichen im ersten Ausschnitt · + Unterstrichen im zweiten Ausschnitt"));
+  }
+  const sides = element("div", "diff-pair");
+  const diff = exact ? [] : wordingDiff(first.text, second.text);
+  for (const [index, { source, text }] of [first, second].entries()) {
+    const side = element("div", "diff-side");
+    const prefix = exact ? "" : index === 0 ? "− " : "+ ";
+    side.append(element("h6", "", prefix + sourceName(source)));
+    if (!exact) {
+      const quote = element("blockquote", "diff-quote");
+      quote.append(diff[index]);
+      side.append(quote);
+    }
+    const link = sourceLink(source, text);
+    if (link) side.append(link);
+    sides.append(side);
+  }
+  details.append(sides);
+  return details;
+}
+
+function renderClaimDiff(claim) {
+  $("claim-diff").hidden = !claim.evidence.length;
+  const rows = [...claim.evidence].sort((a, b) => byPublication(a.source, b.source));
+  $("diff-sources").replaceChildren(...rows.map(renderDiffSource));
+  const { excerpts, matches, limited } = claim.diff || { excerpts: [], matches: [] };
+  $("diff-evidence").replaceChildren(...excerpts.map(renderDiffExcerpt));
+  const wording = $("diff-wording");
+  wording.replaceChildren();
+  if (!matches.length && !limited) return;
+  wording.append(element("h5", "", "Mögliche Textübernahme"));
+  if (matches.length) {
+    wording.append(element("p", "diff-note", "RapidFuzz misst Textähnlichkeit. Die Herkunft muss separat belegt werden."));
+    wording.append(...matches.map((match) => renderWordingMatch(match, excerpts)));
+  }
+  if (limited) wording.append(element("p", "diff-note", "Die automatische Suche nach ähnlichen Passagen war begrenzt."));
+}
+
 function renderJudgment(judgment) {
   const container = element("div", "judgment");
   const heading = element("div", "source-caption");
-  const relation = element("span", "relation", relationLabels[judgment.relation] || "Ohne Einordnung");
-  relation.dataset.kind = judgment.relation;
   if (judgment.agent) heading.append(element("span", "judgment-meta", "Modell " + judgment.agent));
-  heading.append(relation);
+  heading.append(relationBadge(judgment.relation));
   container.append(heading);
   if (judgment.passage) {
     container.append(element("blockquote", "", "„" + judgment.passage + "“"));
+  } else if (judgment.excerpts?.length) {
+    const links = element("div", "diff-tags");
+    links.append(...judgment.excerpts.map(evidenceLink));
+    container.append(links);
   } else {
     container.append(element("p", "source-reason", "Kein exakt abgeglichener Beleg im Bericht."));
   }
@@ -257,7 +428,7 @@ function renderJudgment(judgment) {
 function selectSource(id) {
   const evidence = selectedClaim().evidence.find(({ source }) => source.id === id);
   state.sourceId = evidence?.source.id;
-  updateSelection($("source-controls"), "source", state.sourceId);
+  updateSelection($("diff-sources"), "source", state.sourceId);
   updateSelection($("graph"), "source", state.sourceId);
 
   const detail = $("source-detail");
@@ -267,8 +438,11 @@ function selectSource(id) {
     return;
   }
   const { source, judgments } = evidence;
-  detail.append(element("p", "source-type", source.type || source.name));
-  detail.append(...judgments.map(renderJudgment), sourceMetadata(source));
+  detail.append(element("h4", "", "Beurteilungen zu " + sourceName(source)));
+  if (source.type) detail.append(element("p", "source-type", source.type));
+  detail.append(...judgments.map(renderJudgment));
+  if (!judgments.length) detail.append(element("p", "source-reason", "Für diese Quelle liegt keine Modellbeurteilung vor."));
+  detail.append(sourceMetadata(source));
   const link = sourceLink(source, judgments.find((judgment) => judgment.passage)?.passage);
   if (link) detail.append(link);
 }
@@ -281,7 +455,8 @@ function renderGraph(claim, number) {
   for (const { source, judgments } of claim.evidence) {
     const branch = element("li", "graph-branch");
     const labels = new Set(judgments.map(({ relation }) => relation));
-    const label = labels.size === 1 ? relationLabels[judgments[0].relation] : "Uneinheitliche Einordnung";
+    const label = labels.size === 1 ? relationLabels[judgments[0].relation]
+      : labels.size ? "Uneinheitliche Einordnung" : "Keine Modellbeurteilung";
     branch.append(element("span", "graph-edge", label || "Bezug"), sourceButton(source, "source-button graph-node"));
     for (const originId of source.cites || []) {
       const origin = claim.evidence.find((item) => item.source.id === originId);
@@ -361,19 +536,25 @@ function readSourceProvenance(data) {
   return { groups: [...groups.values()], limited: data.provenance.limited === true };
 }
 
+function normalizedSource(source, originalId) {
+  return {
+    id: source.source_id,
+    name: source.title,
+    url: source.url,
+    published: source.published_at?.value,
+    updated: source.updated_at?.value,
+    captured: source.captured_at,
+    version: source.version_id,
+    complete: source.text_is_complete,
+    original: source.source_id === originalId,
+  };
+}
+
 function normalizedEvidence(comparisons, originalId) {
   return comparisons
     .filter(({ source, judgments }) => source?.source_id !== originalId && judgments?.length)
     .map(({ source, judgments }) => ({
-      source: {
-        id: source.source_id,
-        name: source.title,
-        url: source.url,
-        published: source.published_at?.value,
-        updated: source.updated_at?.value,
-        captured: source.captured_at,
-        version: source.version_id,
-      },
+      source: normalizedSource(source, originalId),
       judgments: judgments.flatMap((judgment) => {
         const quotes = judgment.citations?.filter((quote) =>
           quote.verified === true && quote.source_id === source.source_id &&
@@ -387,6 +568,241 @@ function normalizedEvidence(comparisons, originalId) {
         }));
       }),
     }));
+}
+
+function normalizedDiff(diff, wording, originalId) {
+  if (!Array.isArray(diff?.sources) || !diff.sources.length || !Array.isArray(diff.evidence)) return null;
+  const rows = diff.sources.filter(({ source, judgments }) => typeof source?.source_id === "string" &&
+    typeof source.version_id === "string" && Array.isArray(judgments));
+  if (!rows.length) return null;
+  const sources = new Map(rows.map(({ source }) => [source.source_id, normalizedSource(source, originalId)]));
+  const resolveSource = ({ source_id, version_id }) => {
+    const source = sources.get(source_id);
+    return source?.version === version_id ? source : null;
+  };
+  const excerpts = new Map();
+  const matchIndexes = new Set();
+  for (const item of diff.evidence) {
+    if (typeof item?.evidence_id !== "string" || excerpts.has(item.evidence_id) ||
+      typeof item.text !== "string" || !item.text.trim() || !Array.isArray(item.citations)) continue;
+    const citations = [];
+    for (const citation of item.citations) {
+      const source = resolveSource(citation);
+      if (!source) continue;
+      const locators = (citation.locators || []).filter((locator) => typeof locator === "string" && locator);
+      citations.push({ source, locators });
+      for (const index of citation.shared_wording_match_indexes || []) {
+        const match = wording?.matches?.[index];
+        if ([match?.first, match?.second].some((passage) => passage && resolveSource(passage) === source)) {
+          matchIndexes.add(index);
+        }
+      }
+    }
+    if (!citations.length) continue;
+    const number = excerpts.size + 1;
+    excerpts.set(item.evidence_id, { label: "Zitat " + number, anchor: "claim-quote-" + number, text: item.text, citations });
+  }
+  const matches = [];
+  for (const index of matchIndexes) {
+    const { first, second, similarity } = wording.matches[index];
+    if (!first || !second || first.source_id === second.source_id || !Number.isFinite(similarity)) continue;
+    const passages = [first, second].map((passage) => ({ source: resolveSource(passage), text: passage.text }));
+    if (passages.every(({ source, text }) => source && typeof text === "string" && text.trim())) {
+      matches.push({ passages, similarity });
+    }
+  }
+  const evidence = rows.map(({ source, judgments }) => ({
+    source: sources.get(source.source_id),
+    judgments: judgments.map((judgment) => ({
+      relation: judgment.relation,
+      agent: judgment.agent_id,
+      reason: judgment.reasoning,
+      excerpts: (judgment.evidence_ids || []).map((id) => excerpts.get(id))
+        .filter((excerpt) => excerpt?.citations.some((citation) => citation.source.id === source.source_id)),
+    })),
+  }));
+  return { evidence, snippets: { excerpts: [...excerpts.values()], matches, limited: wording?.limited === true } };
+}
+
+function reviewList(items) {
+  const list = element("ul");
+  for (const item of items) list.append(element("li", "", item));
+  return list;
+}
+
+function renderInterests(interests) {
+  const details = element("details");
+  details.append(element("summary", "", "Eigentümerschaft, Finanzierung und Verbindungen"));
+  if (!interests?.sources?.length) {
+    details.append(element("p", "", "Keine Interessenprüfung mit Quellen im Bericht."));
+    return details;
+  }
+
+  for (const entry of interests.sources) {
+    const source = entry.source;
+    details.append(element("h4", "", source.title || source.source_id));
+    if (source.publisher) details.append(element("p", "", "Herausgeber: " + source.publisher));
+    if (source.authors?.length) {
+      details.append(element("p", "", "Autor*innen: " + source.authors.join(", ")));
+    }
+    const unknown = (entry.unresolved_categories || []).map((category) => interestLabels[category] || category);
+    if (unknown.length) details.append(element("p", "", "Offen: " + unknown.join(", ")));
+    for (const assessment of entry.assessments || []) {
+      if (assessment.status === "failed") {
+        details.append(element("p", "", assessment.agent_id + " · Interessenprüfung fehlgeschlagen"));
+      }
+      for (const finding of assessment.findings || []) {
+        const quote = finding.evidence;
+        const snapshot = (entry.evidence_sources || []).find((item) =>
+          item.source_id === quote?.source_id && item.version_id === quote?.version_id
+        );
+        const category = interestLabels[finding.category] || finding.category;
+        details.append(element("p", "", assessment.agent_id + " · " + category + " · " + finding.relationship));
+        if (snapshot && quote.verified === true) {
+          details.append(element("blockquote", "", quote.text));
+          const link = sourceLink(snapshot, quote.text, "Beleg der Verbindung öffnen");
+          if (link) details.append(link);
+        }
+      }
+    }
+    const gaps = (entry.retrievals || []).filter((item) => item.status !== "captured");
+    if (gaps.length) details.append(reviewList(gaps.map((item) => "Abruflücke: " + item.requested_url)));
+  }
+  return details;
+}
+
+function renderEditorial(editorial, claims) {
+  const section = element("div");
+  const notes = editorial?.assessments || [];
+  const succeeded = notes.filter((note) => note.status === "succeeded").length;
+  section.append(element("p", "", "Abgeschlossene Schlussprüfungen: " + succeeded + " von " + notes.length));
+  const failed = notes.filter((note) => note.status === "failed");
+  if (failed.length) {
+    section.append(reviewList(failed.map((note) => note.agent_id + " · Schlussprüfung unvollständig")));
+  }
+  if (editorial?.retrieval_gaps?.length) {
+    section.append(reviewList(editorial.retrieval_gaps.map((gap) => "Abruflücke: " + gap.requested_url)));
+  }
+  if (editorial?.incomplete_source_ids?.length) {
+    section.append(element("p", "", "Unvollständige Quellen: " + editorial.incomplete_source_ids.join(", ")));
+  }
+  if (editorial?.discovery_incomplete) {
+    section.append(element("p", "", "Die Vergleichsquellensuche war unvollständig."));
+  }
+  for (const coverage of editorial?.claims || []) {
+    const index = claims.findIndex((item) => item.id === coverage.claim_id);
+    const claim = claims[index];
+    const details = element("details");
+    details.append(element("summary", "", claim?.text || coverage.claim_id));
+    if (claim) {
+      const inspect = button("Quellenvergleich zur Aussage öffnen", "quiet-button");
+      inspect.addEventListener("click", () => {
+        selectClaim(index);
+        $("evidence-heading").focus();
+      });
+      details.append(inspect);
+    }
+    if (coverage.comparison_sources_without_quotes?.length) {
+      details.append(element("p", "", "Vergleichsquellen ohne bestätigtes Zitat: " +
+        coverage.comparison_sources_without_quotes.join(", ")));
+    }
+    const assigned = coverage.assigned_findings || [];
+    details.append(element("p", "", assigned.length + " Befunde zugewiesen, " +
+      (coverage.unassigned_finding_count || 0) + " weitere Befunde im Quellenvergleich."));
+    const dissent = coverage.unresolved_dissent?.length ? coverage.unresolved_dissent : claim?.dissent;
+    if (dissent?.length) {
+      details.append(element("h4", "", "Offene Einwände aus der Quellenprüfung"));
+      details.append(reviewList(dissent));
+    }
+    const unresolved = new Set(coverage.unresolved_finding_ids || []);
+    for (const finding of assigned) {
+      const relation = relationLabels[finding.relation] || finding.relation;
+      details.append(element("h4", "", finding.finding_id + " · " + finding.source_id + " · " + relation));
+      if (finding.reasoning) details.append(element("p", "", finding.reasoning));
+      if (unresolved.has(finding.finding_id)) {
+        details.append(element("p", "", "In der Schlussprüfung umstritten oder unklar."));
+      }
+      const outcomes = [];
+      for (const note of notes) {
+        const result = note.claims?.find((item) => item.claim_id === coverage.claim_id)
+          ?.findings?.find((item) => item.finding_id === finding.finding_id);
+        if (result) {
+          outcomes.push(note.agent_id + " · " + (outcomeLabels[result.outcome] || result.outcome) +
+            " · " + result.reasoning);
+        }
+      }
+      if (outcomes.length) details.append(reviewList(outcomes));
+    }
+    for (const note of notes) {
+      const result = note.claims?.find((item) => item.claim_id === coverage.claim_id);
+      if (result) {
+        details.append(element("p", "", note.agent_id + " · " + result.assessment));
+        if (result.next_check) details.append(element("p", "", "Nächste Prüfung: " + result.next_check));
+      }
+    }
+    section.append(details);
+  }
+  return section;
+}
+
+function exactlyCovers(ids, assigned) {
+  return ids.length === assigned.size &&
+    new Set(ids).size === ids.length &&
+    ids.every((id) => assigned.has(id));
+}
+
+function canPrepareRelease(editorial) {
+  if (!["complete", "partial"].includes(editorial?.status)) return false;
+  const assigned = new Map();
+  for (const claim of editorial.claims || []) {
+    if (!claim.assigned_findings?.length) continue;
+    const ids = claim.assigned_findings.map((finding) => finding.finding_id);
+    if (assigned.has(claim.claim_id) || new Set(ids).size !== ids.length) return false;
+    assigned.set(claim.claim_id, new Set(ids));
+  }
+  const reviewers = (editorial.assessments || []).filter((item) => item.status === "succeeded");
+  const claimIds = new Set(assigned.keys());
+  return assigned.size > 0 && reviewers.length > 0 && reviewers.every((item) =>
+    Array.isArray(item.claims) && exactlyCovers(item.claims.map((claim) => claim.claim_id), claimIds) &&
+    item.claims.every((claim) => Array.isArray(claim.findings) &&
+      exactlyCovers(claim.findings.map((finding) => finding.finding_id), assigned.get(claim.claim_id)))
+  );
+}
+
+function renderPrivateReview(report) {
+  const panel = $("private-review");
+  const form = $("release-form");
+  form.reset();
+  const review = report.privateReview;
+  panel.hidden = !review;
+  form.hidden = true;
+  $("save-release").disabled = true;
+  $("release-status").textContent = "Der Entwurf wird als Datei heruntergeladen.";
+  const content = $("private-review-content");
+  content.replaceChildren();
+  if (!review) return;
+  content.append(renderInterests(review.interests), renderEditorial(review.editorial, report.claims));
+  form.hidden = !canPrepareRelease(review.editorial) || !review.digest;
+  if (form.hidden) {
+    content.append(element("p", "", "Für einen Freigabeentwurf ist ein auswertbarer Schlussbericht erforderlich."));
+  }
+}
+
+function normalizedSummary(items, claims) {
+  if (!Array.isArray(items) || !items.length || items.length > 3) return [];
+  const summary = [];
+  const used = new Set();
+  for (const item of items) {
+    if (typeof item?.text !== "string" || !item.text.trim() || typeof item.claim_id !== "string") {
+      return [];
+    }
+    const claim = claims.findIndex(({ id, quote }) => id === item.claim_id && quote);
+    if (claim < 0 || used.has(claim)) return [];
+    if (summary.length) summary.push(" ");
+    summary.push({ claim, text: item.text.trim() });
+    used.add(claim);
+  }
+  return summary;
 }
 
 function readReport(data) {
@@ -410,21 +826,27 @@ function readReport(data) {
   }
   const article = report.sources.find((source) => source.source_id === report.article_source_id);
   const claims = report.claims.map((claim) => {
-    if (typeof claim.review?.claim !== "string" || !Array.isArray(claim.source_comparison)) {
+    const diff = normalizedDiff(claim.review?.source_diff, report.shared_wording, report.article_source_id);
+    if (typeof claim.review?.claim !== "string" || (!diff && !Array.isArray(claim.source_comparison))) {
       throw new Error("Der Bericht enthält eine unvollständige Aussage.");
     }
     const quote = claim.article_quote;
     return {
+      id: claim.claim_id,
       text: claim.review.claim,
+      dissent: claim.review.unresolved_dissent,
       status: claim.review.status === "complete" ? "Modellbefunde verfügbar" : "Modellprüfung unvollständig",
-      quote: quote?.verified === true && article && quote.source_id === article.source_id &&
+      quote: quote?.verified === true && typeof quote.text === "string" && article &&
+        quote.source_id === article.source_id &&
         quote.version_id === article.version_id ? quote.text : null,
-      evidence: normalizedEvidence(claim.source_comparison, report.article_source_id),
+      evidence: diff?.evidence ?? normalizedEvidence(claim.source_comparison, report.article_source_id),
+      diff: diff?.snippets,
     };
   });
   const failed = data.status === "failed" || report.status === "failed";
   const partial = data.status === "partial" || report.status === "partial";
   const runStatus = failed ? " · Analyse fehlgeschlagen" : partial ? " · Teilbericht" : "";
+  const summary = normalizedSummary(report.article_summary, claims);
   const empty = failed
     ? "Die Analyse konnte keine Aussagen ermitteln, weil die Extraktion fehlgeschlagen ist."
     : "Der Bericht enthält keine prüfbaren Aussagen.";
@@ -433,7 +855,16 @@ function readReport(data) {
     title: article?.title || "Artikelprüfung",
     question: report.question,
     article,
-    summary: ["Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung."],
+    privateReview: report.interests || report.editorial ? {
+      interests: report.interests,
+      editorial: report.editorial,
+    } : null,
+    summary: summary.length
+      ? summary
+      : ["Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung."],
+    summaryNote: summary.length
+      ? "KI-Zusammenfassung des Artikels. Jeder Satz führt zu einer Aussage mit Originalzitat."
+      : "",
     claims,
     provenance: retrievalReport ? readSourceProvenance(data) : null,
     empty: claims.length ? "" : empty,
@@ -441,12 +872,21 @@ function readReport(data) {
 }
 
 $("workspace").addEventListener("click", (event) => {
+  const reference = event.target.closest(".diff-reference");
+  if (reference && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+    event.preventDefault();
+    $(reference.hash.slice(1))?.focus();
+    return;
+  }
   const control = event.target.closest("[data-claim], button[data-source]");
   if (!control) return;
   const index = control.dataset.claim;
   if (index !== undefined) {
     event.preventDefault();
     selectClaim(Number(index));
+    if (state.report.article && control.classList.contains("highlight")) {
+      $("original-quote").closest("details").open = true;
+    }
     if (matchMedia("(max-width: 820px)").matches) {
       $("evidence-heading").focus();
     } else {
@@ -455,10 +895,7 @@ $("workspace").addEventListener("click", (event) => {
   } else {
     selectSource(control.dataset.source);
     $("selection-status").textContent = "Beleg geöffnet: " + control.textContent;
-    if (control.closest("#graph")) {
-      const sourceTab = [...$("source-controls").children].find((item) => item.dataset.source === state.sourceId);
-      sourceTab?.focus();
-    }
+    $("source-detail").focus();
   }
 });
 
@@ -466,7 +903,10 @@ $("back-to-claim").addEventListener("click", () => {
   $("claim-list").children[state.claimIndex]?.focus();
 });
 
+let latestImport = 0;
+
 $("demo").addEventListener("click", () => {
+  latestImport += 1;
   $("file-feedback").textContent = "";
   renderReport(demo);
   $("case-title").focus();
@@ -476,25 +916,70 @@ $("open-report").addEventListener("click", () => $("report-file").click());
 $("report-file").addEventListener("change", async (event) => {
   const file = event.target.files[0];
   if (!file) return;
+  const importId = ++latestImport;
+  $("release-form").hidden = true;
   const feedback = $("file-feedback");
   event.target.value = "";
   feedback.classList.remove("error");
   try {
     if (file.size > 50_000_000) throw new Error("Die Datei ist größer als 50 MB.");
+    const bytes = await file.arrayBuffer();
     let data;
     try {
-      data = JSON.parse(await file.text());
+      data = JSON.parse(new TextDecoder().decode(bytes));
     } catch {
       throw new Error("Die Datei enthält kein lesbares JSON.");
     }
-    renderReport(readReport(data));
+    const report = readReport(data);
+    if (report.privateReview && globalThis.crypto?.subtle) {
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      report.privateReview.digest = Array.from(new Uint8Array(digest), (value) =>
+        value.toString(16).padStart(2, "0")
+      ).join("");
+    }
+    if (importId !== latestImport) return;
+    renderReport(report);
     feedback.textContent = "Bericht geöffnet.";
     $("case-title").focus();
   } catch (error) {
+    if (importId !== latestImport) return;
     feedback.classList.add("error");
     feedback.textContent = error.message || "Der Bericht konnte nicht gelesen werden.";
     $("open-report").focus();
   }
+});
+
+function downloadJson(payload, filename) {
+  const blob = new Blob([JSON.stringify(payload, null, 2) + "\n"], { type: "application/json" });
+  const href = URL.createObjectURL(blob);
+  const link = element("a");
+  link.href = href;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
+$("release-form").addEventListener("input", () => {
+  $("save-release").disabled = !$("release-form").checkValidity() || !$("release-text").value.trim();
+});
+
+$("release-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const { privateReview } = state.report;
+  const statement = $("release-text").value.trim();
+  if ($("release-form").hidden || !privateReview?.digest || !statement ||
+      !$("release-form").checkValidity()) return;
+  const articleUrl = safeUrl(state.report.article?.url)?.href;
+  downloadJson({
+    format: "quellenlot-public-draft-v1",
+    review_sha256: privateReview.digest,
+    reviewed_at: new Date().toISOString(),
+    article_url: articleUrl || null,
+    text: statement,
+  }, "quellenlot-freigabeentwurf.json");
+  $("release-status").textContent = "Freigabeentwurf gespeichert. Die Veröffentlichung erfolgt separat.";
 });
 
 $("urls").addEventListener("input", () => {
@@ -523,15 +1008,7 @@ $("composer").addEventListener("submit", (event) => {
   const question = $("question").value.trim();
   const payload = { case_id: "artikel-" + Date.now(), article_url, comparison_urls };
   if (question) payload.question = question;
-  const blob = new Blob([JSON.stringify(payload, null, 2) + "\n"], { type: "application/json" });
-  const href = URL.createObjectURL(blob);
-  const link = element("a");
-  link.href = href;
-  link.download = "case.json";
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(href), 1000);
+  downloadJson(payload, "case.json");
   feedback.classList.remove("error");
   feedback.textContent = "case.json gespeichert. Lade hier anschließend den Bericht des lokalen Agenten.";
 });
