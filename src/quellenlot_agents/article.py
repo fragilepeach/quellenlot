@@ -133,12 +133,14 @@ async def _compare_extracted(
 ) -> ArticleReport:
     """Review pre-extracted claims against all selected source snapshots."""
     sources = case.sources
+    shared_wording = find_shared_wording(sources)
     comparisons: list[ClaimComparison] = []
     for index, (claim, quote) in enumerate(extracted or [], 1):
         review = await run_review(
             CaseInput(case_id=case.case_id, claim=claim, sources=sources),
             config,
             include_shared_wording=False,
+            shared_wording=shared_wording,
         )
         comparisons.append(
             ClaimComparison(
@@ -166,7 +168,7 @@ async def _compare_extracted(
         status=status,
         extraction_attempts=attempts,
         claims=comparisons,
-        shared_wording=find_shared_wording(sources),
+        shared_wording=shared_wording,
     )
 
 

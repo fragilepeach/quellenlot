@@ -533,6 +533,121 @@ class ArticleCliTests(unittest.TestCase):
         }
         claim = RunReport.model_validate_json(self._run(claim_case, _OllamaReplies()))
         self.assertEqual(claim.shared_wording, article.shared_wording)
+        self.assertEqual(claim.source_diff, article.claims[0].review.source_diff)
+
+    def test_source_diff_separates_shared_and_distinct_cited_evidence(self) -> None:
+        """Group a repeated release and show original reporting, qualification, and gaps."""
+        release = (
+            "Nach einer sechsmonatigen Sanierung kann die Bibliothek wieder Besucherinnen "
+            "und Besucher aus dem gesamten Landkreis zu den üblichen Zeiten empfangen."
+        )
+        reporting = "Eine Reporterin beobachtete bei der Eröffnung eine lange Schlange."
+        qualification = "Die Kinderabteilung bleibt wegen eines Wasserschadens noch geschlossen."
+        variant = release.replace("üblichen", "verkürzten")
+        mixed_quote = f"{release}\n{reporting}"
+        findings: dict[str, tuple[str, str, list[str]]] = {
+            "article": ("supports", "Die Mitteilung kündigt die Wiedereröffnung an.", [release]),
+            "comparison": (
+                "supports",
+                "Die Reporterin beobachtete die Eröffnung selbst.",
+                [release, reporting, mixed_quote, "Ein erfundenes Zitat."],
+            ),
+            "third": (
+                "qualifies",
+                "Die Öffnung gilt nur für Teile der Bibliothek und für kürzere Zeiten.",
+                [variant, qualification],
+            ),
+            "excerpt": ("omits", "Der kurze Auszug enthält keine Angaben zur Öffnung.", []),
+        }
+
+        def assess(claim: str, sources: list[dict[str, _Json]]) -> dict[str, _Json]:
+            result: list[_Json] = []
+            for source in sources:
+                source_id = cast("str", source["source_id"])
+                row: tuple[str, str, list[str]] = findings[source_id]
+                if claim == _SECOND_CLAIM:
+                    row = (
+                        ("supports", "Der Artikel bestätigt den freien Eintritt.", [_SECOND_CLAIM])
+                        if source_id == "article"
+                        else ("not_assessable", "Keine Aussage zum Eintritt.", [])
+                    )
+                relation, reasoning, quotes = row
+                result.append(
+                    {
+                        "source_id": source_id,
+                        "relation": relation,
+                        "reasoning": reasoning,
+                        "quotes": [
+                            {"source_id": source_id, "locator": "Absatz", "text": text}
+                            for text in quotes
+                        ],
+                    }
+                )
+            return {"summary": "Geprüft.", "open_questions": [], "findings": result}
+
+        original = {
+            **_ARTICLE,
+            "text": f"{_FIRST_CLAIM}\n{release}\n{_SECOND_CLAIM}\n{_SECOND_CLAIM}",
+        }
+        second: dict[str, _Json] = {
+            **_COMPARISON,
+            "text": mixed_quote,
+            "published_at": {"value": "2024-03-04"},
+            "updated_at": {"value": "2024-03-05"},
+        }
+        third = {**_COMPARISON, "source_id": "third", "text": f"{variant}\n{qualification}"}
+        excerpt = {
+            **_COMPARISON,
+            "source_id": "excerpt",
+            "text": "Auszug mit dem Namen der Bibliothek.",
+            "text_is_complete": False,
+        }
+        case: dict[str, _Json] = {
+            "case_id": "library-diff",
+            "article": original,
+            "comparison_sources": [second, third, excerpt],
+        }
+        with patch.object(_OllamaReplies, "_assess", new=staticmethod(assess)):
+            report = ArticleReport.model_validate_json(self._run(case, _OllamaReplies()))
+        comparison = report.claims[0].review.source_diff
+        first_row, second_row, third_row, excerpt_row = comparison.sources
+        self.assertIsNotNone(second_row.source.published_at)
+        self.assertIsNotNone(second_row.source.updated_at)
+        self.assertEqual(len(first_row.judgments), 5)
+        self.assertEqual(third_row.judgments[0].relation, "qualifies")
+        self.assertEqual(excerpt_row.judgments[0].relation, "not_assessable")
+        self.assertEqual(excerpt_row.judgments[0].evidence_ids, [])
+
+        evidence = {item.text: item for item in comparison.evidence}
+        self.assertEqual(set(evidence), {release, reporting, mixed_quote, variant, qualification})
+        repeated = evidence[release]
+        self.assertEqual(repeated.kind, "shared_wording")
+        self.assertEqual([item.source_id for item in repeated.citations], ["article", "comparison"])
+        self.assertEqual(first_row.judgments[0].evidence_ids, [repeated.evidence_id])
+        self.assertEqual(
+            second_row.judgments[0].evidence_ids,
+            [
+                repeated.evidence_id,
+                evidence[reporting].evidence_id,
+                evidence[mixed_quote].evidence_id,
+            ],
+        )
+        self.assertEqual(
+            third_row.judgments[0].evidence_ids,
+            [evidence[variant].evidence_id, evidence[qualification].evidence_id],
+        )
+        self.assertEqual(evidence[variant].kind, "source_specific")
+        self.assertTrue(evidence[variant].citations[0].shared_wording_match_indexes)
+        self.assertEqual(evidence[mixed_quote].kind, "source_specific")
+        self.assertTrue(evidence[mixed_quote].citations[0].shared_wording_match_indexes)
+        self.assertEqual(evidence[reporting].citations[0].shared_wording_match_indexes, [])
+
+        second_claim = report.claims[1].review.source_diff
+        self.assertEqual([item.text for item in second_claim.evidence], [_SECOND_CLAIM])
+        repeated_in_article = second_claim.evidence[0].citations[0]
+        self.assertIsNone(repeated_in_article.start)
+        self.assertIsNone(repeated_in_article.end)
+        self.assertEqual(repeated_in_article.shared_wording_match_indexes, [])
 
     def test_declared_dates_reach_models_and_report(self) -> None:
         """Keep publisher dates and capture time distinct across the full comparison."""
