@@ -18,6 +18,72 @@ permissions:
   contents: read
 
 jobs:
+  prune-merged-branches:
+    name: Remove verified merged branches
+    if: ${{ github.event_name == 'push' && github.repository == 'fragilepeach/quellenlot' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Delete the verified branch tips
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          # One-time branch cleanup. Every deletion is leased to its verified tip.
+          if [[ "${GITHUB_REPOSITORY:-}" == fragilepeach/quellenlot && "${GITHUB_REF:-}" == refs/heads/main ]]; then
+            remote_heads=$(git ls-remote --heads origin)
+            leases=()
+            deletions=()
+            while read -r expected ref; do
+              observed=$(awk -v ref="$ref" '$2 == ref { print $1 }' <<< "$remote_heads")
+              if [[ "$observed" == "$expected" ]]; then
+                leases+=("--force-with-lease=$ref:$expected")
+                deletions+=(":$ref")
+              elif [[ -n "$observed" ]]; then
+                echo "Skipped updated branch ${ref#refs/heads/}."
+              fi
+            done <<'VERIFIED_MERGED_REFS'
+            36b98789b88a4e4befec08c6a86c2fef628ef337 refs/heads/codex/approved-reader-preview
+            c61c2216e7992652bc5136e27b4936d3e02d2e7c refs/heads/codex/article-source-comparison
+            40a0ecf7cb7c8ea9ca43a267ffd3592e1a674f88 refs/heads/codex/article-source-dates
+            2ecba03fba50f775a5e3280f5da694e7df6adaf3 refs/heads/codex/automatic-source-discovery
+            651fe214921de687bdcdbbc1f34b26e1c0a415d6 refs/heads/codex/claim-comparison-gui
+            f0c4ac4ae97522aef9e78ba449675365fd2e8b46 refs/heads/codex/claim-source-diff
+            39404fc0879c1d8d4e5f0003c4170b72971e3a50 refs/heads/codex/claim-studies
+            d6d92e49bf50c1f154bc17eac8c80f2b72691cfe refs/heads/codex/document-reader-preview
+            a71ee7f755e4a6d59c54d783a17e7323081f08fe refs/heads/codex/editorial-assessment
+            ec7a15bf9e8d19b0c785c8dd86be2444e0c90cb3 refs/heads/codex/editorial-finding-evidence
+            1cc7e06f241fe8b08ea3ed6ad592a51372bc6f80 refs/heads/codex/grounded-article-summaries
+            bd34a0005049173315d44cd5975a9aeedb0761a6 refs/heads/codex/gui-provenance-prototype
+            0a8541e6f856740777f570f9c3e8d9001771b214 refs/heads/codex/integrate-review-workflow
+            2a0edfa95a20726fa60cfd2cf9c2fd1fbf0f3398 refs/heads/codex/interactive-evidence-graph
+            33ccd9437594d7f8cce1fc341e996f0775329d49 refs/heads/codex/local-browser-runs
+            09a47a1c8c14f06caf50ada6c19014ce7fe9315c refs/heads/codex/parliament-programmes
+            ae547d05037d331f82e55f9470e2288e694adc03 refs/heads/codex/persist-editorial-drafts
+            9f9fa2aecfded4262d0190a21c31cb831152d1bc refs/heads/codex/private-editorial-review
+            18543025f8c661c2cbdb4ed4700b38591ef90081 refs/heads/codex/quellenlot-multi-agent-python
+            60dc42bc0139a99ce84d224e93618cae19bd7048 refs/heads/codex/retro-dark-theme
+            9fd13c33603223d2adb10f1099abe9a889b7c3fa refs/heads/codex/saved-editorial-workflow
+            6e87f561734bfc959681328bf700a7aeeb9645aa refs/heads/codex/shared-wording
+            ee5539902e1539ec74c62bf679c4150e09afea43 refs/heads/codex/source-interests
+            2cfe71a45edf6f6c29ab05a72870f9590ad236e6 refs/heads/codex/source-provenance
+            4999487f59d21ff8a43935fbaf55ceaaf5ac2850 refs/heads/codex/strict-python-quality
+            db02e49ee001104891d8ab072c4955a916025195 refs/heads/codex/topic-trends
+            a056463b029ee0ca2caedcd4aa6ba539e4c6a003 refs/heads/codex/url-source-intake
+            cf9bdf9cb7ee67606eb2eaffb13ffa3694c18378 refs/heads/feat/retro-dark-theme
+            39c995c5f827ed46a60e47b88ecb454397629f00 refs/heads/codex/studies-mobile-preview
+          VERIFIED_MERGED_REFS
+            if (( ${#deletions[@]} )); then
+              git push --atomic "${leases[@]}" origin "${deletions[@]}"
+            fi
+          fi
+
   capture:
     name: Capture and validate GUI previews
     runs-on: ubuntu-24.04
