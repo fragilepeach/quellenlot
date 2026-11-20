@@ -189,11 +189,24 @@
         <div class="release-actions">
           <button class="primary-button" id="save-release" type="submit" disabled>Freigabeentwurf speichern</button>
           <button class="outline-button" id="approve-release" type="button" hidden disabled>Freigabe erteilen</button>
+          <button class="outline-button" id="preview-release" type="button" hidden disabled>Leservorschau öffnen</button>
           <button class="outline-button" id="export-release" type="button" hidden disabled>Freigegebenen Text exportieren</button>
         </div>
         <p id="release-status" class="file-feedback" role="status"></p>
       </form>
     </section>
   </main>
+
+  <dialog class="release-preview" id="release-preview" aria-labelledby="release-preview-title">
+    <div class="card-heading">
+      <h3 id="release-preview-title">Leservorschau</h3>
+      <form method="dialog"><button class="outline-button" type="submit" autofocus>Schließen</button></form>
+    </div>
+    <iframe id="release-preview-frame" title="Lesefassung der redaktionellen Einordnung" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
+    <div class="release-preview-actions">
+      <p id="release-preview-status" class="file-feedback" role="status"></p>
+      <button class="primary-button" id="download-preview" type="button">HTML herunterladen</button>
+    </div>
+  </dialog>
 </body>
 </html>
