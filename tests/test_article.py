@@ -66,6 +66,19 @@ def _html_response(body: str) -> httpx.Response:
     return httpx.Response(200, text=body, headers={"Content-Type": "text/html; charset=utf-8"})
 
 
+def _json_rows(value: _Json) -> list[dict[str, _Json]]:
+    if not isinstance(value, list):
+        msg = "Expected a list of JSON objects."
+        raise TypeError(msg)
+    rows: list[dict[str, _Json]] = []
+    for row in value:
+        if not isinstance(row, dict):
+            msg = "Expected a JSON object in the list."
+            raise TypeError(msg)
+        rows.append(row)
+    return rows
+
+
 class _Chat(TypedDict):
     messages: list[dict[str, str]]
 
@@ -83,10 +96,14 @@ class _OllamaReplies:
         *,
         bad_extraction: bool = False,
         failed_claim: str | None = None,
+        peer_challenge: bool = False,
+        summary: list[_Json] | None = None,
     ) -> None:
         self.claims = claims
         self.bad_extraction = bad_extraction
         self.failed_claim = failed_claim
+        self.peer_challenge = peer_challenge
+        self.summary = summary
         self.questions: list[str | None] = []
         self.article_texts: list[str] = []
         self.extraction_sources: list[dict[str, _Json]] = []
@@ -94,11 +111,15 @@ class _OllamaReplies:
         self.peer_review_sources: list[list[dict[str, _Json]]] = []
         self.reviewed_claims: list[str] = []
         self.interest_subjects: list[str] = []
+        self.editorial_tasks: list[dict[str, _Json]] = []
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         payload = cast("_Chat", json.loads(request.content))
         task = cast("dict[str, _Json]", json.loads(payload["messages"][1]["content"]))
-        if "publisher_subject" in task:
+        if "editorial_claims" in task:
+            self.editorial_tasks.append(task)
+            document = self.editorial_reply(task)
+        elif "publisher_subject" in task:
             subject = cast("str", task["publisher_subject"])
             self.interest_subjects.append(subject)
             evidence = task["evidence"]
@@ -147,6 +168,8 @@ class _OllamaReplies:
                     for claim in self.claims
                 ]
             }
+            if self.summary is not None:
+                document["summary"] = self.summary
         else:
             review_task = cast("_ReviewTask", task)
             claim = review_task["claim"]
@@ -165,12 +188,40 @@ class _OllamaReplies:
                     "reviewed_agent_id": target,
                     "summary": "Abgeglichen.",
                     "findings": [
-                        {"finding_index": index, "outcome": "agrees", "reasoning": "Belegt."}
+                        {
+                            "finding_index": index,
+                            "outcome": "challenges" if self.peer_challenge else "agrees",
+                            "reasoning": "Zeitraum prüfen." if self.peer_challenge else "Belegt.",
+                        }
                         for index in range(len(review_task["sources"]))
                     ],
                 }
             )
         return httpx.Response(200, json={"message": {"content": json.dumps(document)}})
+
+    @staticmethod
+    def editorial_reply(task: dict[str, _Json]) -> dict[str, _Json]:
+        """Generate an editorial reply for the selected claim passages.
+
+        Args:
+            task: Editorial prompt sent to the test provider.
+
+        Returns:
+            Model notes citing comparison evidence for each assigned claim.
+        """
+        claims = _json_rows(task["editorial_claims"])
+        notes: list[_Json] = []
+        for claim in claims:
+            evidence = _json_rows(claim["comparison_evidence"])
+            notes.append(
+                {
+                    "claim_id": claim["claim_id"],
+                    "evidence_ids": [evidence[0]["evidence_id"]],
+                    "assessment": "Die Angaben zur Öffnung weichen voneinander ab.",
+                    "next_check": "Den aktuellen Öffnungstermin bei der Stadt bestätigen.",
+                }
+            )
+        return {"claims": notes}
 
     @staticmethod
     def _assess(claim: str, sources: list[dict[str, _Json]]) -> dict[str, _Json]:
@@ -275,7 +326,7 @@ class ArticleCliTests(unittest.TestCase):
 
     def test_question_and_each_claim_get_a_source_comparison(self) -> None:
         """Exact citations remain linked to source versions and follow the input source order."""
-        replies = _OllamaReplies()
+        replies = _OllamaReplies(peer_challenge=True)
         case: dict[str, _Json] = {
             "case_id": "library",
             "article": _ARTICLE,
@@ -306,6 +357,64 @@ class ArticleCliTests(unittest.TestCase):
         omitted = second.source_comparison[1].judgments[0]
         self.assertEqual(omitted.relation, "omits")
         self.assertEqual(omitted.citations, [])
+        editorial = report.editorial
+        if editorial is None:
+            self.fail("Article review must include editorial coverage.")
+        self.assertEqual(editorial.status, "partial")
+        self.assertEqual(len(replies.editorial_tasks), 5)
+        self.assertEqual(replies.editorial_tasks[0]["question"], _QUESTION)
+        first_coverage, second_coverage = editorial.claims
+        self.assertEqual(first_coverage.unresolved_dissent_count, 10)
+        self.assertEqual(second_coverage.comparison_evidence_ids, [])
+        self.assertEqual(second_coverage.comparison_sources_without_quotes, ["comparison"])
+        tasks = _json_rows(replies.editorial_tasks[0]["editorial_claims"])
+        self.assertEqual(tasks[0]["dissent_count"], 10)
+        self.assertIn("Zeitraum prüfen.", str(tasks[0]["dissent_examples"]))
+        for assessment in editorial.assessments:
+            self.assertEqual(assessment.status, "succeeded")
+            self.assertEqual([note.claim_id for note in assessment.claims], ["claim-1"])
+            self.assertEqual(
+                assessment.claims[0].evidence_ids, first_coverage.evidence_shown_to_models
+            )
+
+    def test_editorial_rejects_duplicate_claims_and_citations_outside_assignment(self) -> None:
+        """Reject incomplete model coverage and claim-local citation errors in the final stage."""
+        replies = _OllamaReplies()
+        case: dict[str, _Json] = {
+            "case_id": "invalid-editorial",
+            "article": _ARTICLE,
+            "comparison_sources": [_COMPARISON],
+        }
+
+        def editorial(task: dict[str, _Json]) -> dict[str, _Json]:
+            document = _OllamaReplies.editorial_reply(task)
+            notes = _json_rows(document["claims"])
+            note = notes[0]
+            match len(replies.editorial_tasks):
+                case 1:
+                    return {"claims": []}
+                case 2:
+                    return {"claims": [note, note]}
+                case 3:
+                    note["evidence_ids"] = ["evidence-1"]
+                case 4:
+                    note["claim_id"] = "claim-2"
+                case 5:
+                    note["evidence_ids"] = ["evidence-999"]
+                case _:
+                    self.fail("Only the five configured models should be called.")
+            return document
+
+        with patch.object(replies, "editorial_reply", new=editorial):
+            report = ArticleReport.model_validate_json(self._run(case, replies))
+        self.assertEqual(report.status, "complete")
+        editorial_report = report.editorial
+        if editorial_report is None:
+            self.fail("Model failures must still yield an editorial report.")
+        self.assertEqual(editorial_report.status, "failed")
+        self.assertEqual([item.status for item in editorial_report.assessments], ["failed"] * 5)
+        self.assertEqual([item.claims for item in editorial_report.assessments], [[]] * 5)
+        self.assertEqual(editorial_report.claims[0].comparison_evidence_ids, ["evidence-2"])
 
     def test_article_only(self) -> None:
         """An article alone gets reviewed with no question or comparison sources."""
@@ -316,6 +425,38 @@ class ArticleCliTests(unittest.TestCase):
         self.assertIsNone(report.question)
         self.assertEqual(replies.questions, [None, None])
         self.assertEqual(len(report.claims[0].source_comparison), 1)
+        self.assertEqual(replies.editorial_tasks, [])
+        if report.editorial is not None:
+            self.assertEqual(report.editorial.status, "no_comparison_evidence")
+        self.assertEqual(report.article_summary, [])
+
+    def test_summary_links_to_verified_article_claims(self) -> None:
+        """Store exact claim IDs without making a separate summary request."""
+        text = "Laut Artikel ist der Eintritt kostenlos."
+        replies = _OllamaReplies(summary=[{"text": text, "claim_index": 2}])
+        case: dict[str, _Json] = {"case_id": "library", "article": _ARTICLE}
+        report = ArticleReport.model_validate_json(self._run(case, replies))
+        self.assertEqual([sentence.text for sentence in report.article_summary], [text])
+        self.assertEqual(report.article_summary[0].claim_id, report.claims[1].claim_id)
+        self.assertTrue(report.claims[1].article_quote.verified)
+        self.assertEqual(replies.questions, [None, None])
+
+    def test_invalid_summary_references_do_not_discard_claims(self) -> None:
+        """Reject unknown or repeated summary references while retaining verified claims."""
+        sentence: _Json = {"text": _FIRST_CLAIM, "claim_index": 1}
+        case: dict[str, _Json] = {"case_id": "library", "article": _ARTICLE}
+        summaries: tuple[list[_Json], ...] = (
+            [{"text": _FIRST_CLAIM, "claim_index": 3}],
+            [sentence, sentence],
+        )
+        for summary in summaries:
+            with self.subTest(summary=summary):
+                report = ArticleReport.model_validate_json(
+                    self._run(case, _OllamaReplies(summary=summary))
+                )
+                self.assertEqual(report.status, "complete")
+                self.assertEqual(len(report.claims), 2)
+                self.assertEqual(report.article_summary, [])
 
     def test_no_claims_and_extraction_failure_are_distinct(self) -> None:
         """An empty valid response skips review, while bad anchors exhaust the model pool."""
@@ -324,6 +465,8 @@ class ArticleCliTests(unittest.TestCase):
         empty_report = ArticleReport.model_validate_json(self._run(case, empty))
         self.assertEqual(empty_report.status, "no_claims")
         self.assertEqual(empty.reviewed_claims, [])
+        if empty_report.editorial is not None:
+            self.assertEqual(empty_report.editorial.status, "no_claims")
         bad = _OllamaReplies(bad_extraction=True)
         bad_report = ArticleReport.model_validate_json(self._run(case, bad, expected_exit=2))
         self.assertEqual(bad_report.status, "failed")
@@ -331,6 +474,8 @@ class ArticleCliTests(unittest.TestCase):
             [attempt.status for attempt in bad_report.extraction_attempts], ["failed"] * 5
         )
         self.assertEqual(bad.reviewed_claims, [])
+        if bad_report.editorial is not None:
+            self.assertEqual(bad_report.editorial.status, "failed")
 
     def test_one_failed_claim_keeps_the_other_comparison(self) -> None:
         """A failed claim review yields a partial report with both claim records."""
@@ -354,6 +499,7 @@ class ArticleCliTests(unittest.TestCase):
         self.assertEqual(report.claim, _FIRST_CLAIM)
         self.assertEqual(replies.questions, [])
         self.assertEqual(replies.reviewed_claims, [_FIRST_CLAIM] * 10)
+        self.assertEqual(replies.editorial_tasks, [])
 
     def test_public_urls_produce_traceable_comparisons(self) -> None:
         """Fetched HTML reaches Ollama as readable snapshots with their final URLs."""
@@ -397,6 +543,9 @@ class ArticleCliTests(unittest.TestCase):
         citation = comparison.judgments[0].citations[0]
         self.assertEqual(citation.version_id, comparison.source.version_id)
         self.assertEqual(citation.text, "Die Bibliothek öffnet am Dienstag.")
+        if report.review.editorial is None:
+            self.fail("URL review must include an editorial assessment.")
+        self.assertEqual(report.review.editorial.status, "complete")
 
     def test_failed_and_incomplete_comparisons_preserve_available_review(self) -> None:
         """Unavailable and restricted pages cannot yield false omission judgments."""
@@ -434,6 +583,10 @@ class ArticleCliTests(unittest.TestCase):
         self.assertEqual([row.source.source_id for row in source_rows], ["article", "comparison-2"])
         self.assertFalse(source_rows[1].source.text_is_complete)
         self.assertEqual(source_rows[1].judgments[0].relation, "not_assessable")
+        if report.review.editorial is None:
+            self.fail("Editorial coverage must retain URL retrieval gaps.")
+        self.assertEqual(report.review.editorial.retrieval_gaps, report.retrievals[1:])
+        self.assertEqual(report.review.editorial.incomplete_source_ids, ["article", "comparison-2"])
 
     def test_unavailable_original_writes_failure_without_model_calls(self) -> None:
         """An inaccessible original is reported without starting extraction or review."""
@@ -538,6 +691,8 @@ class ArticleCliTests(unittest.TestCase):
         self.assertEqual(report.discovery.candidates, [])
         self.assertEqual(len(report.review.sources), 1)
         self.assertEqual(report.review.status, "complete")
+        if report.review.editorial is not None:
+            self.assertTrue(report.review.editorial.discovery_incomplete)
 
     def test_shared_wording_is_reported_in_both_cli_modes(self) -> None:
         """Expose one shared-wording report while preserving distinct source findings."""
@@ -606,6 +761,9 @@ class ArticleCliTests(unittest.TestCase):
         self.assertEqual(finding.evidence.source_id, "imprint")
         self.assertTrue(finding.evidence.verified)
         self.assertIn("funding", source.unresolved_categories)
+        if report.editorial is not None:
+            self.assertEqual(report.editorial.interest_status, "complete")
+            self.assertEqual(report.editorial.interest_sources_with_findings, ["article"])
 
     def test_interest_search_fetches_evidence_for_original_article(self) -> None:
         """Discover affiliation evidence, retain its query, and report unavailable categories."""
@@ -785,8 +943,9 @@ class ArticleCliTests(unittest.TestCase):
             "article": original,
             "comparison_sources": [second, third, excerpt],
         }
+        replies = _OllamaReplies()
         with patch.object(_OllamaReplies, "_assess", new=staticmethod(assess)):
-            report = ArticleReport.model_validate_json(self._run(case, _OllamaReplies()))
+            report = ArticleReport.model_validate_json(self._run(case, replies))
         comparison = report.claims[0].review.source_diff
         first_row, second_row, third_row, excerpt_row = comparison.sources
         self.assertIsNotNone(second_row.source.published_at)
@@ -826,6 +985,15 @@ class ArticleCliTests(unittest.TestCase):
         self.assertIsNone(repeated_in_article.start)
         self.assertIsNone(repeated_in_article.end)
         self.assertEqual(repeated_in_article.shared_wording_match_indexes, [])
+        if report.editorial is None:
+            self.fail("The editorial report must identify which passages models received.")
+        self.assertEqual(len(report.editorial.claims[0].comparison_evidence_ids), 5)
+        self.assertEqual(len(report.editorial.claims[0].evidence_shown_to_models), 3)
+        tasks = _json_rows(replies.editorial_tasks[0]["editorial_claims"])
+        passages = _json_rows(tasks[0]["comparison_evidence"])
+        by_id = {cast("str", passage["evidence_id"]): passage for passage in passages}
+        self.assertTrue(by_id[repeated.evidence_id]["shared_wording"])
+        self.assertFalse(by_id[evidence[reporting].evidence_id]["shared_wording"])
 
     def test_declared_dates_reach_models_and_report(self) -> None:
         """Keep publisher dates and capture time distinct across the full comparison."""
@@ -867,6 +1035,12 @@ class ArticleCliTests(unittest.TestCase):
         for sources in [*replies.assessment_sources, *replies.peer_review_sources]:
             self.assertEqual(sources[0]["published_at"], publication)
             self.assertEqual(sources[1]["updated_at"], update)
+        task = replies.editorial_tasks[0]
+        self.assertEqual(task["original_published_at"], publication["value"])
+        entries = _json_rows(task["editorial_claims"])
+        evidence = _json_rows(entries[0]["comparison_evidence"])
+        citations = _json_rows(evidence[0]["citations"])
+        self.assertEqual(citations[0]["updated_at"], update["value"])
 
     def test_manual_urls_take_precedence_over_configured_discovery(self) -> None:
         """Review explicitly selected sources without sending search queries."""

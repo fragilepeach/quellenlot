@@ -66,10 +66,10 @@ Save the form as `case.json`, then run the existing CLI from an environment with
 quellenlot-agents --config models.toml --input case.json --output report.json
 ```
 
-Open `report.json` with **Bericht öffnen**. Both article report shapes are supported, including partial runs, failed URL retrieval and runs with no extractable claims. The current evidence section shows model-level observations and mechanically verified passages from the report. A plain report does not contain a synthesized article summary or verified source-to-source links, so those slots state that the data is unavailable. Model agreement is never rendered as a truth rating.
+Open `report.json` with **Bericht öffnen**. Both article report shapes are supported, including partial runs, failed URL retrieval and runs with no extractable claims. The current evidence section shows model-level observations and mechanically verified passages from the report. New article reports can include a model-written summary linked to the article’s original wording. Select a sentence to open its claim and article quote. Older reports still open with the extracted claims. Automatic source-to-source links require provenance in the report. Model agreement is never rendered as a truth rating.
 
 ## Usability test before backend integration
 
 Give unfamiliar readers the Tankrabatt case and ask them to find the passage that qualifies the claim of complete pass-through, identify whether the TU announcement and the Freitas–Syga study are independent, and explain the difference between publication and update dates. Observe where they click and ask them to explain each relationship in their own words. Repeat the first two tasks on a small mobile viewport and using only the keyboard.
 
-The next integration slice is one local run from the composer to this view using the ready-made CLI contract, with durable case and snapshot IDs, a cited article summary, and explicit run states for capture, partial results and failure. Evaluate citation coverage and whether each citation supports its claim separately.
+The next integration slice is one local run from the composer to this view using the ready-made CLI contract, with durable case and snapshot IDs and explicit run states for capture, partial results and failure. Evaluate citation coverage and whether each citation supports its claim separately.

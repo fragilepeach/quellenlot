@@ -188,10 +188,20 @@ class DraftArticleClaim(ContractModel):
     quote: DraftQuote
 
 
+class DraftArticleSummarySentence(ContractModel):
+    """One summary sentence and the one-based index of its extracted claim."""
+
+    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+    claim_index: int = Field(ge=1, le=5)
+
+
 class DraftArticleExtraction(ContractModel):
-    """The checkable claims found in the original article."""
+    """The article's checkable claims and optional model-drafted summary."""
 
     claims: list[DraftArticleClaim] = Field(max_length=5)
+    summary: list[DraftArticleSummarySentence] = Field(
+        default_factory=list[DraftArticleSummarySentence], max_length=3
+    )
 
 
 class DraftFinding(ContractModel):
@@ -532,6 +542,72 @@ class InterestReport(ContractModel):
     )
 
 
+class EditorialClaimCoverage(ContractModel):
+    """Show available comparison evidence and unresolved issues for one claim."""
+
+    claim_id: str
+    review_status: RecordStatus
+    comparison_evidence_ids: list[str]
+    evidence_shown_to_models: list[str]
+    comparison_sources_without_quotes: list[str]
+    unresolved_dissent_count: int
+
+
+class EditorialClaimNote(ContractModel):
+    """One model's editorial reading of a claim and the passages it uses."""
+
+    claim_id: str
+    evidence_ids: list[str] = Field(min_length=1, max_length=3)
+    assessment: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=650)
+    ]
+    next_check: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+        | None
+    )
+
+
+class DraftEditorialAssessment(ContractModel):
+    """A model's structured response for the claims assigned to it."""
+
+    claims: list[EditorialClaimNote] = Field(min_length=1, max_length=5)
+
+
+class EditorialAssessment(ContractModel):
+    """One local model's final notes or its recorded failure."""
+
+    agent_id: str
+    model: str
+    status: Literal["succeeded", "failed"]
+    claims: list[EditorialClaimNote]
+    error_code: str | None = None
+
+
+class EditorialReport(ContractModel):
+    """An evidence inventory and independent notes for human review."""
+
+    status: RecordStatus | Literal["no_claims", "no_comparison_evidence"]
+    claims: list[EditorialClaimCoverage]
+    incomplete_source_ids: list[str]
+    retrieval_gaps: list[SourceRetrieval]
+    discovery_incomplete: bool
+    interest_status: Literal["complete", "partial", "no_evidence"] | None
+    interest_sources_with_findings: list[str]
+    assessments: list[EditorialAssessment]
+    limitation: str = (
+        "The notes use selected excerpts from the available source versions. "
+        "Quote matching verifies text occurrence only. A human editor must verify "
+        "the interpretation, source independence, and any publication decision."
+    )
+
+
+class ArticleSummarySentence(ContractModel):
+    """One model-written summary sentence linked to a verified article claim."""
+
+    text: str
+    claim_id: str
+
+
 class ArticleReport(ContractModel):
     """The claim-by-claim comparison of an original article and supplied sources."""
 
@@ -541,9 +617,13 @@ class ArticleReport(ContractModel):
     sources: list[SourceSnapshot]
     status: RecordStatus | Literal["no_claims"]
     extraction_attempts: list[ExtractionAttempt]
+    article_summary: list[ArticleSummarySentence] = Field(
+        default_factory=list[ArticleSummarySentence]
+    )
     claims: list[ClaimComparison]
     shared_wording: SharedWordingReport = Field(default_factory=SharedWordingReport)
     interests: InterestReport | None = None
+    editorial: EditorialReport | None = None
 
 
 class SearchQuery(ContractModel):

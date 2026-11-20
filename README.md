@@ -22,6 +22,7 @@ Open `web/index.html` to explore the Tankrabatt case. Select a highlighted claim
 1. Supply an explicit claim or an original article. In article mode, the first model that returns a valid extraction supplies up to five distinct claims anchored to exact quotes. An optional question guides claim selection.
 2. Five distinct configured local models independently assess each claim against the supplied source snapshots. Successful models cross-review another model's assessment.
 3. A deterministic report preserves disagreements, missing model responses, source versions, and quote-verification results. It does not turn model votes into a truth score.
+4. In article mode, five local models independently prepare editorial notes for claims that have verified comparison excerpts. The report also lists claims the notes could not cover.
 
 Models run sequentially. Each Ollama request sets `keep_alive=0` so Ollama unloads that model after the response; only one model needs to be resident at a time. The context is capped at 8,192 tokens by default and can be raised to 16,384. CPU inference is supported, but generation on a laptop CPU can be slow. The largest example model download is about 18 GB; its context cache and the OS also use RAM, so actual peak memory depends on the machine and request length.
 
@@ -97,6 +98,8 @@ Use the same CLI command with JSON containing an `article` instead of an explici
 }
 ```
 
+Article reports can include an `article_summary` of up to three sentences drafted during claim extraction. Each sentence carries the ID of a distinct claim with a verified article quote. This is a summary of what the article says. A verified quote establishes that the passage appears in the article snapshot. The comparison and review results give the evidence assessment.
+
 Each claim entry contains the original quote, a source comparison in input order, and the detailed review. The comparison groups judgments by source and links exact-match citations to the supplied URL and snapshot version. A judgment may have no exact-match citation. Incomplete snapshots are marked unassessable when a model would otherwise report an omission.
 
 The detailed review holds the claim text, model disagreements, and peer review records. A peer review is successful only when it covers every assigned finding exactly once. If extraction finds no claims, the article report has status `no_claims`. An article run can make up to ten model calls per extracted claim after extraction. Keep source snapshots short enough for the configured context length.
@@ -160,6 +163,14 @@ Set `check_interests = true` in the top-level `models.toml` configuration to run
 Article inputs may also supply an `interest_evidence` list with `target_source_id` and a full `source` snapshot. URL inputs accept `interest_urls`, each with a `target_source_id` and `url`. For URL cases, use `article` for the original or an ID such as `comparison-1` for a supplied comparison URL. Explicit interest evidence is used in place of automatic discovery for that source.
 
 The `interests` section of the article report records source metadata, retrieved evidence versions, search attempts, and each model's findings about ownership, funding, author affiliations, and political affiliations. Every reported relationship must cite an exact passage in an evidence snapshot that names both parties. Each model and source also lists categories that remain unresolved. A model failure remains visible. An exact quote match establishes that the text appears in the captured evidence. The reviewer still needs to verify the relationship and its editorial significance.
+
+### Final editorial assessment
+
+Article cases include an `editorial` section. For each claim it lists the verified comparison evidence IDs, sources without verified quotes, the underlying review status, and the number of unresolved disagreements. It links to the separate interests report by source ID and records incomplete snapshots and URL retrieval or discovery gaps.
+
+When at least one claim has verified comparison excerpts, each of the five models receives up to three passages per eligible claim, with preference for covering conflicting, qualifying, and supporting judgments. The input marks shared wording, clipped excerpts, dates, and examples of unresolved dissent. Each model returns one note per eligible claim with evidence references and a follow-up check where warranted. A missing claim, duplicate claim, or citation outside that claim's assigned excerpts invalidates the model's entire response. The full source diff retains every verified passage and both the model analyses and peer reviews.
+
+The editorial status describes assessment coverage. It is `complete` when every claim has comparison evidence, all five notes are available, and the earlier review, search, and retrieval stages finished without reported failures. An article with no verified comparison excerpt gets `no_comparison_evidence` and skips the additional model calls. The notes ask a human editor to verify interpretations and source independence before making any publication decision.
 
 ## Development checks
 

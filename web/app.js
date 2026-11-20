@@ -324,6 +324,23 @@ function normalizedEvidence(comparisons, originalId) {
     }));
 }
 
+function normalizedSummary(items, claims) {
+  if (!Array.isArray(items) || !items.length || items.length > 3) return [];
+  const summary = [];
+  const used = new Set();
+  for (const item of items) {
+    if (typeof item?.text !== "string" || !item.text.trim() || typeof item.claim_id !== "string") {
+      return [];
+    }
+    const claim = claims.findIndex(({ id, quote }) => id === item.claim_id && quote);
+    if (claim < 0 || used.has(claim)) return [];
+    if (summary.length) summary.push(" ");
+    summary.push({ claim, text: item.text.trim() });
+    used.add(claim);
+  }
+  return summary;
+}
+
 function readReport(data) {
   const retrievalReport = Array.isArray(data?.retrievals);
   const report = retrievalReport ? data.review : data;
@@ -350,9 +367,11 @@ function readReport(data) {
     }
     const quote = claim.article_quote;
     return {
+      id: claim.claim_id,
       text: claim.review.claim,
       status: claim.review.status === "complete" ? "Modellbefunde verfügbar" : "Modellprüfung unvollständig",
-      quote: quote?.verified === true && article && quote.source_id === article.source_id &&
+      quote: quote?.verified === true && typeof quote.text === "string" && article &&
+        quote.source_id === article.source_id &&
         quote.version_id === article.version_id ? quote.text : null,
       evidence: normalizedEvidence(claim.source_comparison, report.article_source_id),
     };
@@ -360,6 +379,7 @@ function readReport(data) {
   const failed = data.status === "failed" || report.status === "failed";
   const partial = data.status === "partial" || report.status === "partial";
   const runStatus = failed ? " · Analyse fehlgeschlagen" : partial ? " · Teilbericht" : "";
+  const summary = normalizedSummary(report.article_summary, claims);
   const empty = failed
     ? "Die Analyse konnte keine Aussagen ermitteln, weil die Extraktion fehlgeschlagen ist."
     : "Der Bericht enthält keine prüfbaren Aussagen.";
@@ -368,7 +388,12 @@ function readReport(data) {
     title: article?.title || "Artikelprüfung",
     question: report.question,
     article,
-    summary: ["Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung."],
+    summary: summary.length
+      ? summary
+      : ["Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung."],
+    summaryNote: summary.length
+      ? "KI-Zusammenfassung des Artikels. Jeder Satz führt zu einer Aussage mit Originalzitat."
+      : "",
     claims,
     empty: claims.length ? "" : empty,
   };
@@ -381,6 +406,9 @@ $("workspace").addEventListener("click", (event) => {
   if (index !== undefined) {
     event.preventDefault();
     selectClaim(Number(index));
+    if (state.report.article && control.classList.contains("highlight")) {
+      $("original-quote").closest("details").open = true;
+    }
     if (matchMedia("(max-width: 820px)").matches) {
       $("evidence-heading").focus();
     } else {
