@@ -154,6 +154,10 @@ function renderReport(report) {
   $("empty-report").textContent = report.empty || "";
   $("empty-report").hidden = !report.empty;
   $("workspace").hidden = Boolean(report.empty);
+  const emptyProvenance = $("provenance-without-claims");
+  emptyProvenance.replaceChildren();
+  if (report.empty) renderSourceProvenance(report.provenance, emptyProvenance);
+  emptyProvenance.hidden = !emptyProvenance.hasChildNodes();
   $("summary-text").replaceChildren(...report.summary.map((part) => {
     if (typeof part === "string") return document.createTextNode(part);
     const control = element("a", "highlight", part.text);
@@ -294,6 +298,67 @@ function renderGraph(claim, number) {
   $("graph-note").textContent = hasCitation
     ? state.report.graphNote
     : "Für diese Aussage sind keine Verweise zwischen den Quellen dokumentiert.";
+  renderSourceProvenance(state.report.provenance, $("graph"));
+}
+
+function renderSourceProvenance(provenance, container) {
+  if (!provenance) return;
+  const { groups, limited } = provenance;
+  if (!groups.length && !limited) return;
+  const section = element("section", "source-provenance");
+  section.append(element("h3", "", "Verweise in den Artikeln"));
+  const targets = element("ul", "provenance-targets");
+  for (const { target, incoming } of groups) {
+    const item = element("li");
+    item.append(sourceLink(target, null, target.name) || element("strong", "", target.name));
+    const count = new Set(incoming.map(({ source }) => source.id)).size;
+    if (count > 1) item.append(element("p", "graph-note", `${count} Quellen verlinken dieses Ziel.`));
+    if (target.status !== "captured") {
+      const status = target.status === "partial" ? "Teilweise erfasst" : "Nicht abrufbar";
+      item.append(element("p", "graph-note", status + (target.detail ? ` · ${target.detail}` : "")));
+    }
+    if (target.captured) item.append(sourceMetadata(target));
+    const links = element("ul", "provenance-links");
+    for (const { source, anchor } of incoming) {
+      const row = element("li");
+      const label = `${source.name} · „${anchor}“`;
+      row.append(sourceLink(source, anchor, label) || element("span", "", label));
+      links.append(row);
+    }
+    item.append(links);
+    targets.append(item);
+  }
+  section.append(targets);
+  if (limited) section.append(element("p", "graph-note", "Die Verfolgung der Links war begrenzt."));
+  container.append(section);
+}
+
+function readSourceProvenance(data) {
+  if (!Array.isArray(data.provenance?.citations)) return null;
+  const retrievals = new Map(data.retrievals.map((item) => [item.source_id, item]));
+  const groups = new Map();
+  const asSource = (item) => ({
+    id: item.source_id,
+    name: item.snapshot?.title || safeUrl(item.requested_url)?.hostname || item.source_id,
+    url: item.snapshot?.url || item.requested_url,
+    published: item.snapshot?.published_at?.value,
+    updated: item.snapshot?.updated_at?.value,
+    captured: item.snapshot?.captured_at,
+    version: item.snapshot?.version_id,
+    status: item.status,
+    detail: item.detail,
+  });
+  for (const citation of data.provenance.citations) {
+    const from = retrievals.get(citation?.citing_source_id);
+    const to = retrievals.get(citation?.cited_source_id);
+    const anchor = citation?.link?.anchor;
+    if (!from || !to || from === to || !anchor || typeof anchor !== "string" ||
+        !from.snapshot || from.snapshot.version_id !== citation.citing_version_id ||
+        typeof from.snapshot.text !== "string" || !from.snapshot.text.includes(anchor)) continue;
+    if (!groups.has(to.source_id)) groups.set(to.source_id, { target: asSource(to), incoming: [] });
+    groups.get(to.source_id).incoming.push({ source: asSource(from), anchor });
+  }
+  return { groups: [...groups.values()], limited: data.provenance.limited === true };
 }
 
 function normalizedEvidence(comparisons, originalId) {
@@ -370,6 +435,7 @@ function readReport(data) {
     article,
     summary: ["Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung."],
     claims,
+    provenance: retrievalReport ? readSourceProvenance(data) : null,
     empty: claims.length ? "" : empty,
   };
 }
@@ -414,7 +480,7 @@ $("report-file").addEventListener("change", async (event) => {
   event.target.value = "";
   feedback.classList.remove("error");
   try {
-    if (file.size > 5_000_000) throw new Error("Die Datei ist größer als 5 MB.");
+    if (file.size > 50_000_000) throw new Error("Die Datei ist größer als 50 MB.");
     let data;
     try {
       data = JSON.parse(await file.text());

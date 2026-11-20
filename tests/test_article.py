@@ -409,6 +409,82 @@ class ArticleCliTests(unittest.TestCase):
         self.assertIsNone(report.review)
         self.assertEqual(replies.questions, [])
 
+    def test_shared_upstream_sources_keep_snapshots_and_explicit_edges(self) -> None:
+        """Follow visible links through redirects, retain failures, and bound cycles."""
+        replies = _OllamaReplies(claims=(_FIRST_CLAIM,))
+        requests: list[str] = []
+
+        def web(request: httpx.Request) -> httpx.Response:
+            path = request.url.path
+            requests.append(path)
+            if path == "/link":
+                return _html_response(
+                    '<article><nav><a href="/navigation">Navigation</a></nav>'
+                    f'<p>{_FIRST_CLAIM}</p><p><a href="/redirect-study">Die <b>Studie</b></a>'
+                    ' und <a href="#absatz">Absatz</a>.</p></article>'
+                )
+            if path == "/library":
+                return _html_response(
+                    "<article><p>Die Bibliothek öffnet am Dienstag.</p>"
+                    '<p><a href="https://news.example.test/study?utm_source=city#table">'
+                    "Offizielle Auswertung</a> und "
+                    '<a href="https://news.example.test/file-link">PDF-Anhang</a></p></article>'
+                )
+            if path == "/redirect-study":
+                return httpx.Response(302, headers={"Location": "/study"})
+            if path == "/study":
+                return _html_response(
+                    '<meta property="article:published_time" content="2026-11-01">'
+                    '<meta property="article:modified_time" content="2026-11-05">'
+                    '<article><p>Die Studie verwendet die <a href="/data">Rohdaten</a>.'
+                    ' <a href="/link">Rückverweis</a>. <a href="/blocked">Anhang</a>.</p></article>'
+                )
+            if path == "/blocked":
+                return httpx.Response(403)
+            if path == "/file-link":
+                return httpx.Response(302, headers={"Location": "/blocked"})
+            if path == "/data":
+                return _html_response('<article><p><a href="/beyond">Archiv</a>.</p></article>')
+            msg = f"Unexpected request for {path}"
+            raise AssertionError(msg)
+
+        case: dict[str, _Json] = {
+            "case_id": "library-provenance",
+            "article_url": _ARTICLE_URL,
+            "comparison_urls": [_COMPARISON_URL],
+        }
+        report = ArticleUrlReport.model_validate_json(self._run(case, replies, web=web))
+        if report.provenance is None or report.review is None:
+            self.fail("The URL run must record provenance and the claim review.")
+        self.assertEqual(report.status, "partial")
+        self.assertTrue(report.provenance.limited)
+        self.assertEqual(requests.count("/link"), 1)
+        snapshots = {record.source_id: record for record in report.retrievals}
+        edges = {
+            (edge.citing_source_id, edge.link.anchor): snapshots[edge.cited_source_id]
+            for edge in report.provenance.citations
+        }
+        study = edges[("article", "Die Studie")]
+        self.assertIs(study, edges[("comparison-1", "Offizielle Auswertung")])
+        self.assertEqual(edges[(study.source_id, "Rückverweis")].source_id, "article")
+        self.assertEqual(edges[(study.source_id, "Anhang")].status, "failed")
+        self.assertIs(edges[(study.source_id, "Anhang")], edges[("comparison-1", "PDF-Anhang")])
+        self.assertIn("HTTP 403", edges[(study.source_id, "Anhang")].detail)
+        self.assertIsNotNone(edges[(study.source_id, "Anhang")].retrieved_at)
+        self.assertEqual(edges[(study.source_id, "Rohdaten")].status, "captured")
+        original = snapshots["article"].snapshot
+        if original is None or study.snapshot is None:
+            self.fail("Successful retrieval records must include the snapshot text.")
+        dates = study.snapshot.model_dump(mode="json")
+        self.assertEqual(dates["published_at"], {"value": "2026-11-01", "provenance": "open_graph"})
+        self.assertEqual(dates["updated_at"], {"value": "2026-11-05", "provenance": "open_graph"})
+        self.assertEqual(study.retrieved_at, study.snapshot.captured_at)
+        self.assertEqual(len(report.review.sources), 2)
+        quote = report.review.claims[0].article_quote
+        self.assertEqual(quote.version_id, original.version_id)
+        self.assertEqual(quote.start, 0)
+        self.assertEqual(original.text[quote.start : quote.end], quote.text)
+
     def test_automatic_discovery_prioritizes_and_deduplicates_comparisons(self) -> None:
         """Search from accepted claims, use source retrieval, and retain selection decisions."""
         requested_paths: list[str] = []
@@ -441,7 +517,13 @@ class ArticleCliTests(unittest.TestCase):
             if request.url.path == "/blocked":
                 return httpx.Response(403)
             if request.url.path in {"/official", "/mirror"}:
-                return _html_response(_COMPARISON_HTML)
+                return _html_response(
+                    _COMPARISON_HTML.replace(
+                        "</article>", '<p><a href="/archive">Amtsblatt</a></p></article>'
+                    )
+                )
+            if request.url.path == "/archive":
+                return _html_response("<article><p>Amtliche Bekanntmachung</p></article>")
             return _html_response("<article><p>Die Bibliothek öffnet am Mittwoch.</p></article>")
 
         case = {"case_id": "find-library", "article_url": _ARTICLE_URL, "question": _QUESTION}
@@ -450,7 +532,9 @@ class ArticleCliTests(unittest.TestCase):
         )
         self.assertEqual(queries, [f"{_QUESTION} {_FIRST_CLAIM}", _FIRST_CLAIM])
         self.assertEqual(replies.questions, [_QUESTION, _QUESTION])
-        self.assertEqual(requested_paths, ["/link", "/blocked", "/official", "/mirror", "/general"])
+        self.assertEqual(
+            requested_paths, ["/link", "/blocked", "/official", "/mirror", "/general", "/archive"]
+        )
         self.assertEqual(report.status, "partial")
         if report.discovery is None or report.review is None:
             self.fail("The report must include discovery and claim comparison.")
@@ -467,7 +551,14 @@ class ArticleCliTests(unittest.TestCase):
                 "comparison-2",
                 "comparison-3",
                 "comparison-4",
+                "citation-1",
             ],
+        )
+        if report.provenance is None:
+            self.fail("Captured copies must retain links even if omitted from the model input.")
+        self.assertEqual(
+            [(edge.citing_source_id, edge.cited_source_id) for edge in report.provenance.citations],
+            [("comparison-2", "citation-1"), ("comparison-3", "citation-1")],
         )
         comparison = report.review.claims[0].source_comparison
         self.assertEqual(

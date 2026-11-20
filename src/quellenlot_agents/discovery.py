@@ -16,12 +16,11 @@ from quellenlot_agents.models import (
     SourceInput,
     SourceRetrieval,
 )
-from quellenlot_agents.source_capture import capture_source
+from quellenlot_agents.source_capture import capture_source, url_key
 
 _MAX_RESPONSE_BYTES: Final = 1024 * 1024
 _RESULTS_PER_QUERY: Final = 20
 _PRIORITY_DOMAINS: Final = ("bund.de", "bundestag.de", "destatis.de", "europa.eu", "gov", "gov.uk")
-_TRACKING_PARAMETERS: Final = frozenset({"fbclid", "gclid", "msclkid"})
 
 
 class _SearchError(RuntimeError):
@@ -100,18 +99,6 @@ def _publisher_priority(url: AnyHttpUrl) -> bool:
     return any(host == domain or host.endswith(f".{domain}") for domain in _PRIORITY_DOMAINS)
 
 
-def _url_key(url: AnyHttpUrl) -> str:
-    """Compare URLs without fragments or common tracking parameters."""
-    parsed = httpx.URL(str(url))
-    params = tuple(
-        (key, value)
-        for key, value in parsed.params.multi_items()
-        if not key.casefold().startswith("utm_") and key.casefold() not in _TRACKING_PARAMETERS
-    )
-    query = str(httpx.QueryParams(params)).encode("ascii") if params else None
-    return str(parsed.copy_with(fragment=None, query=query))
-
-
 async def _search_candidates(
     config: SearchConfig,
     queries: list[str],
@@ -165,16 +152,16 @@ async def discover_sources(
         Included sources, their retrieval attempts, and the search audit trail.
     """
     queries, urls = await _search_candidates(config, _queries(claims, question))
-    included_urls = {_url_key(requested_url)}
+    included_urls = {url_key(requested_url)}
     if original.url is not None:
-        included_urls.add(_url_key(original.url))
+        included_urls.add(url_key(original.url))
     attempted_urls = set(included_urls)
     hashes = {original.content_sha256}
     sources: list[SourceInput] = []
     retrievals: list[SourceRetrieval] = []
     candidates: list[DiscoveredSource] = []
     for url in urls:
-        key = _url_key(url)
+        key = url_key(url)
         if key in attempted_urls:
             continue
         attempted_urls.add(key)
@@ -184,7 +171,7 @@ async def discover_sources(
         if source is None:
             status = "unavailable"
         else:
-            final_key = _url_key(retrieval.final_url) if retrieval.final_url is not None else key
+            final_key = url_key(retrieval.final_url) if retrieval.final_url is not None else key
             digest = source.content_sha256
             if final_key in included_urls or digest in hashes:
                 status = "duplicate"
