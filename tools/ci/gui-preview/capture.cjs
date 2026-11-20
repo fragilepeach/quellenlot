@@ -407,6 +407,26 @@ async function checkClaimDiff(browser) {
     article_quote: { ...passage(original, release), verified: true },
     review: {
       claim: "Die Bibliothek hat wieder regulär geöffnet.", status: "complete",
+      sources,
+      unresolved_dissent: ["Öffnungszeiten bleiben umstritten."],
+      analyses: [
+        { agent_id: "eins", model: "modell-eins", status: "succeeded", summary: "Die Mitteilung nennt reguläre Zeiten.",
+          findings: [{ source_id: news.source_id, version_id: "v1", relation: "qualifies", reasoning: "Die Zeitung nennt kürzere Zeiten." }] },
+        { agent_id: "zwei", model: "modell-zwei", status: "succeeded", findings: [
+          { source_id: news.source_id, version_id: "v1", relation: "contradicts", reasoning: "Die Zeiten weichen ab." },
+        ] },
+      ],
+      reviews: [
+        { reviewer_agent_id: "zwei", reviewed_agent_id: "eins", status: "succeeded", findings: [{
+          finding_index: 0, outcome: "challenges", reasoning: "Die Änderung betrifft alle Öffnungstage.",
+          quote: { ...passage(news, revised), verified: true },
+        }] },
+        { reviewer_agent_id: "eins", reviewed_agent_id: "zwei", status: "succeeded", findings: [{
+          finding_index: 0, outcome: "unclear", reasoning: "Die Gültigkeit ist offen.",
+          quote: { ...passage({ ...news, version_id: "old" }, "Falsche Belegversion"), verified: true },
+        }] },
+        { reviewer_agent_id: "drei", reviewed_agent_id: "eins", status: "failed", findings: [] },
+      ],
       source_diff: {
         sources: [
           { source: original, judgments: [judgment("eins", "supports", "common")] },
@@ -487,6 +507,19 @@ async function checkClaimDiff(browser) {
       await names.first().waitFor();
       await page.locator(".source-provenance > summary").click();
       await page.locator(".source-provenance").getByText("2 Quellen verlinken dieses Ziel.").waitFor();
+      const plenum = page.locator("#claim-plenum");
+      await plenum.locator("summary").click();
+      await plenum.getByText("zwei prüft eins", { exact: true }).waitFor();
+      await plenum.getByText("Die Zeitung nennt kürzere Zeiten.", { exact: true }).waitFor();
+      await plenum.getByText("Die Änderung betrifft alle Öffnungstage.", { exact: true }).waitFor();
+      await plenum.getByText("Öffnungszeiten bleiben umstritten.", { exact: true }).waitFor();
+      await plenum.getByText("Gegenprüfung fehlgeschlagen.", { exact: true }).waitFor();
+      assert.deepEqual(await plenum.locator("blockquote").allTextContents(), [revised]);
+      const reviewLink = new URL(await plenum.getByRole("link", { name: "Beleg öffnen" }).getAttribute("href"));
+      assert.equal(reviewLink.origin + reviewLink.pathname, news.url);
+      assert.equal(decodeURIComponent(reviewLink.hash), "#:~:text=" + revised);
+      if (width === 1280) await plenum.screenshot({ path: join(output, "plenum.png") });
+      await plenum.locator("summary").click();
       const privateReview = page.locator("#private-review");
       await privateReview.getByText(first.review.claim, { exact: true }).click();
       await privateReview.getByText("In der Schlussprüfung umstritten oder unklar.").waitFor();
@@ -527,6 +560,7 @@ async function checkClaimDiff(browser) {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
       await page.locator("#claim-list button").nth(1).click();
       assert.equal(await matches.count(), 0);
+      assert.equal(await plenum.isVisible(), false);
       assert.equal(await detail.locator("blockquote").textContent(), `„${legacyQuote}“`);
       assert.deepEqual(errors, []);
     } finally {
@@ -868,25 +902,30 @@ async function checkParliament(browser) {
 
 async function checkTopicTrends(browser) {
   const origin = "http://127.0.0.1:8765";
+  const date = (daysAgo) => new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
+  const [start, gap, neighbor, peak, after, end] = [16, 15, 14, 13, 12, 11].map(date);
+  const lead = { title: "Bericht aus dem Suchfenster", url: "https://example.org/zeitung", indexed_date: after };
   const news = {
     label: "Tankrabatt",
     source_url: "https://api.gdeltproject.org/api/v2/doc/doc?query=Tankrabatt",
     points: [
-      { date: "2026-11-04", value: 0 },
-      { date: "2026-11-06", value: 0.12 },
-      { date: "2026-11-07", value: 0.04 },
+      { date: start, value: 0 },
+      { date: neighbor, value: 0.02 },
+      { date: peak, value: 0.12 },
+      { date: after, value: 0.04 },
     ],
   };
   const publication = {
     source_id: "article", title: "Beispielbericht", url: "https://example.org/artikel",
-    published_at: { value: "2026-11-04" },
+    published_at: { value: start },
   };
-  const csv = "Kategorie: Alle Kategorien\n\nTag,Tankrabatt: (Deutschland)\n2026-11-04,10\n2026-11-05,<1\n2026-11-06,100\n2026-11-07,25\n";
+  const csv = `Kategorie: Alle Kategorien\n\nTag,Tankrabatt: (Deutschland)\n${start},10\n${gap},<1\n${neighbor},20\n${peak},100\n${after},25\n`;
   for (const [width, name] of [[1280, "desktop"], [390, "mobile"]]) {
     const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     let attempts = 0;
+    let suggestions = 0;
     await page.route(origin + "/**", async (route) => {
       const { pathname } = new URL(route.request().url());
       if (pathname === "/api/news-trend") {
@@ -894,6 +933,14 @@ async function checkTopicTrends(browser) {
         assert.deepEqual(route.request().postDataJSON(), { topic: "Tankrabatt", days: 30, language: "german" });
         if (attempts++ > 0) return route.fulfill({ status: 502, json: { error: "GDELT ist nicht verfügbar." } });
         return route.fulfill({ json: news });
+      }
+      if (pathname === "/api/trend-events") {
+        assert.equal(route.request().method(), "POST");
+        const topic = suggestions++ === 0 ? "Tankrabatt" : "Tankrabatt Suche";
+        assert.deepEqual(route.request().postDataJSON(), { topic, language: "german", peak_date: peak });
+        return route.fulfill({ json: {
+          peak_date: peak, window_start: gap, window_end: end, articles: [lead],
+        } });
       }
       if (pathname === "/api/runs") return route.fulfill({ json: [] });
       if (pathname === "/") return route.fulfill({ path: join(repo, "web/index.html") });
@@ -914,7 +961,7 @@ async function checkTopicTrends(browser) {
       await page.getByText("CSV geladen.", { exact: true }).waitFor();
       const search = page.locator('[data-kind="search"].trend-series-panel');
       assert.equal((await search.locator(".trend-line").getAttribute("d")).split("M").length - 1, 2);
-      assert.equal(await search.locator("tbody tr").count(), 4);
+      assert.equal(await search.locator("tbody tr").count(), 5);
       assert.equal(await search.locator("tbody tr").nth(1).locator("td").last().textContent(), "<1");
 
       await page.locator("#report-file").setInputFiles({
@@ -927,7 +974,23 @@ async function checkTopicTrends(browser) {
       await markers.getByText("Veröffentlichung", { exact: true }).waitFor();
       assert.equal(await markers.getByRole("link", { name: "Beispielbericht" }).getAttribute("href"), publication.url);
 
-      await page.getByLabel("Ereignisdatum", { exact: true }).fill("2026-11-05");
+      await page.getByRole("button", { name: "Medienausschlag untersuchen" }).click();
+      const suggestion = page.locator("#trend-suggestion-panel");
+      const reference = suggestion.getByRole("link", { name: lead.title });
+      assert.equal(await reference.getAttribute("href"), lead.url);
+      await suggestion.getByText(/GDELT erfasst am/).waitFor();
+      assert.equal(await markers.getByRole("link", { name: lead.title }).count(), 0);
+      await suggestion.getByRole("button", { name: "Beleg übernehmen: " + lead.title }).click();
+      assert.equal(await page.getByLabel("Ereignis", { exact: true }).inputValue(), lead.title);
+      assert.equal(await page.getByLabel("Beleglink", { exact: true }).inputValue(), lead.url);
+      assert.equal(await page.getByLabel("Ereignisdatum", { exact: true }).inputValue(), "");
+      await page.getByLabel("Suchbegriff", { exact: true }).fill("Tankrabatt Suche");
+      await page.getByRole("button", { name: "Suchausschlag untersuchen" }).click();
+      await reference.waitFor();
+      assert.equal(suggestions, 2);
+      await page.getByLabel("Suchbegriff", { exact: true }).fill("Tankrabatt");
+
+      await page.getByLabel("Ereignisdatum", { exact: true }).fill(gap);
       await page.getByLabel("Ereignis", { exact: true }).fill("Beispielbeschluss");
       await page.getByLabel("Beleglink", { exact: true }).fill("https://example.org/beschluss");
       await page.getByRole("button", { name: "Ereignis hinzufügen" }).click();

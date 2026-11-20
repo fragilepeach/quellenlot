@@ -7,6 +7,8 @@
   const publications = new Map();
   let selected = null;
   let fileVersion = 0;
+  let localNews = false;
+  let suggestionRequest = null;
   const dayMs = 86_400_000;
   const dateFormat = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeZone: "UTC" });
   const numberFormat = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 4 });
@@ -73,6 +75,111 @@
       throw Error("Die Zeitreihe enthält mehrere Werte pro Datum.");
     }
     return { ...dataset, points };
+  }
+
+  // Require measured values on both adjacent days. Missing days and tied peaks
+  // cannot establish a local spike. Rank eligible peaks by height above neighbors.
+  function strongestSpike(dataset) {
+    const today = Math.floor(Date.now() / dayMs) * dayMs;
+    let spike = null;
+    let prominence = 0;
+    for (let index = 1; index < dataset.points.length - 1; index += 1) {
+      const [before, point, after] = dataset.points.slice(index - 1, index + 2);
+      if (point.time < today - 89 * dayMs || point.time > today ||
+          point.time - before.time !== dayMs || after.time - point.time !== dayMs ||
+          before.value === null || point.value === null || after.value === null ||
+          point.value <= Math.max(before.value, after.value)) continue;
+      const baseline = (before.value + after.value) / 2;
+      const increase = point.value - baseline;
+      if (point.value >= 1.25 * baseline && increase > prominence) {
+        spike = point;
+        prominence = increase;
+      }
+    }
+    return spike;
+  }
+
+  function resetSuggestions() {
+    suggestionRequest?.abort();
+    suggestionRequest = null;
+    byId("trend-suggestion-list").replaceChildren();
+    status("trend-suggestion-status", "");
+    const hasNews = series.has("news");
+    const dailyCsv = series.get("search")?.step === 1;
+    byId("trend-suggestion-panel").hidden = !localNews || (!hasNews && !dailyCsv);
+    byId("suggest-news-events").hidden = !hasNews;
+    byId("suggest-search-events").hidden = !dailyCsv;
+    byId("suggest-news-events").disabled = false;
+    byId("suggest-search-events").disabled = false;
+  }
+
+  async function suggestEvents(kind) {
+    resetSuggestions();
+    const dataset = series.get(kind);
+    const peak = dataset?.step === 1 && strongestSpike(dataset);
+    if (!peak) {
+      status("trend-suggestion-status", "Kein klarer Tagesausschlag in den letzten 90 Tagen gefunden.");
+      return;
+    }
+    const topic = kind === "news" ? dataset.topic : byId("trend-topic").value.trim();
+    const language = kind === "news" ? dataset.language : byId("trend-language").value;
+    if (topic.length < 3 || topic.length > 120) {
+      status("trend-suggestion-status", "Gib oben einen Suchbegriff mit 3 bis 120 Zeichen ein.", true);
+      byId("trend-topic").focus();
+      return;
+    }
+    const request = new AbortController();
+    suggestionRequest = request;
+    byId("suggest-news-events").disabled = true;
+    byId("suggest-search-events").disabled = true;
+    status("trend-suggestion-status", "Suche nach Artikeln zum Ausschlag am " + dateFormat.format(peak.time) + " …");
+    try {
+      const response = await fetch("/api/trend-events", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        signal: request.signal, body: JSON.stringify({ topic, language, peak_date: peak.date }),
+      });
+      const data = await response.json();
+      if (request !== suggestionRequest) return;
+      if (!response.ok) throw Error(data.error || "Die Ereignisvorschläge konnten nicht geladen werden.");
+      const start = dayNumber(data.window_start);
+      const end = dayNumber(data.window_end);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || data.peak_date !== peak.date ||
+          start > peak.time || end < peak.time || !Array.isArray(data.articles)) {
+        throw Error("GDELT hat ein ungültiges Suchfenster geliefert.");
+      }
+      const items = data.articles.flatMap((article) => {
+        const url = safeUrl(article?.url);
+        const indexed = dayNumber(article?.indexed_date);
+        if (!url || !Number.isFinite(indexed) || indexed < start || indexed > end ||
+            typeof article.title !== "string" || !article.title.trim()) return [];
+        const item = element("li");
+        const link = sourceLink({ url: url.href }, null, article.title);
+        const use = button("Beleg übernehmen", "quiet-button");
+        use.disabled = url.href.length > 2000;
+        use.setAttribute("aria-label", "Beleg übernehmen: " + article.title);
+        use.addEventListener("click", () => {
+          byId("trend-event-title").value = article.title.slice(0, 180);
+          byId("trend-event-url").value = url.href;
+          byId("trend-event-date").value = "";
+          status("trend-event-status", "Prüfe den Beleg und trage das Ereignisdatum ein.");
+          byId("trend-event-date").focus();
+        });
+        item.append(link, element("p", "trend-note", "GDELT erfasst am " + dateFormat.format(indexed)), use);
+        return [item];
+      });
+      byId("trend-suggestion-list").replaceChildren(...items);
+      const windowLabel = dateFormat.format(start) + " bis " + dateFormat.format(end);
+      status("trend-suggestion-status", "Ausschlag am " + dateFormat.format(peak.time) + " · " +
+        windowLabel + " · " + (items.length ? items.length + " Artikel gefunden." : "Keine passenden Artikel gefunden."));
+    } catch (error) {
+      if (request === suggestionRequest) status("trend-suggestion-status", error.message, true);
+    } finally {
+      if (request === suggestionRequest) {
+        suggestionRequest = null;
+        byId("suggest-news-events").disabled = false;
+        byId("suggest-search-events").disabled = false;
+      }
+    }
   }
 
   function svgNode(tag, attrs) {
@@ -210,6 +317,7 @@
       const loaded = prepare(parseSearchCsv(await file.text()));
       if (version !== fileVersion) return;
       series.set("search", loaded);
+      resetSuggestions();
       render();
       status("search-trend-status", "CSV geladen.");
     } catch (error) {
@@ -240,8 +348,9 @@
         heading: "Medienberichterstattung",
         note: "GDELT · Anteil aller von GDELT erfassten Artikel pro UTC-Tag · " +
           (language === "german" ? "Treffer auf Deutsch." : "Treffer in allen Sprachen."),
-        source: source.href,
+        source: source.href, topic, language,
       }));
+      resetSuggestions();
       render();
       status("news-trend-status", "Medienzeitreihe geladen.");
     } catch (error) {
@@ -250,6 +359,9 @@
       submit.disabled = false;
     }
   });
+
+  byId("suggest-news-events").addEventListener("click", () => suggestEvents("news"));
+  byId("suggest-search-events").addEventListener("click", () => suggestEvents("search"));
 
   byId("trend-event-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -269,7 +381,11 @@
   });
 
   window.quellenlotTrends = {
-    enableNews() { byId("news-trend-form").hidden = false; },
+    enableNews() {
+      localNews = true;
+      byId("news-trend-form").hidden = false;
+      resetSuggestions();
+    },
     setPublications(snapshots) {
       publications.clear();
       for (const snapshot of snapshots) {

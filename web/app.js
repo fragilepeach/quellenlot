@@ -213,6 +213,7 @@ function selectClaim(index) {
   $("original-link").replaceChildren(...(originalLink ? [originalLink] : []));
   renderClaimDiff(claim);
   renderClaimStudies();
+  renderPlenum(claim);
   renderGraph(claim, number);
   selectSource(claim.evidence.find(({ source }) => !source.original)?.source.id || claim.evidence[0]?.source.id);
 }
@@ -409,6 +410,82 @@ function renderClaimDiff(claim) {
     wording.append(...matches.map((match) => renderWordingMatch(match, excerpts)));
   }
   if (limited) wording.append(element("p", "diff-note", "Die automatische Suche nach ähnlichen Passagen war begrenzt."));
+}
+
+function renderPlenum(claim) {
+  const panel = $("claim-plenum");
+  const content = $("plenum-content");
+  panel.hidden = !claim.plenum;
+  panel.open = false;
+  content.replaceChildren();
+  if (!claim.plenum) return;
+
+  const { analyses, reviews, dissent, sources } = claim.plenum;
+  const analysisByAgent = new Map(analyses.map((record) => [record.agent_id, record]));
+  const sourceByVersion = new Map(sources.map((source) => [
+    JSON.stringify([source.source_id, source.version_id]), source,
+  ]));
+  $("plenum-count").textContent = [
+    analyses.length + (analyses.length === 1 ? " Analyse" : " Analysen"),
+    reviews.length + (reviews.length === 1 ? " Gegenprüfung" : " Gegenprüfungen"),
+  ].join(" · ");
+  if (dissent.length) {
+    const unresolved = element("section", "plenum-dissent");
+    unresolved.append(element("h5", "", "Offene Einwände"), reviewList(dissent));
+    content.append(unresolved);
+  }
+
+  content.append(element("h5", "", "Eigenständige Analysen"));
+  if (!analyses.length) content.append(element("p", "", "Keine Analysen im Bericht."));
+  for (const analysis of analyses) {
+    const entry = element("div", "plenum-entry");
+    entry.append(element("h6", "", [analysis.agent_id, analysis.model].filter(Boolean).join(" · ")));
+    if (analysis.status === "failed") entry.append(element("p", "", "Analyse fehlgeschlagen."));
+    if (analysis.summary) entry.append(element("p", "", analysis.summary));
+    if (Array.isArray(analysis.open_questions) && analysis.open_questions.length) {
+      entry.append(reviewList(analysis.open_questions));
+    }
+    content.append(entry);
+  }
+
+  content.append(element("h5", "", "Gegenprüfungen"));
+  if (!reviews.length) content.append(element("p", "", "Keine Gegenprüfungen im Bericht."));
+  for (const review of reviews) {
+    const entry = element("section", "plenum-entry");
+    entry.append(element("h6", "", review.reviewer_agent_id + " prüft " + review.reviewed_agent_id));
+    if (review.summary) entry.append(element("p", "", review.summary));
+    if (review.status === "failed") entry.append(element("p", "", "Gegenprüfung fehlgeschlagen."));
+    const target = analysisByAgent.get(review.reviewed_agent_id);
+    if (review.status === "succeeded" && Array.isArray(review.findings)) {
+      for (const result of review.findings) {
+        const finding = target?.findings?.[result.finding_index];
+        if (!finding) {
+          entry.append(element("p", "", "Der geprüfte Befund fehlt im Bericht."));
+          continue;
+        }
+        const source = sourceByVersion.get(JSON.stringify([finding.source_id, finding.version_id]));
+        const item = element("div", "plenum-finding");
+        const heading = element("div", "source-caption");
+        heading.append(element("strong", "", source?.title || finding.source_id),
+          relationBadge(finding.relation));
+        item.append(heading);
+        if (finding.reasoning) item.append(element("p", "", finding.reasoning));
+        const outcome = element("strong", "plenum-outcome", outcomeLabels[result.outcome] || "Unklar");
+        outcome.dataset.outcome = result.outcome;
+        item.append(outcome);
+        if (result.reasoning) item.append(element("p", "", result.reasoning));
+        const quote = result.quote;
+        if (quote?.verified === true && source && quote.source_id === source.source_id &&
+            quote.version_id === source.version_id && typeof quote.text === "string" && quote.text.trim()) {
+          item.append(element("blockquote", "diff-quote", quote.text));
+          const link = sourceLink(source, quote.text, "Beleg öffnen");
+          if (link) item.append(link);
+        }
+        entry.append(item);
+      }
+    }
+    content.append(entry);
+  }
 }
 
 function renderJudgment(judgment) {
@@ -941,6 +1018,12 @@ function readReport(data) {
       id: claim.claim_id,
       text: claim.review.claim,
       dissent: claim.review.unresolved_dissent,
+      plenum: Array.isArray(claim.review.analyses) || Array.isArray(claim.review.reviews) ? {
+        analyses: Array.isArray(claim.review.analyses) ? claim.review.analyses : [],
+        reviews: Array.isArray(claim.review.reviews) ? claim.review.reviews : [],
+        dissent: Array.isArray(claim.review.unresolved_dissent) ? claim.review.unresolved_dissent : [],
+        sources: Array.isArray(claim.review.sources) ? claim.review.sources : report.sources,
+      } : null,
       status: claim.review.status === "complete" ? "" : "Modellprüfung unvollständig",
       quote: quote?.verified === true && typeof quote.text === "string" && article &&
         quote.source_id === article.source_id &&

@@ -30,7 +30,13 @@ from quellenlot_agents.models import (
     EditorialReport,
 )
 from quellenlot_agents.studies import ClaimStudyReport, find_claim_studies
-from quellenlot_agents.trends import TrendQuery, TrendUnavailable, fetch_news_trend
+from quellenlot_agents.trends import (
+    TrendEventQuery,
+    TrendQuery,
+    TrendUnavailable,
+    fetch_news_trend,
+    fetch_trend_events,
+)
 
 _LOG = logging.getLogger(__name__)
 _LOOPBACK: Final = "127.0.0.1"
@@ -426,7 +432,10 @@ class _LocalHandler(BaseHTTPRequestHandler):
             if run_path is not None and run_path.group(2) == "/editorial-draft"
             else None
         )
-        if self.path not in {"/api/runs", "/api/news-trend"} and draft_run_id is None:
+        if (
+            self.path not in {"/api/runs", "/api/news-trend", "/api/trend-events"}
+            and draft_run_id is None
+        ):
             self._error(HTTPStatus.NOT_FOUND, "Eintrag nicht gefunden.")
             return
         if self.headers.get_content_type() != "application/json":
@@ -442,6 +451,8 @@ class _LocalHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(size)
         if self.path == "/api/news-trend":
             self._news_trend(body)
+        elif self.path == "/api/trend-events":
+            self._trend_events(body)
         elif draft_run_id is not None:
             self._update_editorial_draft(draft_run_id, body)
         else:
@@ -461,6 +472,21 @@ class _LocalHandler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.BAD_GATEWAY, str(exc))
         else:
             self._send(HTTPStatus.OK, trend.model_dump_json().encode("utf-8"))
+
+    def _trend_events(self, body: bytes) -> None:
+        try:
+            query = TrendEventQuery.model_validate_json(body)
+        except ValidationError:
+            self._error(HTTPStatus.BAD_REQUEST, "Gib einen Suchbegriff und ein gültiges Datum ein.")
+            return
+        try:
+            events = fetch_trend_events(query)
+        except ValueError as exc:
+            self._error(HTTPStatus.BAD_REQUEST, str(exc))
+        except TrendUnavailable as exc:
+            self._error(HTTPStatus.BAD_GATEWAY, str(exc))
+        else:
+            self._send(HTTPStatus.OK, events.model_dump_json().encode("utf-8"))
 
     def _update_editorial_draft(self, run_id: str, body: bytes) -> None:
         try:

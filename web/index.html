@@ -92,6 +92,16 @@
       <section class="trend-events" aria-labelledby="trend-events-heading">
         <h3 id="trend-events-heading">Ereignisse und Quellenveröffentlichungen</h3>
         <p class="trend-note">Zeitliche Nähe zeigt, was zusammenfiel. Für einen ursächlichen Zusammenhang braucht es weitere Belege.</p>
+        <div id="trend-suggestion-panel" class="trend-suggestions" hidden>
+          <h4>Ereignisvorschläge</h4>
+          <div class="trend-suggestion-actions">
+            <button id="suggest-news-events" class="outline-button" type="button" hidden>Medienausschlag untersuchen</button>
+            <button id="suggest-search-events" class="outline-button" type="button" hidden>Suchausschlag untersuchen</button>
+          </div>
+          <p class="trend-note" id="trend-suggestion-help">Für den stärksten jüngeren Tagesausschlag sucht GDELT nach Artikeln im Umfeld. Bei einer CSV verwende den Suchbegriff und die Sprache aus dem Formular oben.</p>
+          <p class="trend-note" id="trend-suggestion-status" role="status"></p>
+          <ul id="trend-suggestion-list"></ul>
+        </div>
         <form id="trend-event-form" class="trend-controls">
           <div class="field"><label for="trend-event-date">Ereignisdatum</label><input id="trend-event-date" type="date" min="0001-01-01" max="9999-12-31" required></div>
           <div class="field"><label for="trend-event-title">Ereignis</label><input id="trend-event-title" type="text" maxlength="180" required></div>
@@ -155,6 +165,10 @@
               <div id="diff-evidence"></div>
               <div id="diff-wording"></div>
             </section>
+            <details id="claim-plenum" class="claim-plenum" hidden>
+              <summary>KI-Plenum <span id="plenum-count" class="judgment-meta"></span></summary>
+              <div id="plenum-content"></div>
+            </details>
             <div id="source-detail" class="source-detail" tabindex="-1"></div>
             <section id="claim-studies" class="claim-diff" aria-labelledby="studies-heading" hidden>
               <div class="section-heading">
