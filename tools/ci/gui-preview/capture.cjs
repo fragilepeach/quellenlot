@@ -141,7 +141,7 @@ async function checkImportOutcomes(browser) {
     });
     const graph = page.locator(".source-provenance");
     await graph.getByText("2 Quellen verlinken dieses Ziel.", { exact: true }).waitFor();
-    assert.equal(await graph.getByRole("link", { name: "Gemeinsame Studie" }).count(), 1);
+    assert.equal(await graph.getByRole("link", { name: "Gemeinsame Studie", exact: true }).count(), 1);
     assert.equal(await graph.getByText("Nicht abrufbar · HTTP 403").count(), 1);
     assert.equal(await graph.getByText("Erfundener Link", { exact: false }).count(), 0);
     assert.deepEqual(errors, []);
