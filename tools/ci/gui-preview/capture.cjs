@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");
 const { createHash } = require("node:crypto");
-const { mkdir, mkdtemp, readFile, rm, writeFile } = require("node:fs/promises");
+const { link, mkdir, mkdtemp, readFile, rm, writeFile } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
 const { join, resolve } = require("node:path");
 const { pathToFileURL } = require("node:url");
@@ -12,6 +12,7 @@ const { chromium } = require("playwright");
 const repo = resolve(__dirname, "../../..");
 const output = resolve(process.argv[2] || join(repo, "artifacts/gui-preview"));
 const entry = pathToFileURL(join(repo, "web/index.html")).href;
+const gifFps = 20;
 const screenshotOptions = { animations: "disabled", caret: "hide" };
 const commands = { ffmpeg: process.env.FFMPEG || "ffmpeg", ffprobe: process.env.FFPROBE || "ffprobe" };
 
@@ -58,32 +59,77 @@ async function captureWalkthrough(browser, frames) {
   const graph = page.locator("#graph");
   let frame = 0;
 
-  async function shot(anchor) {
-    await page.locator(anchor).evaluate((node) => node.scrollIntoView({ block: "start" }));
-    frame += 1;
-    await page.screenshot({ ...screenshotOptions, path: join(frames, `frame-${frame}.png`) });
+  function framePath(index) {
+    return join(frames, `frame-${index}.png`);
+  }
+
+  async function shot() {
+    await page.screenshot({ ...screenshotOptions, path: framePath(++frame) });
+  }
+
+  async function hold(seconds) {
+    await shot();
+    const still = framePath(frame);
+    for (let count = Math.round(seconds * gifFps) - 1; count > 0; count -= 1) {
+      await link(still, framePath(++frame));
+    }
+  }
+
+  async function scrollTo(anchor, steps) {
+    const { start, finish } = await page.locator(anchor).evaluate((node) => ({
+      start: window.scrollY,
+      finish: Math.min(window.scrollY + node.getBoundingClientRect().top, document.documentElement.scrollHeight - window.innerHeight),
+    }));
+    for (let step = 1; step <= steps; step += 1) {
+      const progress = (1 - Math.cos(Math.PI * step / steps)) / 2;
+      await page.evaluate((top) => window.scrollTo(0, top), Math.round(start + progress * (finish - start)));
+      if (steps > 1) await shot();
+    }
   }
 
   try {
-    await shot("#review");
+    await scrollTo("#review", 1);
+    await hold(1.6);
 
     await highlight.focus();
     await page.keyboard.press("Enter");
     assert.equal(await highlight.getAttribute("aria-current"), "true");
     assert.equal(await evidence.locator(".relation").textContent(), "Widerspricht");
-    await shot("#workspace");
+    await hold(1.55);
 
     await page.locator("#diff-sources").getByRole("button", { name: "TU Dresden" }).click();
     assert.match(await evidence.locator("blockquote").textContent(), /Anfang Juni/);
     await evidence.getByText("Datum und Version", { exact: true }).click();
     assert.match(await evidence.locator("dl").textContent(), /19\.10\.2022.*20\.10\.2022/);
-    await graph.getByText("verweist auf", { exact: true }).waitFor();
-    await shot("#source-detail");
+    await scrollTo("#source-detail", 10);
+    await hold(1.7);
 
-    await graph.locator(".graph-origin").getByRole("button", { name: "Freitas & Syga" }).click();
+    const citation = graph.locator('.graph-connections > [data-kind="citation"]');
+    await graph.getByText("→ Verweist auf", { exact: true }).waitFor();
+    await scrollTo("#graph-heading", 10);
+    await hold(1.2);
+    const source = graph.getByRole("button", { name: /TU Dresden/ });
+    const oldPath = await citation.getAttribute("d");
+    const position = await source.boundingBox();
+    const x = position.x + position.width / 2;
+    const y = position.y + position.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    for (let step = 1; step <= 12; step += 1) {
+      await page.mouse.move(x + step * 7, y + step * 3);
+      await shot();
+    }
+    await page.mouse.up();
+    assert.notEqual(await citation.getAttribute("d"), oldPath);
+    assert.equal(await source.getAttribute("aria-pressed"), "true");
+    await hold(0.65);
+
+    const study = graph.getByRole("button", { name: /Freitas & Syga/ });
+    await study.click();
+    assert.equal(await study.getAttribute("aria-pressed"), "true");
     assert.match(await evidence.locator(".source-type").textContent(), /ifo Dresden berichtet/);
     assert.match(await evidence.getByRole("link", { name: "Originalquelle öffnen" }).getAttribute("href"), /#:~:text=/);
-    await shot("#graph-heading");
+    await hold(1.55);
     assert.deepEqual(errors, []);
     return frame;
   } finally {
@@ -251,6 +297,13 @@ async function checkImportOutcomes(browser) {
       ] },
     });
     const graph = page.locator(".source-provenance");
+    await graph.locator("summary").click();
+    const sharedNode = page.locator("#graph").getByRole("button", { name: "Gemeinsame Studie", exact: true });
+    assert.equal(await sharedNode.count(), 1);
+    assert.equal(await page.locator('#graph .graph-connections > [data-kind="citation"]').count(), 3);
+    await sharedNode.click();
+    assert.equal(await sharedNode.getAttribute("aria-pressed"), "true");
+    assert.match(await page.locator("#graph-selection a").getAttribute("href"), /example\.org\/study/);
     await graph.getByText("2 Quellen verlinken dieses Ziel.", { exact: true }).waitFor();
     assert.equal(await graph.getByRole("link", { name: "Gemeinsame Studie", exact: true }).count(), 1);
     assert.equal(await graph.getByText("Nicht abrufbar · HTTP 403").count(), 1);
@@ -270,6 +323,41 @@ async function checkTheme(browser) {
   try {
     assert.equal(await scheme(), "dark");
     assert.equal(await toggle.getAttribute("aria-pressed"), "true");
+    const help = page.getByRole("button", { name: "Hilfe zur Frage" });
+    const helpText = page.locator("#question-help");
+    await help.hover();
+    assert.ok(await helpText.isVisible());
+    await help.focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await help.getAttribute("aria-expanded"), "true");
+    await page.keyboard.press("Escape");
+    assert.ok(!(await helpText.isVisible()));
+
+    const active = page.locator('#summary-text [aria-current="true"]');
+    const inactive = page.locator('#summary-text [aria-current="false"]').first();
+    assert.notEqual(await active.evaluate((node) => getComputedStyle(node).color),
+      await inactive.evaluate((node) => getComputedStyle(node).color));
+    const graph = page.locator("#graph");
+    const tu = graph.getByRole("button", { name: /TU Dresden/ });
+    const activeStudy = graph.getByRole("button", { name: /Freitas & Syga/ });
+    const edge = graph.locator('.graph-connections > [data-kind="citation"]');
+    await tu.scrollIntoViewIfNeeded();
+    const before = await edge.getAttribute("d");
+    const start = await tu.boundingBox();
+    await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(start.x + start.width / 2 + 25, start.y + start.height / 2 - 25, { steps: 5 });
+    await page.mouse.up();
+    assert.notEqual(await edge.getAttribute("d"), before);
+    assert.equal(await tu.getAttribute("aria-pressed"), "false");
+    assert.equal(await activeStudy.getAttribute("aria-pressed"), "true");
+    await tu.focus();
+    const moved = await edge.getAttribute("d");
+    await page.keyboard.press("ArrowDown");
+    assert.notEqual(await edge.getAttribute("d"), moved);
+    await page.keyboard.press("Enter");
+    assert.equal(await tu.getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator("#source-detail h4").textContent(), "Beurteilungen zu TU Dresden");
 
     await toggle.focus();
     await page.keyboard.press("Space");
@@ -393,6 +481,7 @@ async function checkClaimDiff(browser) {
       const rows = page.locator("#diff-sources > li");
       const names = rows.locator("button");
       await names.first().waitFor();
+      await page.locator(".source-provenance > summary").click();
       await page.locator(".source-provenance").getByText("2 Quellen verlinken dieses Ziel.").waitFor();
       const privateReview = page.locator("#private-review");
       await privateReview.getByText(first.review.claim, { exact: true }).click();
@@ -437,8 +526,8 @@ async function checkClaimDiff(browser) {
 function encodeGif(frames) {
   execFileSync(commands.ffmpeg, [
     "-hide_banner", "-loglevel", "error", "-y", "-filter_complex_threads", "1",
-    "-framerate", "1/2", "-i", join(frames, "frame-%d.png"),
-    "-filter_complex", "scale=960:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse",
+    "-framerate", String(gifFps), "-i", join(frames, "frame-%d.png"),
+    "-filter_complex", "scale=840:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse=dither=bayer:diff_mode=rectangle",
     "-loop", "0", join(output, "usage.gif"),
   ]);
 }
@@ -454,7 +543,7 @@ async function inspectMedia(name, expectedWidth, expectedFrames = 1) {
   assert.equal(Number(stream.nb_read_frames), expectedFrames, name);
   assert.ok(stream.height >= 500, name);
   if (name.endsWith(".gif")) {
-    assert.ok(Number(format.duration) >= expectedFrames * 2 - 0.1, "GIF holds each step for two seconds");
+    assert.ok(Math.abs(Number(format.duration) - expectedFrames / gifFps) <= 0.1, "GIF plays at the target frame rate");
   }
   const bytes = await readFile(path);
   assert.ok(bytes.length > 10_000 && bytes.length < 2_000_000, name);
@@ -463,6 +552,7 @@ async function inspectMedia(name, expectedWidth, expectedFrames = 1) {
     width: stream.width,
     height: stream.height,
     frames: expectedFrames,
+    ...(name.endsWith(".gif") ? { fps: gifFps } : {}),
     bytes: bytes.length,
     sha256: createHash("sha256").update(bytes).digest("hex"),
   };
@@ -488,7 +578,7 @@ async function main() {
     const media = await Promise.all([
       inspectMedia("desktop.png", 1280),
       inspectMedia("mobile.png", 390),
-      inspectMedia("usage.gif", 960, count),
+      inspectMedia("usage.gif", 840, count),
     ]);
     const { GITHUB_SHA, GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID } = process.env;
     const manifest = {

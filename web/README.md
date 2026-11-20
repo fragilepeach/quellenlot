@@ -19,13 +19,14 @@ Quellenlot opens in dark mode. Use **Dunkles Design** in the header to switch be
 
 1. Open the Tankrabatt example and select **in allen drei Monaten gleich stark gewirkt**.
 2. Choose **TU Dresden** to read the passage that disputes the claim. Open **Datum und Version** to inspect when the report was published and updated.
-3. In **Herkunft & Belege**, follow **verweist auf** to **Freitas & Syga**. The evidence panel switches to the study and provides a link to the quoted passage.
+3. In **Herkunft & Belege**, follow the dashed citation arrow from **TU Dresden** to **Freitas & Syga**. Select the study node and choose **Beurteilungen ansehen** to jump to the updated evidence panel.
+4. Drag a node to reposition it. With a node focused, use the arrow keys to move it and Enter to select it.
 
 ![Animated walkthrough from the highlighted Tankrabatt claim to the TU Dresden passage and its cited Freitas–Syga study](../docs/images/generated/usage.gif)
 
 ## How the previews are generated
 
-The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates, mobile focus behavior, theme switching, offline font loading and the imported claim diff before uploading the dark-mode screenshots and GIF. It also imports a single report containing the claim diff, an upstream citation shared by two sources, and an unresolved private editorial review at desktop and mobile widths. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
+The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates, mobile focus behavior, theme switching, offline font loading and the imported claim diff before uploading the dark-mode screenshots and the 20 fps walkthrough GIF. The walkthrough holds the evidence on screen and animates scrolling and node dragging. It also imports a single report containing the claim diff, an upstream citation shared by two sources, and an unresolved private editorial review at desktop and mobile widths. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
 
 Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`.
 
@@ -52,7 +53,7 @@ The output is written to `artifacts/gui-preview/`. The walkthrough uses the buil
 ## Interaction and rationale
 
 1. Paste one or more links and optionally ask a question. The first link is the article. The rest are comparisons. This matches the CLI and gives an explicit answer when several URLs are supplied.
-2. Read an attributed summary, then select a highlighted phrase or a claim in the list. The selected claim drives the article excerpt, source list and graph. The graph uses a fixed hierarchy so the reader can follow the path without dragging or zooming.
+2. Read an attributed summary, then select a highlighted phrase or a claim in the list. The selected claim drives the article excerpt and source assessments. The graph connects the claim to its assessed sources and draws documented source-to-source citations as dashed arrows. Outlets that cite the same study share a target node.
 3. Inspect the exact passage, the type of evidence relationship and the document dates. Publication, modification and capture are separate. A web page may have changed since capture. Evidence without a verified excerpt stays visibly marked.
 4. If a source states where its finding comes from, show that citation. In the demo, the TU Dresden announcement points to the same Freitas–Syga study shown in the graph. An inferred historical origin or a duplicate-detection result needs separate treatment.
 

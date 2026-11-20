@@ -7,6 +7,7 @@
   <title>Quellenlot · Artikel prüfen</title>
   <script src="theme.js"></script>
   <link rel="stylesheet" href="styles.css">
+  <script src="graph.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -26,7 +27,6 @@
   <main id="main" class="shell">
     <section class="intake" aria-labelledby="intake-heading">
       <h1 id="intake-heading">Was möchtest du überprüfen?</h1>
-      <p class="intro">Füge einen Artikel und bei Bedarf Vergleichsquellen hinzu.</p>
       <form id="composer" class="composer">
         <div class="composer-fields">
           <div class="field">
@@ -35,13 +35,18 @@
             <p class="field-help" id="urls-help">Ein Link pro Zeile. Der erste ist der Artikel.</p>
           </div>
           <div class="field">
-            <label for="question">Deine Frage <span>(optional)</span></label>
+            <div class="field-heading">
+              <label for="question">Deine Frage <span>(optional)</span></label>
+              <div class="help">
+                <button class="help-button" type="button" aria-label="Hilfe zur Frage" aria-describedby="question-help" aria-expanded="false" aria-controls="question-help">?</button>
+                <p id="question-help" class="help-text">Ohne Frage prüft Quellenlot die zentralen Aussagen.</p>
+              </div>
+            </div>
             <textarea id="question" rows="2" maxlength="4000" placeholder="Kommt der Tankrabatt bei den Verbraucher*innen an?"></textarea>
-            <p class="field-help">Ohne Frage prüft Quellenlot die zentralen Aussagen.</p>
           </div>
         </div>
         <div class="composer-footer">
-          <p id="form-feedback" role="status">Der lokale Quellenlot-Agent liest die gespeicherte Anfrage.</p>
+          <p id="form-feedback" role="status"></p>
           <button class="primary-button" type="submit">Anfrage speichern</button>
         </div>
       </form>
@@ -57,13 +62,11 @@
 
       <p id="selection-status" class="visually-hidden" role="status"></p>
       <p id="empty-report" class="empty-report" hidden></p>
-      <div id="provenance-without-claims" class="card graph-card" hidden></div>
       <div id="workspace" class="workspace">
         <div class="reading">
           <section class="card summary-card" aria-labelledby="summary-heading">
             <h3 id="summary-heading">Artikelzusammenfassung</h3>
             <div id="summary-text" class="summary-text"></div>
-            <p id="summary-note" class="summary-note"></p>
           </section>
           <section class="claim-section" aria-labelledby="claims-heading">
             <div class="section-heading">
@@ -87,8 +90,13 @@
               <div id="original-link"></div>
             </details>
             <section id="claim-diff" class="claim-diff" aria-labelledby="diff-heading" hidden>
-              <h4 id="diff-heading">Quellenvergleich</h4>
-              <p class="diff-note">Nach Veröffentlichungsdatum, soweit bekannt.</p>
+              <div class="section-heading">
+                <h4 id="diff-heading">Quellenvergleich</h4>
+                <div class="help">
+                  <button class="help-button" type="button" aria-label="Hilfe zum Quellenvergleich" aria-describedby="diff-help" aria-expanded="false" aria-controls="diff-help">?</button>
+                  <p id="diff-help" class="help-text">Nach Veröffentlichungsdatum, soweit bekannt.</p>
+                </div>
+              </div>
               <ul id="diff-sources" class="diff-sources"></ul>
               <div id="diff-evidence"></div>
               <div id="diff-wording"></div>
@@ -96,13 +104,20 @@
             <div id="source-detail" class="source-detail" tabindex="-1"></div>
             <button id="back-to-claim" class="quiet-button back-to-claim" type="button">Zur ausgewählten Aussage</button>
           </section>
-          <section class="card graph-card" aria-labelledby="graph-heading">
-            <div class="card-heading"><h3 id="graph-heading">Herkunft &amp; Belege</h3></div>
-            <div id="graph"></div>
-            <p id="graph-note" class="graph-note"></p>
-          </section>
         </div>
       </div>
+      <section id="graph-card" class="card graph-card" aria-labelledby="graph-heading" hidden>
+        <div class="card-heading">
+          <h3 id="graph-heading">Herkunft &amp; Belege</h3>
+          <div class="help">
+            <button class="help-button" type="button" aria-label="Hilfe zum Quellengraphen" aria-describedby="graph-help" aria-expanded="false" aria-controls="graph-help">?</button>
+            <p id="graph-help" class="help-text">Klicke einen Knoten, um Details zu sehen. Verschiebe ihn durch Ziehen oder mit den Pfeiltasten.</p>
+          </div>
+        </div>
+        <div id="graph"></div>
+        <div id="graph-selection" class="graph-selection" hidden></div>
+        <div id="graph-provenance"></div>
+      </section>
     </section>
 
     <section class="card private-review" id="private-review" aria-labelledby="private-review-title" hidden>
@@ -119,7 +134,7 @@
           <textarea id="release-text" rows="4" maxlength="4000" required></textarea>
         </div>
         <button class="primary-button" id="save-release" type="submit" disabled>Freigabeentwurf speichern</button>
-        <p id="release-status" role="status">Der Entwurf wird als Datei heruntergeladen.</p>
+        <p id="release-status" role="status"></p>
       </form>
     </section>
   </main>
