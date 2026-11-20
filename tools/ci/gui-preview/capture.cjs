@@ -762,6 +762,12 @@ async function checkParliament(browser) {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
       assert.deepEqual(errors, []);
       if (width === 1280) {
+        const skip = page.getByRole("link", { name: "Zum Inhalt", exact: true });
+        assert.equal(await skip.evaluate((link) => getComputedStyle(link).opacity), "0");
+        await skip.focus();
+        assert.equal(await skip.evaluate((link) => getComputedStyle(link).opacity), "1");
+        await skip.blur();
+        await page.evaluate(() => window.scrollTo(0, 0));
         await page.evaluate(() => document.fonts.ready);
         await page.screenshot({ ...screenshotOptions, fullPage: true, path: join(output, "parliament.png") });
       }
