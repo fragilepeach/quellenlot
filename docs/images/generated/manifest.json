@@ -1,7 +1,7 @@
 {
-  "source_commit": "703fda9a969e287ed6342a4055bb15aedeae74de",
-  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44735608322",
-  "scenario": "Tankrabatt article investigation, claim studies, and 2025 Bundestag records",
+  "source_commit": "61c6af2a0656003b28aa16bf82013aaec4033b1c",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44737290263",
+  "scenario": "Tankrabatt demo, fixture-backed analyses and trends, and curated Bundestag records",
   "playwright": "1.58.2",
   "media": [
     {
@@ -21,21 +21,98 @@
       "sha256": "044260cd93550061164629b8119a5074d66a3012235152293fee0ecdc802b0de"
     },
     {
+      "file": "light-mobile.png",
+      "width": 320,
+      "height": 800,
+      "frames": 1,
+      "bytes": 46442,
+      "sha256": "3fedd8657e8599b557f086ca18701b60ffbb8eece46344db7df74ee2b077b543"
+    },
+    {
+      "file": "mobile-workflow.gif",
+      "width": 390,
+      "height": 844,
+      "frames": 174,
+      "fps": 25,
+      "bytes": 555879,
+      "sha256": "81cb2ae901c915ecd5f5c806f591962081266ddeb0ca0dbb5d52ba3d717fc95c"
+    },
+    {
       "file": "usage.gif",
       "width": 840,
       "height": 585,
-      "frames": 191,
-      "fps": 20,
-      "bytes": 761810,
-      "sha256": "5bffedb9879c8a762e82b8378fcd975f2399088aee9e7e32c76333215a72c109"
+      "frames": 233,
+      "fps": 25,
+      "bytes": 762917,
+      "sha256": "2a86e1b9fd5ba74c3cddcca7ec866bbaadd3dd29be6f1f700b60b3b2a1527185"
     },
     {
-      "file": "parliament.png",
+      "file": "local-analysis.png",
       "width": 1280,
-      "height": 2574,
+      "height": 960,
       "frames": 1,
-      "bytes": 403710,
-      "sha256": "9fdb0161c63567ac16aa14b69484044562409ac1718e484cc3eeb1371f4861cc"
+      "bytes": 94308,
+      "sha256": "0d36357714b9bbc6dbd5f4fe4bb47a548512d0552592f460be0f5365032a6d79"
+    },
+    {
+      "file": "local-analysis.gif",
+      "width": 840,
+      "height": 630,
+      "frames": 178,
+      "fps": 25,
+      "bytes": 905787,
+      "sha256": "c694dd23988333c10bd7c3e2b953c8e4c623ba14f6b6edd0b0fb0967dba94bb9"
+    },
+    {
+      "file": "claim-diff.png",
+      "width": 1280,
+      "height": 900,
+      "frames": 1,
+      "bytes": 89856,
+      "sha256": "413b84be23ce53f226f5d81ccb09ed5d103de0f9092a3471098d231e49d6be8b"
+    },
+    {
+      "file": "claim-diff.gif",
+      "width": 840,
+      "height": 591,
+      "frames": 88,
+      "fps": 25,
+      "bytes": 621298,
+      "sha256": "176f20f41d96239b5fbe0ff3b521cb23d38d7e7808d4efbf3bc8c3e60f1bd183"
+    },
+    {
+      "file": "shared-provenance.png",
+      "width": 1280,
+      "height": 960,
+      "frames": 1,
+      "bytes": 78937,
+      "sha256": "1b6a2738d7b72b0d004080290859876d3fbaca124b5f5a097252ec47f9bad9cd"
+    },
+    {
+      "file": "report-import.gif",
+      "width": 840,
+      "height": 630,
+      "frames": 162,
+      "fps": 25,
+      "bytes": 247113,
+      "sha256": "a1c021383f803b2b72dd535067f6c5e2beef6949c13ce36aa1503f75aa26ac23"
+    },
+    {
+      "file": "plenum.png",
+      "width": 1280,
+      "height": 900,
+      "frames": 1,
+      "bytes": 71096,
+      "sha256": "94e3ad992fac27a32298f0e59118c4e6ce8e73d05a8b663d4cbf05fa86e0e91f"
+    },
+    {
+      "file": "plenum.gif",
+      "width": 840,
+      "height": 591,
+      "frames": 127,
+      "fps": 25,
+      "bytes": 1038780,
+      "sha256": "ea13d36736f3a56a9fedd228c4b151a7dc320ddc7775419d01a1cefdc80308fa"
     },
     {
       "file": "studies.png",
@@ -52,6 +129,98 @@
       "frames": 1,
       "bytes": 105225,
       "sha256": "b14d3396fc2b50b18b3c5898de0108bedf307779b717a15cd4583ce9766dbb6b"
+    },
+    {
+      "file": "studies.gif",
+      "width": 840,
+      "height": 630,
+      "frames": 131,
+      "fps": 25,
+      "bytes": 1029289,
+      "sha256": "e11625791f36e9a6a50a367a97bf572923813a9460509f83261a5ca698059ebf"
+    },
+    {
+      "file": "trends-desktop.png",
+      "width": 1152,
+      "height": 1638,
+      "frames": 1,
+      "bytes": 171297,
+      "sha256": "a165933b6131b84415e5475299ca388454429ea147e249bab53ee89d0aa87c0f"
+    },
+    {
+      "file": "trends-mobile.png",
+      "width": 358,
+      "height": 2261,
+      "frames": 1,
+      "bytes": 160137,
+      "sha256": "043d17809b4ced34ea4b27ef83c29319326a82acbe6949b08b8c5f0221c74341"
+    },
+    {
+      "file": "trend-events.png",
+      "width": 1280,
+      "height": 900,
+      "frames": 1,
+      "bytes": 90200,
+      "sha256": "dd5159d2a6eba92e7f5740a3b8c012366ab858fb6886faa01cad7b7468d45da4"
+    },
+    {
+      "file": "topic-trends.gif",
+      "width": 840,
+      "height": 591,
+      "frames": 176,
+      "fps": 25,
+      "bytes": 1756766,
+      "sha256": "01e60435c3bac95b5b7a86f5fafb20ee483cf0ac9861d3262d2c75c6aced30b2"
+    },
+    {
+      "file": "source-interests.png",
+      "width": 1280,
+      "height": 960,
+      "frames": 1,
+      "bytes": 91996,
+      "sha256": "c4a9016970f3451ad12abc678ca0cdf29f542c940d374c5e1a2d6654065360ba"
+    },
+    {
+      "file": "editorial-draft.png",
+      "width": 1280,
+      "height": 960,
+      "frames": 1,
+      "bytes": 99630,
+      "sha256": "6f859b6abda456b1a28bbd7b8975801be056e4dba23089edfe1e01b00f586026"
+    },
+    {
+      "file": "reader-preview.png",
+      "width": 1280,
+      "height": 960,
+      "frames": 1,
+      "bytes": 93187,
+      "sha256": "70e43dfeb30ff1579bc0e722c4a645d48814600a515e3d42f7ed8330b8e4614b"
+    },
+    {
+      "file": "editorial-review.gif",
+      "width": 840,
+      "height": 630,
+      "frames": 138,
+      "fps": 25,
+      "bytes": 173090,
+      "sha256": "e7abafd00d7f3229a2b2111d8a47340625bbd77ac31947849425de36bd06d499"
+    },
+    {
+      "file": "parliament.png",
+      "width": 1280,
+      "height": 2574,
+      "frames": 1,
+      "bytes": 403710,
+      "sha256": "9fdb0161c63567ac16aa14b69484044562409ac1718e484cc3eeb1371f4861cc"
+    },
+    {
+      "file": "parliament.gif",
+      "width": 840,
+      "height": 630,
+      "frames": 188,
+      "fps": 25,
+      "bytes": 1631159,
+      "sha256": "5143e36b166ef1148114bcc404dbd115ddcc51c7ee551c6dd708a76d63cb4bf2"
     }
   ]
 }
