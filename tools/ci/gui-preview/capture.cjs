@@ -703,6 +703,14 @@ async function checkLocalRun(browser) {
     assert.equal(await frame.locator("time").getAttribute("datetime"), approvedAt);
     assert.equal(await frame.locator("code").textContent(), digest);
     assert.equal(await frame.getByText("Zeitpunkt offen.", { exact: false }).count(), 0);
+    const themeColors = () => frame.locator("html").evaluate((node) => {
+      const style = getComputedStyle(node);
+      return [style.color, style.backgroundColor];
+    });
+    await page.emulateMedia({ colorScheme: "light" });
+    assert.deepEqual(await themeColors(), ["rgb(35, 26, 49)", "rgb(250, 247, 255)"]);
+    await page.emulateMedia({ colorScheme: "dark" });
+    assert.deepEqual(await themeColors(), ["rgb(241, 234, 250)", "rgb(23, 19, 32)"]);
     await dialog.screenshot({ ...screenshotOptions, path: join(output, "reader-preview.png") });
 
     const htmlButton = dialog.getByRole("button", { name: "HTML herunterladen" });

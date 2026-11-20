@@ -1178,16 +1178,20 @@ function readerHtml(release) {
   policy.content = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
   const style = reader.createElement("style");
   style.textContent = `
-    :root { color-scheme: light dark; font: 100%/1.65 system-ui, sans-serif; }
+    :root { color-scheme: light dark; font: 100%/1.65 system-ui, sans-serif; color: #231a31; background: #faf7ff; }
     body { margin: 0; border-block-start: 4px solid #9867df; }
     main { max-inline-size: 66ch; margin-inline: auto; padding: clamp(1rem, 5vw, 3rem); }
     h1, summary, code { font-family: "IBM Plex Mono", ui-monospace, monospace; }
     h1 { font-size: clamp(1.5rem, 5vw, 2.25rem); line-height: 1.2; }
     .statement { white-space: pre-wrap; overflow-wrap: anywhere; }
-    a { text-underline-offset: .2em; }
+    a { color: #6333a7; text-underline-offset: .2em; }
     details { margin-block-start: 2rem; border-block-start: 1px solid; padding-block-start: .8rem; }
     summary { cursor: pointer; }
-    code { overflow-wrap: anywhere; }
+    code { display: block; font-size: .875rem; overflow-wrap: anywhere; }
+    @media (prefers-color-scheme: dark) {
+      :root { color: #f1eafa; background: #171320; }
+      a { color: #cda2ff; }
+    }
   `;
   reader.head.append(policy, style);
 
