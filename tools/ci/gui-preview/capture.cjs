@@ -551,6 +551,7 @@ async function checkLocalRun(browser) {
   };
   const passage = "Die Erhebung erfasst die erste Woche des Monats.";
   const question = "Was sagt der Artikel?";
+  const claimText = "Die Steuersenkung wurde an allen Tankstellen vollständig weitergegeben.";
   const record = {
     run_id: runId, article_url: articleUrl, started_at: "2026-11-20T08:00:00Z",
     status: "running", stage: "capture", has_report: false,
@@ -558,6 +559,7 @@ async function checkLocalRun(browser) {
   let polls = 0;
   let payload;
   let draft;
+  let studySearches = 0;
   const report = {
     case_id: runId,
     status: "partial",
@@ -569,7 +571,7 @@ async function checkLocalRun(browser) {
       claims: [{
         claim_id: "claim-1",
         review: {
-          claim: "Eine Angabe bleibt offen.", status: "partial",
+          claim: claimText, status: "partial",
           source_diff: {
             sources: [{ source: comparison, judgments: [{ relation: "qualifies", evidence_ids: ["quote"] }] }],
             evidence: [{
@@ -624,6 +626,25 @@ async function checkLocalRun(browser) {
       return route.fulfill({ contentType: "application/json", body: JSON.stringify(report) });
     }
     if (pathname === nextPath + "/report") return route.fulfill({ json: nextReport });
+    if (pathname === nextPath + "/claims/claim-1/studies") return route.fulfill({ json: null });
+    if (pathname === runPath + "/claims/claim-1/studies") {
+      if (route.request().method() === "POST") studySearches += 1;
+      const note = { value: "300 Tankstellen in Deutschland", quote: "300 German filling stations" };
+      const paper = { title: "Studie zur Weitergabe", url: "https://doi.org/10.1234/fuel",
+        access: "full_text", excerpt_only: true,
+        assessment: { population: note, period: { value: "Juni bis August 2022", quote: "June to August 2022" },
+          measured: { value: "Zapfsäulenpreise", quote: "We measured pump prices" },
+          finding: { value: "Weitergabe variierte nach Kraftstoff", quote: "Pass-through varied by fuel type" },
+          rationale: { value: "Vollständige Weitergabe nur für Diesel", quote: "Full pass-through was observed only for diesel" },
+          relation: "qualifies", review_status: "confirmed" } };
+      return route.fulfill({ json: studySearches ? { status: "complete", papers: [paper,
+        { title: "Studie mit abweichender Einordnung", access: "abstract",
+          url: "https://doi.org/10.1234/legacy", assessment: {
+            relation: "supports", finding: { value: "Im letzten Monat 50 Prozent." },
+            rationale: { value: "Belegt vollständige Weitergabe." },
+          } },
+        { title: "Nur indexierte Studie", url: "https://doi.org/10.1234/index", access: "metadata" }] } : null });
+    }
     if (pathname === nextPath + "/editorial-draft") return route.fulfill({ json: null });
     if (pathname === runPath + "/editorial-draft") {
       if (route.request().method() === "GET") {
@@ -661,6 +682,29 @@ async function checkLocalRun(browser) {
     await page.locator("#retrieval-issues > summary").click();
     await page.locator("#retrieval-issues-list").getByText("HTTP 403", { exact: false }).waitFor();
     assert.equal(await start.isEnabled(), true);
+    const studies = page.locator("#claim-studies");
+    assert.equal(studySearches, 0);
+    await studies.getByRole("button", { name: "Studien suchen", exact: true }).click();
+    await studies.getByText("Volltext abgerufen · Auszüge ausgewertet", { exact: true }).waitFor();
+    await studies.getByText("Nur Metadaten · Relevanz ungeprüft", { exact: true }).waitFor();
+    await studies.getByText("Juni bis August 2022", { exact: true }).waitFor();
+    await studies.getByText("Zapfsäulenpreise", { exact: true }).waitFor();
+    await studies.getByText("Weitergabe variierte nach Kraftstoff", { exact: true }).waitFor();
+    await studies.getByText("Vollständige Weitergabe nur für Diesel", { exact: true }).waitFor();
+    await studies.getByText("Im letzten Monat 50 Prozent.", { exact: true }).waitFor();
+    assert.equal(await studies.getByText("Belegt vollständige Weitergabe.", { exact: true }).count(), 0);
+    await studies.getByText("Textbelege", { exact: true }).click();
+    await studies.getByText("300 German filling stations", { exact: true }).waitFor();
+    assert.equal(await studies.getByRole("link", { name: "Studie zur Weitergabe", exact: true }).getAttribute("href"), "https://doi.org/10.1234/fuel");
+    for (const [width, filename] of [[1280, "studies.png"], [390, "studies-mobile.png"]]) {
+      await page.setViewportSize({ width, height: 1120 });
+      await studies.evaluate((panel) => panel.scrollIntoView({ block: "start" }));
+      await page.evaluate(() => document.fonts.ready);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+      assert.ok(await studies.getByRole("link", { name: "Studie zur Weitergabe" }).isVisible());
+      await page.screenshot({ ...screenshotOptions, path: join(output, filename) });
+    }
+    await page.setViewportSize({ width: 1280, height: 960 });
     const text = page.getByLabel("Redaktioneller Text für die Veröffentlichung");
     const save = page.getByRole("button", { name: "Entwurf speichern", exact: true });
     const approve = page.getByRole("button", { name: "Freigabe erteilen", exact: true });
@@ -678,6 +722,8 @@ async function checkLocalRun(browser) {
     await page.getByText("Gespeicherte Analysen", { exact: true }).click();
     await page.locator('#run-list a[href="?run=' + runId + '"]').click();
     await page.getByText("Entwurf gespeichert.", { exact: true }).waitFor();
+    await studies.getByText("Juni bis August 2022", { exact: true }).waitFor();
+    assert.equal(studySearches, 1);
     assert.equal(await text.inputValue(), statement);
     assert.ok(await approve.isDisabled());
     for (const checkbox of await page.locator("#release-checks").getByRole("checkbox").all()) {
@@ -730,7 +776,7 @@ async function checkLocalRun(browser) {
     await dialog.waitFor({ state: "hidden" });
 
     const review = page.locator("#private-review");
-    await review.getByText("Eine Angabe bleibt offen.", { exact: true }).click();
+    await review.getByText(claimText, { exact: true }).click();
     const evidence = review.locator(".editorial-evidence");
     await evidence.getByText("Belege zum Befund", { exact: true }).click();
     const source = evidence.getByRole("link", { name: comparison.title, exact: true });
@@ -958,12 +1004,14 @@ async function main() {
       inspectMedia("mobile.png", 390),
       inspectMedia("usage.gif", 840, count),
       inspectMedia("parliament.png", 1280),
+      inspectMedia("studies.png", 1280),
+      inspectMedia("studies-mobile.png", 390),
     ]);
     const { GITHUB_SHA, GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID } = process.env;
     const manifest = {
       source_commit: GITHUB_SHA || null,
       workflow_run: GITHUB_RUN_ID ? `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}` : null,
-      scenario: "Tankrabatt article investigation and 2025 Bundestag records",
+      scenario: "Tankrabatt article investigation, claim studies, and 2025 Bundestag records",
       playwright: require("playwright/package.json").version,
       media,
     };

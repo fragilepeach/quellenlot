@@ -36,7 +36,7 @@ Cases are curated in [parliament-data.js](parliament-data.js). To add a case, su
 
 The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates, mobile focus behavior, theme switching, offline font loading and the imported claim diff before uploading the dark-mode screenshots and the 20 fps walkthrough GIF. The walkthrough holds the evidence on screen and animates scrolling and node dragging. It also imports a single report containing the claim diff, an upstream citation shared by two sources, and an unresolved private editorial review at desktop and mobile widths. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
 
-Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`. The artifact also includes a screenshot of the private editorial review with fixture data and a [preview of the parliamentary comparison](../docs/images/generated/parliament.png). Chromium checks the parliamentary view at desktop and small mobile widths.
+Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`. The artifact also includes a screenshot of the private editorial review with fixture data and a [preview of the parliamentary comparison](../docs/images/generated/parliament.png). Chromium checks the parliamentary view at desktop and small mobile widths. The artifact and tracked documentation include desktop and mobile previews of the claim study panel populated with fixture data.
 
 To generate the files locally from the repository root, install Node.js and FFmpeg (including `ffprobe`), then run:
 
@@ -90,6 +90,20 @@ Open `report.json` with **Bericht öffnen**. Both article report shapes are supp
 **Quellenvergleich** orders the selected claim's sources by publication day and displays update dates alongside them. Sources with unknown publication dates appear last. Select a source to read each model's reasoning and inspect the capture time and snapshot version. **Nicht behandelt** means a model found no coverage in the supplied text. **Nicht beurteilbar** also covers omissions that could not be assessed from an incomplete excerpt.
 
 Repeated verified quotations link to one excerpt with a link for each source. **Mögliche Textübernahme** shows RapidFuzz matches linked to the selected claim's citations. Expand a match to see the original passages and highlighted wording changes. A match can reflect common wording or a common upstream source. Publication and update dates establish the visible chronology of the sources. The exact origin of the wording requires separate evidence.
+
+## Studies for a claim
+
+![Saved claim study results showing full-text and metadata-only access, the observation period, and its source excerpt](../docs/images/generated/studies.png)
+
+[Mobile preview](../docs/images/generated/studies-mobile.png)
+
+Open a saved local run, select a claim, and click **Studien suchen**. Quellenlot sends the selected claim and an English query generated locally to [Crossref](https://www.crossref.org/documentation/retrieve-metadata/rest-api/), then checks candidate DOIs for abstracts and open full text in [Europe PMC](https://dev.europepmc.org/RestfulWebService). The article, question, and editorial notes are not part of the search request.
+
+Results distinguish metadata-only candidates, a retrieved abstract, and a retrieved full text. If the text exceeds the model input limit, the interface marks that excerpts were assessed. The study publication year and observation period are displayed separately. The local model describes the measure, population and place, observation period, finding, and its relationship to the claim. Fields need a matching quotation to appear. An exact quotation confirms that the words occur in the source. The interpretation still needs reading in context.
+
+The search checks up to five distinct candidate DOIs. The first configured Ollama model extracts source-backed details. A second configured model independently checks any directional conclusion against the retrieved text. Quellenlot shows the rationale only when the second model agrees with the relation and confirms the interpretation. Otherwise the card shows an unclear relation alongside the extracted material. Older results keep their excerpts and need a fresh search for a reviewed relation.
+
+Results are saved with the run for that claim, separately from the private editorial report. Start the search again to refresh the results. Publisher paywalls and PDFs outside the supported repository can leave a paper at abstract or metadata access.
 
 ## Private editorial review
 

@@ -19,6 +19,8 @@ Open `web/index.html` to explore the Tankrabatt case. Select a highlighted claim
 
 After approving an editorial draft in the local GUI, open **Leservorschau öffnen** to see the reader-facing page. **HTML herunterladen** saves that view as standalone HTML. [Editorial review and export guide](web/README.md#private-editorial-review)
 
+In a saved local analysis, select a claim and choose **Studien suchen** to find candidate papers and see which source text was available. [Claim study guide](web/README.md#studies-for-a-claim)
+
 Open **Programme & Abstimmungen** to compare party programme wording with motions, Bundestag roll calls, and later laws. The first case covers Germany's 2025 debt-rule changes and the infrastructure fund.
 
 <details>
@@ -154,6 +156,12 @@ max_sources = 3
 Quellenlot searches the extracted claims and, if supplied, the question anchored to the first claim. The configured search instance and its upstream search providers receive these queries. The search samples up to 20 results per query, gives preference to government and public institution domains in a fixed list, then tries up to twice `max_sources` URLs to capture unique articles. This preference is based on the publisher's domain. The normal evidence review assesses each captured source and its quotes.
 
 The report lists the executed queries under `discovery.queries`, shows attempted candidates and selection outcomes under `discovery.candidates`, and records individual fetch failures under `retrievals`. Search failures and searches with zero usable comparisons produce a partial report when the original can still be reviewed. Explicit comparison URLs take precedence whenever you supply them.
+
+### Studies for a claim
+
+Start the [local browser interface](web/README.md#using-the-local-agent), reopen a saved analysis, and select a claim. **Studien suchen** searches Crossref and checks up to five candidate DOIs in Europe PMC. The selected claim and locally generated search terms are sent to Crossref. The first configured Ollama model reads the available text locally.
+
+Each result links to the paper and identifies metadata-only, abstract, or full-text access. The interface marks when only excerpts entered the model and shows the supported fields with their exact quotations. A second configured Ollama model checks the study's relation to the claim and the proposed rationale before they appear. When the second check does not confirm the interpretation, the study card marks the relation as unclear and shows the source excerpts. Results are cached by claim alongside the saved run. See the [GUI guide](web/README.md#studies-for-a-claim) for the walkthrough.
 
 ### Shared wording
 
