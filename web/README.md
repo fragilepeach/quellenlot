@@ -57,6 +57,8 @@ Read the dated source judgments, open the exact quotes, and expand a RapidFuzz m
 
 ![Inspect the chronology, open a wording comparison, and view the similarity scores](../docs/images/generated/claim-diff.gif)
 
+[Similarity scores on desktop and mobile](#source-article-similarity)
+
 </details>
 
 <details>

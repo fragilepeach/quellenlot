@@ -562,7 +562,7 @@ async function checkClaimDiff(browser, record) {
       })),
     },
   };
-  for (const width of [1280, 390]) {
+  for (const width of [1280, 390, 320]) {
     const { page, errors } = await openDemo(browser, { width, height: 900 });
     try {
       await page.locator("#report-file").setInputFiles({
@@ -647,7 +647,9 @@ async function checkClaimDiff(browser, record) {
       assert.deepEqual(await scoreRows.first().getByRole("link").allTextContents(),
         ["Bibliothek aktuell", "Stadtmitteilung"]);
       await scoreRows.last().getByText("Vollständigkeit ungeprüft", { exact: true }).waitFor();
-      await captureSection(page, similarity, width === 1280 ? "source-similarity.png" : "source-similarity-mobile.png");
+      if (width >= 390) {
+        await captureSection(page, similarity, width === 1280 ? "source-similarity.png" : "source-similarity-mobile.png");
+      }
       await comparison?.hold(2);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
       await page.locator("#claim-list button").nth(1).click();
