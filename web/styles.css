@@ -525,6 +525,50 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .release-actions button:disabled { opacity: .55; cursor: default; }
 #release-status { margin-top: 8px; }
 
+.agent-workflow { margin-top: 22px; }
+.agent-workflow-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 10px; }
+.agent-workflow-heading h2 { font-size: 1rem; }
+.agent-workflow-heading p { color: var(--subtle); font-size: .82rem; overflow-wrap: anywhere; }
+#agent-roles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.agent-role {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  overflow-wrap: anywhere;
+}
+.agent-role:not(:last-child)::after {
+  position: absolute;
+  inset: 20px -13px auto auto;
+  width: 12px;
+  border-top: 1px solid var(--purple-line);
+  content: "";
+}
+.agent-role h3 { font-size: .9rem; }
+.agent-role p { color: var(--subtle); font-size: .82rem; line-height: 1.4; }
+.agent-status { align-self: flex-start; margin-top: auto; padding-top: 3px; color: var(--subtle); font: 600 .78rem/1.4 var(--mono); }
+.agent-role[data-state="active"] { border-color: var(--green); background: var(--green-wash); }
+.agent-role[data-state="active"] .agent-status { color: var(--green); }
+.agent-role:is([data-state="failed"], [data-state="stopped"]) .agent-status { color: var(--error); }
+.agent-role[data-state="partial"] .agent-status { color: var(--caution); }
+@media (max-width: 920px) {
+  #agent-roles { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .agent-role { gap: 4px; padding-block: 9px; }
+  .agent-role:not(:last-child)::after { inset: auto auto -9px 16px; width: 0; height: 8px; border-top: 0; border-left: 1px solid var(--purple-line); }
+}
+
 .topic-trends { margin-top: 20px; overflow-wrap: anywhere; }
 .topic-trends > summary { color: var(--purple); font: 600 0.95rem/1.4 var(--mono); }
 .trend-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 14px; margin-top: 14px; }

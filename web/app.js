@@ -152,6 +152,105 @@ function updateSelection(root, key, selected) {
   }
 }
 
+const agentRoles = [
+  ["article", "Behauptungsanalyse", "Aussagen aus dem Artikel erfassen", "summary-heading"],
+  ["research", "Quellenrecherche", "Vergleichsquellen und Verweise finden", "graph-heading"],
+  ["comparison", "Quellenvergleich", "Belege vergleichen und im KI-Plenum gegenprüfen", "evidence-heading"],
+  ["interests", "Interessenprüfung", "Eigentümerschaft, Finanzierung und Verbindungen prüfen", "interests-heading"],
+  ["editorial", "Redaktionelle Schlussprüfung", "Befunde einordnen und offene Fragen festhalten", "editorial-result"],
+];
+
+const agentPhases = new Map([
+  ["capture", "article"], ["extraction", "article"], ["provenance", "research"],
+  ["comparison", "comparison"], ["interests", "interests"], ["editorial", "editorial"],
+]);
+const agentOutcome = {
+  complete: "Ergebnis",
+  partial: "Teilbericht",
+  failed: "Fehlgeschlagen",
+  no_claims: "Keine Aussagen",
+  no_evidence: "Keine Belege",
+  no_comparison_evidence: "Keine Vergleichsbelege",
+  absent: "Kein Ergebnis",
+};
+
+const agentCards = agentRoles.map(([role, title, description, anchor]) => {
+  const item = element("li", "agent-role");
+  item.dataset.role = role;
+  const heading = element("h3");
+  const link = element("a", "agent-result-link", title);
+  link.href = "#" + anchor;
+  link.addEventListener("click", (event) => {
+    const target = $(link.hash.slice(1));
+    if (!target) return;
+    event.preventDefault();
+    const details = target.closest("details");
+    if (details) details.open = true;
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "start" });
+  });
+  const label = element("span", "", title);
+  heading.append(label, link);
+  const status = element("span", "agent-status");
+  item.append(heading, element("p", "", description), status);
+  $("agent-roles").append(item);
+  return { item, label, link, status, anchor, role };
+});
+
+function agentResults(report, retrieval) {
+  const claims = report?.claims || [];
+  const discovery = retrieval?.discovery;
+  const failedDiscovery = discovery && (discovery.queries?.some((query) => query.status === "failed") ||
+    discovery.candidates?.every((candidate) => candidate.status !== "included"));
+  const originalId = report?.article_source_id ?? "article";
+  const captureGaps = retrieval?.retrievals.some((item) => item.source_id !== originalId &&
+    !String(item.source_id).startsWith("interest-evidence-") && item.status !== "captured");
+  const hasSources = report?.sources.length > 1 || retrieval?.provenance?.citations?.length;
+  const claimStatus = claims.every((claim) => claim.review.status === "complete") ? "complete" :
+    claims.every((claim) => claim.review.status === "failed") ? "failed" : "partial";
+  return {
+    article: claims.length ? "complete" : report?.status === "no_claims" ? "no_claims" :
+      (report?.status === "failed" || retrieval?.status === "failed" ? "failed" : "absent"),
+    research: failedDiscovery || captureGaps ? "partial" : hasSources ? "complete" : "absent",
+    comparison: claims.length ? claimStatus : "absent",
+    interests: report?.interests?.status,
+    editorial: report?.editorial?.status,
+  };
+}
+
+function renderAgentWorkflow(report, run = report?.runProgress) {
+  const running = run?.status === "running";
+  const phase = agentCards.findIndex(({ role }) => role === agentPhases.get(run?.stage));
+  const stopped = run?.status === "interrupted" || Boolean(run?.error) ||
+    (run?.status === "failed" && !report);
+  const runSource = $("agent-run-source");
+  const sourceLabel = (running || stopped) && run.article_url ? "Lauf für " + run.article_url : "";
+  if (runSource.textContent !== sourceLabel) runSource.textContent = sourceLabel;
+  runSource.hidden = !sourceLabel;
+  agentCards.forEach(({ item, label, link, status, anchor, role }, index) => {
+    const active = running && index === phase;
+    const interrupted = stopped && index === phase;
+    const outcome = report?.agentResults?.[role] || "absent";
+    const example = report === demo && index < 3;
+    const progress = index < phase && role !== "interests" ? "Phase beendet" :
+      role === "interests" ? "Optional" : "Ausstehend";
+    const value = active ? "Läuft" : interrupted ? runLabels[run.status] : running ? progress :
+      example ? "Beispiel" : (Object.hasOwn(agentOutcome, outcome) ? agentOutcome[outcome] : agentOutcome.absent);
+    if (status.textContent !== value) status.textContent = value;
+    item.dataset.state = active ? "active" : interrupted ? "stopped" : running ? "pending" : outcome;
+    if (active) item.setAttribute("aria-current", "step");
+    else item.removeAttribute("aria-current");
+
+    const target = role === "article" && report !== demo && !report?.generatedSummary ?
+      $("claims-heading") : $(anchor);
+    const resultTarget = target && !target.closest("[hidden]") ? target :
+      role === "research" && !$("retrieval-issues").hidden ? $("retrieval-issues").querySelector("summary") : null;
+    link.hidden = !(example || outcome !== "absent") || running || !resultTarget;
+    label.hidden = !link.hidden;
+    if (!link.hidden) link.href = "#" + resultTarget.id;
+  });
+}
+
 function renderReport(report) {
   state.report = report;
   window.quellenlotTrends.setPublications(report.timelineSources || []);
@@ -200,6 +299,7 @@ function renderReport(report) {
   }
   renderSourceSimilarities(report.sourceSimilarities || []);
   renderPrivateReview(report);
+  renderAgentWorkflow(report);
 }
 
 function renderSourceSimilarities(pairs) {
@@ -812,7 +912,9 @@ function reviewList(items) {
 
 function renderInterests(interests) {
   const details = element("details");
-  details.append(element("summary", "", "Eigentümerschaft, Finanzierung und Verbindungen"));
+  const summary = element("summary", "", "Eigentümerschaft, Finanzierung und Verbindungen");
+  summary.id = "interests-heading";
+  details.append(summary);
   if (!interests?.sources?.length) {
     details.append(element("p", "", "Keine Interessenprüfung mit Quellen im Bericht."));
     return details;
@@ -873,7 +975,10 @@ function renderEditorial(editorial, claims) {
   const section = element("div");
   const notes = editorial?.assessments || [];
   const succeeded = notes.filter((note) => note.status === "succeeded").length;
-  section.append(element("p", "", "Abgeschlossene Schlussprüfungen: " + succeeded + " von " + notes.length));
+  const result = element("p", "", "Abgeschlossene Schlussprüfungen: " + succeeded + " von " + notes.length);
+  result.id = "editorial-result";
+  result.tabIndex = -1;
+  section.append(result);
   const failed = notes.filter((note) => note.status === "failed");
   if (failed.length) {
     section.append(reviewList(failed.map((note) => note.agent_id + " · Schlussprüfung unvollständig")));
@@ -1038,6 +1143,7 @@ function readReport(data) {
       retrievalIssues,
       timelineSources: data.retrievals.flatMap((item) => item.snapshot ? [item.snapshot] : []),
       provenance: readSourceProvenance(data),
+      agentResults: agentResults(null, data),
       empty: failed
         ? "Der Bericht enthält keinen auswertbaren Artikel."
         : "Die Quellen wurden erfasst. Für diesen Lauf liegt noch kein Aussagenvergleich vor.",
@@ -1093,6 +1199,7 @@ function readReport(data) {
     generatedSummary: summary.length > 0,
     claims,
     sourceSimilarities: normalizedSourceSimilarities(report),
+    agentResults: agentResults(report, retrievalReport ? data : null),
     retrievalIssues,
     timelineSources: [...report.sources, ...(retrievalReport
       ? data.retrievals.flatMap((item) => item.snapshot ? [item.snapshot] : []) : [])],
@@ -1161,7 +1268,10 @@ async function showReportBytes(bytes, importId, run) {
     throw new Error("Die Datei enthält kein lesbares JSON.");
   }
   const report = readReport(data);
-  if (run) report.runId = run.run_id;
+  if (run) {
+    report.runId = run.run_id;
+    report.runProgress = run;
+  }
   if (report.privateReview && globalThis.crypto?.subtle) {
     const digest = await crypto.subtle.digest("SHA-256", bytes);
     const review = report.privateReview;
@@ -1523,6 +1633,7 @@ const runStages = {
   extraction: "Aussagen werden aus dem Artikel ermittelt …",
   provenance: "Vergleichsquellen und Verweise werden ermittelt …",
   comparison: "Aussagen werden mit den Belegen verglichen …",
+  interests: "Eigentümerschaft, Finanzierung und Verbindungen werden geprüft …",
   editorial: "Die redaktionelle Prüfung wird erstellt …",
 };
 const runLabels = {
@@ -1577,6 +1688,7 @@ async function followLocalRun(run) {
   if (run.status === "running") {
     $("submit-case").disabled = true;
     localRunFeedback(runStages[run.stage] || "Analyse läuft …");
+    renderAgentWorkflow(null, run);
     setTimeout(async () => {
       try {
         const response = await localRequest("/api/runs/" + encodeURIComponent(run.run_id));
@@ -1596,8 +1708,11 @@ async function followLocalRun(run) {
     if (run.has_report) {
       const response = await localRequest("/api/runs/" + encodeURIComponent(run.run_id) + "/report");
       await showReportBytes(await response.arrayBuffer(), importId, run);
+    } else {
+      renderAgentWorkflow(null, run);
     }
   } catch (error) {
+    renderAgentWorkflow(null, run);
     localRunFeedback(error.message, true);
   }
   try {

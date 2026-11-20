@@ -41,6 +41,8 @@ For topic context, open **Thementrends und Ereignisse** to fetch news coverage f
 3. A deterministic report preserves disagreements, missing model responses, source versions, and quote-verification results. It does not turn model votes into a truth score.
 4. In article mode, five local models independently prepare editorial notes for claims that have verified comparison excerpts. The report also lists claims the notes could not cover.
 
+The browser shows these roles in a five-card **Agenten im Prüfverlauf** panel. It highlights the active stage in a local run and links saved or imported outcomes to their evidence. [Agent roles and walkthrough](web/README.md#agent-roles)
+
 Models run sequentially. Each Ollama request sets `keep_alive=0` so Ollama unloads that model after the response; only one model needs to be resident at a time. The context is capped at 8,192 tokens by default and can be raised to 16,384. CPU inference is supported, but generation on a laptop CPU can be slow. The largest example model download is about 18 GB; its context cache and the OS also use RAM, so actual peak memory depends on the machine and request length.
 
 The example pool is a starting point, not a validated ranking. It lists Qwen3.8 27B, gpt-oss 20B, Mistral Small 3.2 24B, Gemma 4 12B, and Ministral 3 14B. All run as local weights through Ollama. Model weights are downloaded once; after that, inference can run offline. The license differs by model; check each model card before redistribution or commercial deployment.

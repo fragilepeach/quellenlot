@@ -206,6 +206,14 @@ async function checkImportOutcomes(browser, record) {
     await importReport({ status, retrievals: [], review: { ...report, status } });
     await page.getByText("Importierter Bericht · Analyse fehlgeschlagen", { exact: true }).waitFor();
     assert.match(await page.locator("#empty-report").textContent(), /Extraktion fehlgeschlagen/);
+
+    await importReport({
+      status, review: null,
+      retrievals: [{ source_id: "article", status, requested_url: "https://example.org/unavailable" }],
+    });
+    await page.getByRole("heading", { name: "Artikel konnte nicht gelesen werden" }).waitFor();
+    assert.deepEqual(await page.locator("#agent-roles .agent-status").allTextContents(),
+      ["Fehlgeschlagen", "Kein Ergebnis", "Kein Ergebnis", "Kein Ergebnis", "Kein Ergebnis"]);
     const article = {
       source_id: "article",
       title: "Bibliothek",
@@ -694,7 +702,7 @@ async function checkLocalRun(browser, recorder) {
     run_id: runId, article_url: articleUrl, started_at: "2026-11-20T08:00:00Z",
     status: "running", stage: "capture", has_report: false,
   };
-  let polls = 0;
+  let stage = "capture";
   let payload;
   let draft;
   let studySearches = 0;
@@ -720,6 +728,7 @@ async function checkLocalRun(browser, recorder) {
         },
         source_comparison: [],
       }],
+      interests: { status: "no_evidence", sources: [] },
       editorial: {
         status: "partial",
         claims: [{ claim_id: "claim-1", assigned_findings: [
@@ -752,9 +761,9 @@ async function checkLocalRun(browser, recorder) {
       return route.fulfill({ json: payload ? [record, next] : [] });
     }
     if (pathname === runPath) {
-      polls += 1;
-      record.stage = "comparison";
-      if (polls > 1) {
+      if (stage) {
+        record.stage = stage;
+      } else {
         record.status = "partial";
         record.has_report = true;
       }
@@ -808,15 +817,63 @@ async function checkLocalRun(browser, recorder) {
     await page.goto(origin);
     const start = page.getByRole("button", { name: "Analyse starten", exact: true });
     await start.waitFor();
+    const workflow = page.locator("#agent-workflow");
+    const roles = workflow.locator("#agent-roles > li");
+    assert.equal(await roles.count(), 5);
+    assert.equal(await roles.nth(3).locator(".agent-status").textContent(), "Kein Ergebnis");
     await page.locator("#urls").fill(articleUrl + "\nhttps://example.org/missing");
     await page.locator("#question").fill(question);
     const intake = await recorder.open("local-analysis.gif", page);
     await intake.hold(1.3);
     await start.click();
+    const agents = await recorder.open("agent-workflow.gif", page);
+    const current = workflow.locator('[aria-current="step"]');
+    await workflow.locator('[data-role="article"][aria-current="step"]').waitFor();
+    await workflow.getByText("Lauf für " + articleUrl, { exact: true }).waitFor();
+    await agents.scrollTo(workflow, 1);
+    await agents.hold();
+    stage = "provenance";
+    await workflow.locator('[data-role="research"][aria-current="step"]').waitFor();
+    await agents.hold();
+    stage = "comparison";
+    await workflow.locator('[data-role="comparison"][aria-current="step"]').waitFor();
     await page.getByText("Aussagen werden mit den Belegen verglichen …", { exact: true }).waitFor();
+    assert.equal(await current.count(), 1);
     assert.equal(await start.isDisabled(), true);
+    await intake.scrollTo("#intake-heading", 1);
     await intake.hold(1);
+    await agents.scrollTo(workflow, 1);
+    await agents.hold(1.1);
+    stage = "interests";
+    await workflow.locator('[data-role="interests"][aria-current="step"]').waitFor();
+    await captureSection(page, workflow, "agent-workflow.png");
+    await agents.hold(1.1);
+    stage = "editorial";
+    await workflow.locator('[data-role="editorial"][aria-current="step"]').waitFor();
+    await agents.hold(1.1);
+    stage = null;
     await page.getByRole("heading", { name: "Lokaler Prüfbericht", exact: true }).waitFor();
+    assert.equal(await current.count(), 0);
+    assert.ok(await page.locator("#agent-run-source").isHidden());
+    assert.equal(await workflow.getByRole("link", { name: "Behauptungsanalyse" }).getAttribute("href"),
+      "#claims-heading");
+    assert.deepEqual(await roles.locator(".agent-status").allTextContents(),
+      ["Ergebnis", "Teilbericht", "Teilbericht", "Keine Belege", "Teilbericht"]);
+    await agents.scrollTo(workflow);
+    await agents.hold(1.5);
+    const interests = workflow.getByRole("link", { name: "Interessenprüfung" });
+    await interests.focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await page.locator(":focus").getAttribute("id"), "interests-heading");
+    assert.ok(await page.locator("#interests-heading").evaluate((summary) => summary.parentElement.open));
+    await agents.hold(1.5);
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 960 });
+      await page.waitForFunction(() => document.documentElement.scrollWidth === window.innerWidth);
+      assert.equal(await roles.count(), 5);
+      if (width === 390) await captureSection(page, workflow, "agent-workflow-mobile.png");
+    }
+    await page.setViewportSize({ width: 1280, height: 960 });
     assert.equal(payload.article_url, articleUrl);
     assert.equal(payload.question, question);
     assert.deepEqual(payload.comparison_urls, ["https://example.org/missing"]);
