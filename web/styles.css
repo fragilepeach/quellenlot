@@ -107,7 +107,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible, textarea:focus-vis
   white-space: nowrap;
 }
 .masthead { background: var(--panel); border-bottom: 1px solid var(--border); box-shadow: inset 0 2px var(--purple-line); }
-.masthead-inner { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 68px; }
+.masthead-inner { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; min-height: 68px; }
 .brand { display: flex; align-items: center; gap: 11px; color: var(--green); font-size: 1.32rem; font-weight: 600; letter-spacing: -0.055em; }
 .brand-mark {
   display: flex;
@@ -124,7 +124,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible, textarea:focus-vis
 .brand-mark i { width: 13px; height: 2px; background: var(--lime-ink); }
 .brand-mark i:nth-child(2) { width: 9px; }
 .brand-mark i:nth-child(3) { width: 5px; }
-.masthead-actions { display: flex; align-items: center; gap: 10px; }
+.masthead-actions { grid-column: 3; display: flex; align-items: center; gap: 10px; }
 .quiet-button, .outline-button, .primary-button {
   border-radius: 3px;
   min-height: 40px;
@@ -353,8 +353,8 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 }
 @media (max-width: 540px) {
   .shell { padding-inline: 16px; }
-  .masthead-inner { flex-wrap: wrap; gap: 8px; padding-block: 9px; }
-  .masthead-actions { flex-wrap: wrap; gap: 4px; }
+  .masthead-inner { grid-template-columns: 1fr auto; gap: 6px 10px; padding-block: 9px; }
+  .masthead-actions { grid-column: 1 / -1; flex-wrap: wrap; gap: 4px; }
   .quiet-button, .outline-button { padding-inline: 8px; }
   .intake { padding-top: 26px; }
   .composer-fields { grid-template-columns: minmax(0, 1fr); gap: 12px; padding-inline: 14px; }
