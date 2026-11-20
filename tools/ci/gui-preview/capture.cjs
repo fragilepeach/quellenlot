@@ -12,7 +12,8 @@ const { chromium } = require("playwright");
 const repo = resolve(__dirname, "../../..");
 const output = resolve(process.argv[2] || join(repo, "artifacts/gui-preview"));
 const entry = pathToFileURL(join(repo, "web/index.html")).href;
-const gifFps = 20;
+const gallery = require("./gallery.json");
+const gifFps = 25;
 const screenshotOptions = { animations: "disabled", caret: "hide" };
 const commands = { ffmpeg: process.env.FFMPEG || "ffmpeg", ffprobe: process.env.FFPROBE || "ffprobe" };
 
@@ -52,40 +53,62 @@ async function captureOverview(browser, width, height, name) {
   }
 }
 
-async function captureWalkthrough(browser, frames) {
+function createRecorder(root) {
+  const recordings = new Map();
+  return {
+    async open(name, page) {
+      assert.ok(!recordings.has(name), name + " was captured twice");
+      const directory = join(root, name);
+      await mkdir(directory);
+      const recording = { directory, frame: 0 };
+      recordings.set(name, recording);
+      const framePath = (index) => join(directory, `frame-${index}.png`);
+      async function shot() {
+        await page.screenshot({ ...screenshotOptions, path: framePath(++recording.frame) });
+      }
+      return {
+        shot,
+        async hold(seconds = 1.25) {
+          await shot();
+          const still = framePath(recording.frame);
+          for (let count = Math.round(seconds * gifFps) - 1; count > 0; count -= 1) {
+            await link(still, framePath(++recording.frame));
+          }
+        },
+        async scrollTo(anchor, steps = 12) {
+          const target = typeof anchor === "string" ? page.locator(anchor) : anchor;
+          const { start, finish } = await target.evaluate((node) => ({
+            start: window.scrollY,
+            finish: Math.min(window.scrollY + node.getBoundingClientRect().top,
+              document.documentElement.scrollHeight - window.innerHeight),
+          }));
+          for (let step = 1; step <= steps; step += 1) {
+            const progress = (1 - Math.cos(Math.PI * step / steps)) / 2;
+            await page.evaluate((top) => window.scrollTo(0, top), Math.round(start + progress * (finish - start)));
+            if (steps > 1 && start !== finish) await shot();
+          }
+        },
+      };
+    },
+    get(name) {
+      const recording = recordings.get(name);
+      assert.ok(recording?.frame >= gifFps, name + " has no complete recording");
+      return recording;
+    },
+  };
+}
+
+async function captureSection(page, target, name) {
+  await target.evaluate((node) => node.scrollIntoView({ block: "start", behavior: "instant" }));
+  await page.screenshot({ ...screenshotOptions, path: join(output, name) });
+}
+
+async function captureWalkthrough(browser, record) {
   const { page, errors } = await openDemo(browser, { width: 1120, height: 780 });
   const highlight = page.getByRole("link", { name: "in allen drei Monaten gleich stark gewirkt" });
   const evidence = page.locator("#source-detail");
   const graph = page.locator("#graph");
-  let frame = 0;
-
-  function framePath(index) {
-    return join(frames, `frame-${index}.png`);
-  }
-
-  async function shot() {
-    await page.screenshot({ ...screenshotOptions, path: framePath(++frame) });
-  }
-
-  async function hold(seconds) {
-    await shot();
-    const still = framePath(frame);
-    for (let count = Math.round(seconds * gifFps) - 1; count > 0; count -= 1) {
-      await link(still, framePath(++frame));
-    }
-  }
-
-  async function scrollTo(anchor, steps) {
-    const { start, finish } = await page.locator(anchor).evaluate((node) => ({
-      start: window.scrollY,
-      finish: Math.min(window.scrollY + node.getBoundingClientRect().top, document.documentElement.scrollHeight - window.innerHeight),
-    }));
-    for (let step = 1; step <= steps; step += 1) {
-      const progress = (1 - Math.cos(Math.PI * step / steps)) / 2;
-      await page.evaluate((top) => window.scrollTo(0, top), Math.round(start + progress * (finish - start)));
-      if (steps > 1) await shot();
-    }
-  }
+  const { hold, scrollTo, shot } = await record.open("usage.gif", page);
 
   try {
     await scrollTo("#review", 1);
@@ -131,13 +154,12 @@ async function captureWalkthrough(browser, frames) {
     assert.match(await evidence.getByRole("link", { name: "Originalquelle öffnen" }).getAttribute("href"), /#:~:text=/);
     await hold(1.55);
     assert.deepEqual(errors, []);
-    return frame;
   } finally {
     await page.close();
   }
 }
 
-async function checkImportOutcomes(browser) {
+async function checkImportOutcomes(browser, record) {
   const { page, errors } = await openDemo(browser, { width: 1280, height: 960 });
   const report = {
     case_id: "tankrabatt-import-test",
@@ -237,10 +259,16 @@ async function checkImportOutcomes(browser) {
     };
     await importReport(withReview);
     const panel = page.locator("#private-review");
+    const clip = await record.open("report-import.gif", page);
     await panel.waitFor();
+    await clip.scrollTo("#review", 1);
+    await clip.hold();
+    await clip.scrollTo(panel);
     await panel.getByText("Eigentümerschaft, Finanzierung und Verbindungen", { exact: true }).click();
     await panel.getByText("Offen: Eigentümerschaft", { exact: true }).waitFor();
     assert.match(await panel.getByRole("link", { name: "Beleg der Verbindung öffnen" }).getAttribute("href"), /finanzierung/);
+    await captureSection(page, panel, "source-interests.png");
+    await clip.hold();
     await panel.getByText(quote, { exact: true }).click();
     await panel.getByText("Die Vergleichsquelle nennt einen anderen Zeitraum.", { exact: true }).waitFor();
     await panel.getByText("In der Schlussprüfung umstritten oder unklar.", { exact: true }).waitFor();
@@ -255,6 +283,7 @@ async function checkImportOutcomes(browser) {
     assert.match(draft.review_sha256, /^[a-f0-9]{64}$/);
     assert.equal(draft.interests, undefined);
     assert.equal(draft.editorial, undefined);
+    await clip.hold();
     await importReport({
       ...withReview,
       editorial: {
@@ -308,6 +337,8 @@ async function checkImportOutcomes(browser) {
     assert.equal(await graph.getByRole("link", { name: "Gemeinsame Studie", exact: true }).count(), 1);
     assert.equal(await graph.getByText("Nicht abrufbar · HTTP 403").count(), 1);
     assert.equal(await graph.getByText("Erfundener Link", { exact: false }).count(), 0);
+    await captureSection(page, page.locator("#graph-heading"), "shared-provenance.png");
+    await clip.hold(1.5);
     assert.deepEqual(errors, []);
   } finally {
     await page.close();
@@ -364,6 +395,8 @@ async function checkTheme(browser) {
     assert.equal(await scheme(), "light");
     assert.equal(await toggle.getAttribute("aria-pressed"), "false");
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ ...screenshotOptions, path: join(output, "light-mobile.png") });
 
     await page.reload();
     await toggle.waitFor();
@@ -378,7 +411,7 @@ async function checkTheme(browser) {
   }
 }
 
-async function checkClaimDiff(browser) {
+async function checkClaimDiff(browser, record) {
   const release = "Nach sechs Monaten empfängt die Bibliothek wieder alle Besucherinnen und Besucher aus dem Landkreis zu den üblichen Zeiten.";
   const revised = release.replace("üblichen", "verkürzten");
   const observed = "Am ersten Tag warteten Besucher vor dem Gebäude.";
@@ -505,6 +538,11 @@ async function checkClaimDiff(browser) {
       const rows = page.locator("#diff-sources > li");
       const names = rows.locator("button");
       await names.first().waitFor();
+      const comparison = width === 1280 ? await record.open("claim-diff.gif", page) : null;
+      const reviews = width === 1280 ? await record.open("plenum.gif", page) : null;
+      await comparison?.scrollTo("#claim-diff", 1);
+      await comparison?.hold();
+      await reviews?.hold(1);
       await page.locator(".source-provenance > summary").click();
       await page.locator(".source-provenance").getByText("2 Quellen verlinken dieses Ziel.").waitFor();
       const plenum = page.locator("#claim-plenum");
@@ -518,7 +556,13 @@ async function checkClaimDiff(browser) {
       const reviewLink = new URL(await plenum.getByRole("link", { name: "Beleg öffnen" }).getAttribute("href"));
       assert.equal(reviewLink.origin + reviewLink.pathname, news.url);
       assert.equal(decodeURIComponent(reviewLink.hash), "#:~:text=" + revised);
-      if (width === 1280) await plenum.screenshot({ path: join(output, "plenum.png") });
+      if (reviews) {
+        await reviews.scrollTo(plenum);
+        await captureSection(page, plenum, "plenum.png");
+        await reviews.hold(1.6);
+        await reviews.scrollTo(plenum.locator("blockquote").first());
+        await reviews.hold(1.5);
+      }
       await plenum.locator("summary").click();
       const privateReview = page.locator("#private-review");
       await privateReview.getByText(first.review.claim, { exact: true }).click();
@@ -557,6 +601,11 @@ async function checkClaimDiff(browser) {
       assert.deepEqual(await matches.nth(1).locator("blockquote").allTextContents(), [release, revised]);
       assert.equal(await matches.nth(1).locator("del").textContent(), "üblichen");
       assert.equal(await matches.nth(1).locator("ins").textContent(), "verkürzten");
+      if (comparison) {
+        await comparison.scrollTo("#diff-wording");
+        await captureSection(page, page.locator("#diff-wording"), "claim-diff.png");
+        await comparison.hold(1.8);
+      }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
       await page.locator("#claim-list button").nth(1).click();
       assert.equal(await matches.count(), 0);
@@ -569,7 +618,7 @@ async function checkClaimDiff(browser) {
   }
 }
 
-async function checkLocalRun(browser) {
+async function checkLocalRun(browser, recorder) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 960 } });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -706,9 +755,12 @@ async function checkLocalRun(browser) {
     await start.waitFor();
     await page.locator("#urls").fill(articleUrl + "\nhttps://example.org/missing");
     await page.locator("#question").fill(question);
+    const intake = await recorder.open("local-analysis.gif", page);
+    await intake.hold(1.3);
     await start.click();
     await page.getByText("Aussagen werden mit den Belegen verglichen …", { exact: true }).waitFor();
     assert.equal(await start.isDisabled(), true);
+    await intake.hold(1);
     await page.getByRole("heading", { name: "Lokaler Prüfbericht", exact: true }).waitFor();
     assert.equal(payload.article_url, articleUrl);
     assert.equal(payload.question, question);
@@ -716,7 +768,14 @@ async function checkLocalRun(browser) {
     await page.locator("#retrieval-issues > summary").click();
     await page.locator("#retrieval-issues-list").getByText("HTTP 403", { exact: false }).waitFor();
     assert.equal(await start.isEnabled(), true);
+    const issues = page.locator("#retrieval-issues");
+    await intake.scrollTo(issues);
+    await captureSection(page, issues, "local-analysis.png");
+    await intake.hold(1.4);
     const studies = page.locator("#claim-studies");
+    const papers = await recorder.open("studies.gif", page);
+    await papers.scrollTo(studies, 1);
+    await papers.hold();
     assert.equal(studySearches, 0);
     await studies.getByRole("button", { name: "Studien suchen", exact: true }).click();
     await studies.getByText("Volltext abgerufen · Auszüge ausgewertet", { exact: true }).waitFor();
@@ -727,9 +786,13 @@ async function checkLocalRun(browser) {
     await studies.getByText("Vollständige Weitergabe nur für Diesel", { exact: true }).waitFor();
     await studies.getByText("Im letzten Monat 50 Prozent.", { exact: true }).waitFor();
     assert.equal(await studies.getByText("Belegt vollständige Weitergabe.", { exact: true }).count(), 0);
+    await papers.scrollTo(studies);
+    await papers.hold(1.5);
     await studies.getByText("Textbelege", { exact: true }).click();
     await studies.getByText("300 German filling stations", { exact: true }).waitFor();
     assert.equal(await studies.getByRole("link", { name: "Studie zur Weitergabe", exact: true }).getAttribute("href"), "https://doi.org/10.1234/fuel");
+    await papers.scrollTo(studies.getByText("Textbelege", { exact: true }).first());
+    await papers.hold(1.5);
     for (const [width, filename] of [[1280, "studies.png"], [390, "studies-mobile.png"]]) {
       await page.setViewportSize({ width, height: 1120 });
       await page.evaluate(() => document.fonts.ready);
@@ -746,7 +809,10 @@ async function checkLocalRun(browser) {
     const exportText = page.getByRole("button", { name: "Freigegebenen Text exportieren", exact: true });
     const preview = page.getByRole("button", { name: "Leservorschau öffnen" });
     const statement = "Die Quelle nennt einen unklaren Zeitpunkt.\n\nGrenzwert: <5 % & nur für die erste Woche.";
+    const editorial = await recorder.open("editorial-review.gif", page);
+    await editorial.scrollTo("#release-form", 1);
     await text.fill(statement);
+    await editorial.hold();
     assert.ok(await save.isEnabled());
     assert.ok(await approve.isDisabled());
     assert.ok(await preview.isDisabled());
@@ -755,6 +821,7 @@ async function checkLocalRun(browser) {
     assert.ok(await approve.isDisabled());
 
     await page.getByText("Gespeicherte Analysen", { exact: true }).click();
+    await intake.hold(1.5);
     await page.locator('#run-list a[href="?run=' + runId + '"]').click();
     await page.getByText("Entwurf gespeichert.", { exact: true }).waitFor();
     await studies.getByText("Juni bis August 2022", { exact: true }).waitFor();
@@ -764,8 +831,11 @@ async function checkLocalRun(browser) {
     for (const checkbox of await page.locator("#release-checks").getByRole("checkbox").all()) {
       await checkbox.check();
     }
+    await editorial.scrollTo("#release-form");
+    await editorial.hold();
     await approve.click();
     await page.getByText(/Freigabe erteilt ·/).waitFor();
+    await editorial.hold();
     const [download] = await Promise.all([page.waitForEvent("download"), exportText.click()]);
     const exported = JSON.parse(await readFile(await download.path(), "utf8"));
     assert.equal(exported.text, statement);
@@ -792,7 +862,8 @@ async function checkLocalRun(browser) {
     assert.deepEqual(await themeColors(), ["rgb(35, 26, 49)", "rgb(250, 247, 255)"]);
     await page.emulateMedia({ colorScheme: "dark" });
     assert.deepEqual(await themeColors(), ["rgb(241, 234, 250)", "rgb(23, 19, 32)"]);
-    await dialog.screenshot({ ...screenshotOptions, path: join(output, "reader-preview.png") });
+    await page.screenshot({ ...screenshotOptions, path: join(output, "reader-preview.png") });
+    await editorial.hold(1.8);
 
     const htmlButton = dialog.getByRole("button", { name: "HTML herunterladen" });
     const [htmlFile] = await Promise.all([page.waitForEvent("download"), htmlButton.click()]);
@@ -818,7 +889,7 @@ async function checkLocalRun(browser) {
     assert.match(await source.getAttribute("href"), /^https:\/\/example\.org\/vergleich#:~:text=/);
     await evidence.getByText(passage, { exact: true }).waitFor();
     await review.getByText("In der Schlussprüfung umstritten oder unklar.").waitFor();
-    await review.screenshot({ ...screenshotOptions, path: join(output, "editorial-draft.png") });
+    await captureSection(page, review, "editorial-draft.png");
 
     await page.goto(origin + "?run=" + nextId);
     await page.getByRole("heading", { name: "Neue lokale Prüfung", exact: true }).waitFor();
@@ -847,13 +918,15 @@ async function checkLocalRun(browser) {
   }
 }
 
-async function checkParliament(browser) {
+async function checkParliament(browser, record) {
   for (const width of [1280, 390, 320]) {
     const { page, errors } = await openDemo(browser, { width, height: 960 });
     try {
       await page.getByRole("link", { name: "Programme & Abstimmungen", exact: true }).click();
       await page.getByRole("heading", { name: "Schuldenbremse und Investitionen", exact: true }).waitFor();
       const programmes = page.locator("#programme-comparisons");
+      const clip = width === 1280 ? await record.open("parliament.gif", page) : null;
+      await clip?.hold();
       await programmes.getByText("An der grundgesetzlichen Schuldenbremse festhalten.", { exact: false }).waitFor();
       await programmes.getByText("Spannung zur Ankündigung", { exact: true }).waitFor();
       await page.getByRole("radio", { name: "Stimme zu", exact: true }).check();
@@ -865,6 +938,8 @@ async function checkParliament(browser) {
       await programmes.getByText("Deine Position und die Programmaussage gehen in unterschiedliche Richtungen.").waitFor();
       await page.getByRole("radio", { name: "Stimme zu", exact: true }).check();
 
+      await clip?.scrollTo(programmes);
+      await clip?.hold(1.5);
       const final = page.locator("#schuldenbremse-schluss");
       const amendment = page.locator("#schuldenbremse-aenderung");
       await programmes.getByRole("link", { name: "Schlussabstimmung", exact: true }).first().click();
@@ -873,13 +948,17 @@ async function checkParliament(browser) {
       assert.deepEqual(await final.getByRole("row").nth(1).getByRole("cell").allTextContents(), ["512", "206", "0", "15"]);
       assert.match(await final.getByRole("link", { name: /Namentliche Stimmen/ }).getAttribute("href"), /id=951$/);
       assert.match(await final.getByRole("link", { name: /Wortlaut/ }).getAttribute("href"), /2015117\.pdf#page=10$/);
+      await clip?.hold(1.5);
+      await clip?.scrollTo(amendment);
       await amendment.locator("summary").click();
       await amendment.getByText("einmalig bis zu 300 Milliarden Euro", { exact: false }).waitFor();
       assert.deepEqual(await amendment.getByRole("row").nth(1).getByRole("cell").allTextContents(), ["85", "630", "2", "16"]);
       assert.match(await amendment.getByRole("link", { name: /Namentliche Stimmen/ }).getAttribute("href"), /id=950$/);
+      await clip?.hold();
       await programmes.getByRole("link", { name: "Spätere Umsetzung", exact: true }).click();
       const later = page.locator("#schuldenbremse-svikg");
       await later.getByRole("link", { name: /SVIKG/ }).waitFor();
+      await clip?.hold(1.5);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
       assert.deepEqual(errors, []);
       if (width === 1280) {
@@ -900,9 +979,10 @@ async function checkParliament(browser) {
   }
 }
 
-async function checkTopicTrends(browser) {
+async function checkTopicTrends(browser, record) {
   const origin = "http://127.0.0.1:8765";
-  const date = (daysAgo) => new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
+  const captureTime = new Date("2026-11-20T12:00:00Z");
+  const date = (daysAgo) => new Date(captureTime.getTime() - daysAgo * 86400000).toISOString().slice(0, 10);
   const [start, gap, neighbor, peak, after, end] = [16, 15, 14, 13, 12, 11].map(date);
   const lead = { title: "Bericht aus dem Suchfenster", url: "https://example.org/zeitung", indexed_date: after };
   const news = {
@@ -948,7 +1028,11 @@ async function checkTopicTrends(browser) {
     });
     try {
       await page.goto(origin);
+      await page.clock.setFixedTime(captureTime);
       await page.getByText("Thementrends und Ereignisse", { exact: true }).click();
+      const clip = width === 1280 ? await record.open("topic-trends.gif", page) : null;
+      await clip?.scrollTo("#topic-trends", 1);
+      await clip?.hold();
       await page.getByLabel("Suchbegriff", { exact: true }).fill("Tankrabatt");
       await page.getByRole("button", { name: "GDELT abfragen" }).click();
       await page.getByText("Medienzeitreihe geladen.", { exact: true }).waitFor();
@@ -963,6 +1047,8 @@ async function checkTopicTrends(browser) {
       assert.equal((await search.locator(".trend-line").getAttribute("d")).split("M").length - 1, 2);
       assert.equal(await search.locator("tbody tr").count(), 5);
       assert.equal(await search.locator("tbody tr").nth(1).locator("td").last().textContent(), "<1");
+      await clip?.scrollTo(newsPanel);
+      await clip?.hold(1.5);
 
       await page.locator("#report-file").setInputFiles({
         name: "report.json", mimeType: "application/json",
@@ -979,6 +1065,8 @@ async function checkTopicTrends(browser) {
       const reference = suggestion.getByRole("link", { name: lead.title });
       assert.equal(await reference.getAttribute("href"), lead.url);
       await suggestion.getByText(/GDELT erfasst am/).waitFor();
+      await clip?.scrollTo(suggestion);
+      await clip?.hold();
       assert.equal(await markers.getByRole("link", { name: lead.title }).count(), 0);
       await suggestion.getByRole("button", { name: "Beleg übernehmen: " + lead.title }).click();
       assert.equal(await page.getByLabel("Ereignis", { exact: true }).inputValue(), lead.title);
@@ -996,6 +1084,11 @@ async function checkTopicTrends(browser) {
       await page.getByRole("button", { name: "Ereignis hinzufügen" }).click();
       await markers.getByRole("link", { name: "Beispielbeschluss" }).waitFor();
       assert.equal(await page.locator(".trend-marker.active").count(), 2);
+      if (clip) {
+        await clip.scrollTo(markers);
+        await captureSection(page, suggestion, "trend-events.png");
+        await clip.hold(1.6);
+      }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
       await page.locator("#topic-trends").screenshot({ ...screenshotOptions, path: join(output, "trends-" + name + ".png") });
       await page.getByRole("button", { name: "GDELT abfragen" }).click();
@@ -1008,12 +1101,12 @@ async function checkTopicTrends(browser) {
   }
 }
 
-function encodeGif(frames) {
+function encodeGif(directory, name) {
   execFileSync(commands.ffmpeg, [
     "-hide_banner", "-loglevel", "error", "-y", "-filter_complex_threads", "1",
-    "-framerate", String(gifFps), "-i", join(frames, "frame-%d.png"),
+    "-framerate", String(gifFps), "-i", join(directory, "frame-%d.png"),
     "-filter_complex", "scale=840:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=none:diff_mode=rectangle",
-    "-loop", "0", join(output, "usage.gif"),
+    "-loop", "0", join(output, name),
   ]);
 }
 
@@ -1048,34 +1141,35 @@ async function main() {
   const frames = await mkdtemp(join(tmpdir(), "quellenlot-preview-"));
   try {
     const browser = await chromium.launch();
-    let count;
+    const record = createRecorder(frames);
     try {
       await captureOverview(browser, 1280, 960, "desktop.png");
       await captureOverview(browser, 390, 844, "mobile.png");
-      count = await captureWalkthrough(browser, frames);
-      await checkImportOutcomes(browser);
-      await checkLocalRun(browser);
-      await checkTopicTrends(browser);
+      await captureWalkthrough(browser, record);
+      await checkImportOutcomes(browser, record);
+      await checkLocalRun(browser, record);
+      await checkTopicTrends(browser, record);
       await checkTheme(browser);
-      await checkClaimDiff(browser);
-      await checkParliament(browser);
+      await checkClaimDiff(browser, record);
+      await checkParliament(browser, record);
     } finally {
       await browser.close();
     }
-    encodeGif(frames);
-    const media = await Promise.all([
-      inspectMedia("desktop.png", 1280),
-      inspectMedia("mobile.png", 390),
-      inspectMedia("usage.gif", 840, count),
-      inspectMedia("parliament.png", 1280),
-      inspectMedia("studies.png", 1280),
-      inspectMedia("studies-mobile.png", 390),
-    ]);
+    const media = [];
+    for (const [name, width] of Object.entries(gallery)) {
+      if (name.endsWith(".gif")) {
+        const { directory, frame } = record.get(name);
+        encodeGif(directory, name);
+        media.push(await inspectMedia(name, width, frame));
+      } else {
+        media.push(await inspectMedia(name, width));
+      }
+    }
     const { GITHUB_SHA, GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID } = process.env;
     const manifest = {
       source_commit: GITHUB_SHA || null,
       workflow_run: GITHUB_RUN_ID ? `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}` : null,
-      scenario: "Tankrabatt article investigation, claim studies, and 2025 Bundestag records",
+      scenario: "Tankrabatt demo, fixture-backed analyses and trends, and curated Bundestag records",
       playwright: require("playwright/package.json").version,
       media,
     };

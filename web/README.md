@@ -4,7 +4,7 @@ Open `web/index.html` in a modern browser for the static demo or to import a rep
 
 Quellenlot opens in dark mode. Use **Dunkles Design** in the header to switch between dark and light. The browser remembers your selection when local storage is available. Headings and evidence quotations use IBM Plex Mono, bundled under its [Open Font License](fonts/IBM-Plex-Mono-OFL.txt).
 
-## Screenshots and walkthrough
+## Feature gallery
 
 ![Desktop view showing the Tankrabatt summary and the selected claim's evidence and citation path](../docs/images/generated/desktop.png)
 
@@ -24,6 +24,108 @@ Quellenlot opens in dark mode. Use **Dunkles Design** in the header to switch be
 
 ![Animated walkthrough from the highlighted Tankrabatt claim to the TU Dresden passage and its cited Freitas–Syga study](../docs/images/generated/usage.gif)
 
+The walkthroughs play at 25 frames per second. The article demo includes published evidence, and the parliamentary case uses curated official records. Local analyses, imported comparison and editorial reports, paper searches and trend responses use controlled demonstration data.
+
+[Light mode on mobile](../docs/images/generated/light-mobile.png)
+
+<details>
+<summary>Local analyses and saved runs</summary>
+
+Start an analysis with the article, a comparison URL and a question. Inspect progress and retrieval issues, then reopen the saved run.
+
+![Local analysis showing a failed comparison-source fetch and the available report](../docs/images/generated/local-analysis.png)
+
+![Start an analysis, inspect retrieval issues and open saved runs](../docs/images/generated/local-analysis.gif)
+
+</details>
+
+<details>
+<summary>Claim-level comparison</summary>
+
+Read the dated source judgments, open the exact quotes, and expand a RapidFuzz match to inspect the changed words.
+
+![Exact quotations in a claim comparison with changed words highlighted](../docs/images/generated/claim-diff.png)
+
+![Inspect the chronology and open a wording comparison](../docs/images/generated/claim-diff.gif)
+
+</details>
+
+<details>
+<summary>Report import, shared citations and source interests</summary>
+
+Open a JSON report, inspect the funding record and outstanding ownership question, then trace two sources to the same upstream study.
+
+![Source graph with two articles citing one shared study](../docs/images/generated/shared-provenance.png)
+
+![Private funding evidence and an unresolved ownership category](../docs/images/generated/source-interests.png)
+
+![Inspect an imported report, record a private draft, and trace the shared citation](../docs/images/generated/report-import.gif)
+
+</details>
+
+<details>
+<summary>KI-Plenum</summary>
+
+Expand the independent model analyses, peer-review outcomes, verified quotations and unresolved objections.
+
+![Independent findings and objections in the KI-Plenum](../docs/images/generated/plenum.png)
+
+![Open the KI-Plenum and inspect the peer-review evidence](../docs/images/generated/plenum.gif)
+
+</details>
+
+<details>
+<summary>Studies for a claim</summary>
+
+Search for papers and open the quotation that supports an extracted finding. Compare the assessed material with metadata-only results.
+
+![Study cards showing access, observation period and findings](../docs/images/generated/studies.png)
+
+[Mobile screenshot](../docs/images/generated/studies-mobile.png)
+
+![Search for studies and inspect quoted evidence](../docs/images/generated/studies.gif)
+
+</details>
+
+<details>
+<summary>Topic trends and event timeline</summary>
+
+Load the GDELT news series and a Google Trends CSV, investigate a peak, and add a dated event with a source link.
+
+![News coverage and search interest on desktop](../docs/images/generated/trends-desktop.png)
+
+[Mobile screenshot](../docs/images/generated/trends-mobile.png)
+
+![Suggested article, date and evidence fields, and recorded events](../docs/images/generated/trend-events.png)
+
+![Explore both trend series and add a dated event](../docs/images/generated/topic-trends.gif)
+
+</details>
+
+<details>
+<summary>Private editorial review and reader edition</summary>
+
+Save draft text, reopen it, complete the release checks and inspect the approved reader page. The local workflow offers approved JSON and HTML downloads.
+
+![Private editorial review with assigned evidence](../docs/images/generated/editorial-draft.png)
+
+![Approved reader page with publication controls and approval details](../docs/images/generated/reader-preview.png)
+
+![Save and approve text and open the reader preview](../docs/images/generated/editorial-review.gif)
+
+</details>
+
+<details>
+<summary>Party programmes, parliamentary votes and laws</summary>
+
+Compare programme excerpts with a policy answer, inspect the final vote and amendment tallies, and follow the link to the subsequent law.
+
+![Programme comparison and official records for the 2025 debt rule changes](../docs/images/generated/parliament.png)
+
+![Compare programme positions, roll calls and later implementation](../docs/images/generated/parliament.gif)
+
+</details>
+
 ## Party programmes and parliamentary records
 
 Choose **Programme & Abstimmungen** from the header. In the first case, compare the CDU/CSU and SPD programme excerpts on the debt rule and optionally answer the policy statement yourself. The comparison distinguishes a clear programme position from an open interpretation. Your answer stays in the open page.
@@ -34,9 +136,9 @@ Cases are curated in [parliament-data.js](parliament-data.js). To add a case, su
 
 ## How the previews are generated
 
-The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates, mobile focus behavior, theme switching, offline font loading and the imported claim diff before uploading the dark-mode screenshots and the 20 fps walkthrough GIF. The walkthrough holds the evidence on screen and animates scrolling and node dragging. It also imports a single report containing the claim diff, an upstream citation shared by two sources, and an unresolved private editorial review at desktop and mobile widths. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
+The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the static demo and local-server fixtures in headless Chromium. It checks the same controls shown in the gallery, plus keyboard navigation, offline fonts, theme persistence, compatibility with earlier reports, and approval invalidation after editing. The GIFs record browser interactions and scrolling, with brief holds for reading. The [capture manifest](../docs/images/generated/manifest.json) records the tested revision, run, dimensions, frame counts, frame rates, file sizes and SHA-256 hashes.
 
-Pull requests that change the browser interface or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the tracked images after a successful capture on `main` when their bytes change. It can also be run manually for `main`. The tracked images include the [parliamentary comparison](../docs/images/generated/parliament.png) and desktop and mobile claim study previews. The artifact also includes fixture screenshots of the private editorial review, the reader preview and the trend charts.
+Pull requests that change the browser interface or its capture code upload a **quellenlot-gui-previews** artifact to the Actions run. A successful run on `main` refreshes the tracked gallery when its media change. You can also run the workflow manually for `main`.
 
 To generate the files locally from the repository root, install Node.js and FFmpeg (including `ffprobe`), then run:
 
@@ -109,7 +211,7 @@ Results are saved with the run for that claim, separately from the private edito
 
 Open **KI-Plenum** under **Belege zur Aussage** to read each model’s independent summary and see which model checked each finding. A peer review shows the original source judgment, the reviewer’s outcome and reasoning, and any verified review quote that matches the finding’s source and captured version. Open the quote through **Beleg öffnen** when the source has a URL. The panel lists unresolved objections and recorded failures. Reports created before analysis and review records were included can still be opened.
 
-The GUI previews workflow checks this panel on desktop and mobile and includes `plenum.png` in its uploaded artifact.
+The [feature gallery](#feature-gallery) includes a walkthrough of the independent findings and peer review. The workflow also checks this panel at mobile width.
 
 ## Private editorial review
 
@@ -137,7 +239,7 @@ Import a single-series **Interesse im zeitlichen Verlauf** CSV exported by Googl
 
 After loading daily data in the local GUI, select **Medienausschlag untersuchen** or **Suchausschlag untersuchen**. Quellenlot ranks peaks from the last 90 UTC days by their rise above the mean of both neighboring days. A peak must exceed both neighbors and reach at least 125% of their mean. Weekly and monthly exports remain available for viewing and manual annotation.
 
-When you start a search, Quellenlot sends the topic, language and a window of up to two days on either side of the strongest eligible peak to GDELT. For a CSV, set the topic and language in the news form first. Up to five results display the date GDELT indexed each article. Choose **Beleg übernehmen** to copy the article title and link into the event form, then check the source and enter the actual event date before saving. Temporal proximity alone does not establish causation. The preview workflow includes desktop and mobile screenshots with fixture suggestions.
+When you start a search, Quellenlot sends the topic, language and a window of up to two days on either side of the strongest eligible peak to GDELT. For a CSV, set the topic and language in the news form first. Up to five results display the date GDELT indexed each article. Choose **Beleg übernehmen** to copy the article title and link into the event form, then check the source and enter the actual event date before saving. Temporal proximity alone does not establish causation. The [feature gallery](#feature-gallery) shows suggestions and event annotations on desktop and mobile.
 
 Add an event with its documented date, title, and evidence URL. Publication dates from the open report appear as **Veröffentlichung**. Select a date in the list to highlight it on each applicable chart. Events and imported series stay in the current browser tab until reload.
 
