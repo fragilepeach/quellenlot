@@ -1,32 +1,32 @@
 {
-  "source_commit": "1e90b8ad6eaa0855dd5d6f82e32529cbb6718a14",
-  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44704282978",
+  "source_commit": "700403645d1be533f1b401ac31ae37da2a16d73c",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44705873333",
   "scenario": "Tankrabatt fixture, article claim investigation",
   "playwright": "1.58.2",
   "media": [
     {
       "file": "desktop.png",
       "width": 1280,
-      "height": 1488,
+      "height": 1955,
       "frames": 1,
-      "bytes": 229643,
-      "sha256": "f16034a6a7fbe62935a3c1910b41444085c62f486611eee6bcc4c231e2e5fa9c"
+      "bytes": 266073,
+      "sha256": "030de48e2071b7218bb52ef8cf18e442131b57d1f4671edf11314a891b7283d7"
     },
     {
       "file": "mobile.png",
       "width": 390,
-      "height": 2606,
+      "height": 3218,
       "frames": 1,
-      "bytes": 218844,
-      "sha256": "c357c3baaf0956a2969df8d2d614741e71650dadd9da631208457c2f9113c471"
+      "bytes": 255652,
+      "sha256": "dee6eb6b8c2f2fdedcb50f091e404673276f5538bcb36169b0d6525993debab2"
     },
     {
       "file": "usage.gif",
       "width": 960,
       "height": 669,
       "frames": 4,
-      "bytes": 406421,
-      "sha256": "ecb1b534542553cf3481fd606c987e4c6bb7a7681e3a0ccb366f44fdb662f786"
+      "bytes": 362524,
+      "sha256": "477100b13f2a44253fb1fdc8c789e7d97289b0b34f1410b9e9054505df0312c3"
     }
   ]
 }
