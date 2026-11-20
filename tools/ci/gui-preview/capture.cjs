@@ -551,6 +551,7 @@ async function checkLocalRun(browser) {
   };
   const passage = "Die Erhebung erfasst die erste Woche des Monats.";
   const question = "Was sagt der Artikel?";
+  const claimText = "Die Steuersenkung wurde an allen Tankstellen vollständig weitergegeben.";
   const record = {
     run_id: runId, article_url: articleUrl, started_at: "2026-11-20T08:00:00Z",
     status: "running", stage: "capture", has_report: false,
@@ -570,7 +571,7 @@ async function checkLocalRun(browser) {
       claims: [{
         claim_id: "claim-1",
         review: {
-          claim: "Die Steuersenkung wurde an allen Tankstellen vollständig weitergegeben.", status: "partial",
+          claim: claimText, status: "partial",
           source_diff: {
             sources: [{ source: comparison, judgments: [{ relation: "qualifies", evidence_ids: ["quote"] }] }],
             evidence: [{
@@ -696,7 +697,7 @@ async function checkLocalRun(browser) {
     await studies.getByText("300 German filling stations", { exact: true }).waitFor();
     assert.equal(await studies.getByRole("link", { name: "Studie zur Weitergabe", exact: true }).getAttribute("href"), "https://doi.org/10.1234/fuel");
     for (const [width, filename] of [[1280, "studies.png"], [390, "studies-mobile.png"]]) {
-      await page.setViewportSize({ width, height: 960 });
+      await page.setViewportSize({ width, height: 1120 });
       await studies.evaluate((panel) => panel.scrollIntoView({ block: "start" }));
       await page.evaluate(() => document.fonts.ready);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
@@ -775,7 +776,7 @@ async function checkLocalRun(browser) {
     await dialog.waitFor({ state: "hidden" });
 
     const review = page.locator("#private-review");
-    await review.getByText("Eine Angabe bleibt offen.", { exact: true }).click();
+    await review.getByText(claimText, { exact: true }).click();
     const evidence = review.locator(".editorial-evidence");
     await evidence.getByText("Belege zum Befund", { exact: true }).click();
     const source = evidence.getByRole("link", { name: comparison.title, exact: true });
