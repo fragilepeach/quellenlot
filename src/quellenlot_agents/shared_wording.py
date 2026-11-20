@@ -17,9 +17,12 @@ from quellenlot_agents.models import (
     SharedWordingReport,
     SourceInput,
     SourcePassage,
+    SourceSimilarity,
+    SourceVersionRef,
 )
 
 _MIN_TOKENS: Final = 12
+_SOURCE_PHRASE_LENGTH: Final = 5
 _MAX_WINDOW_TOKENS: Final = 120
 _WINDOW_STRIDE: Final = 88
 _MAX_WINDOWS: Final = 160
@@ -151,31 +154,63 @@ def _excerpt(source: SourceInput, span: _Span) -> SourcePassage:
     )
 
 
+def _source_phrases(text: str) -> set[tuple[str, ...]]:
+    """Collect unique overlapping five-token phrases from a snapshot."""
+    tokens = _TOKEN.findall(unicodedata.normalize("NFC", text).casefold())
+    if len(tokens) < _MIN_TOKENS:
+        return set()
+    return set(
+        zip(
+            *(islice(tokens, offset, None) for offset in range(_SOURCE_PHRASE_LENGTH)), strict=False
+        )
+    )
+
+
+def _source_similarities(sources: list[SourceInput]) -> list[SourceSimilarity]:
+    """Score all source pairs by Jaccard similarity over their wording."""
+    phrases = [_source_phrases(source.text) for source in sources]
+    refs = [
+        SourceVersionRef(source_id=source.source_id, version_id=source.version_id)
+        for source in sources
+    ]
+    results: list[SourceSimilarity] = []
+    for (first, left), (second, right) in combinations(zip(refs, phrases, strict=True), 2):
+        score = None
+        if left and right:
+            shared = len(left & right)
+            score = 100.0 * shared / (len(left) + len(right) - shared)
+        results.append(SourceSimilarity(first=first, second=second, score=score))
+    return results
+
+
 def find_shared_wording(sources: list[SourceInput]) -> SharedWordingReport:
-    """Find passages with substantial wording overlap between supplied snapshots.
+    """Measure snapshot similarity and find passages with substantial wording overlap.
 
     Args:
         sources: Distinct, versioned snapshots included in the case.
 
     Returns:
-        Exact excerpts on both sides, a similarity score, and an analysis limit flag.
+        Scores for each source pair, exact matching excerpts, and a passage limit flag.
     """
     if len(sources) < 2:
         return SharedWordingReport()
     windows = [list(islice(_windows(source.text), _MAX_WINDOWS + 1)) for source in sources]
-    limited = any(len(items) > _MAX_WINDOWS for items in windows)
-    matches: list[SharedPassage] = []
+    report = SharedWordingReport(
+        limited=any(len(items) > _MAX_WINDOWS for items in windows),
+        source_similarities=_source_similarities(sources),
+    )
     for (first, left), (second, right) in combinations(zip(sources, windows, strict=True), 2):
         hits, pair_limited = _pair_matches(left[:_MAX_WINDOWS], right[:_MAX_WINDOWS])
-        limited |= pair_limited
+        report.limited |= pair_limited
         for hit in hits:
-            if len(matches) == _MAX_MATCHES:
-                return SharedWordingReport(matches=matches, limited=True)
-            matches.append(
+            if len(report.matches) == _MAX_MATCHES:
+                report.limited = True
+                return report
+            report.matches.append(
                 SharedPassage(
                     first=_excerpt(first, hit.first),
                     second=_excerpt(second, hit.second),
                     similarity=round(hit.score, 2),
                 )
             )
-    return SharedWordingReport(matches=matches, limited=limited)
+    return report

@@ -3,7 +3,7 @@
 import unittest
 from datetime import UTC, datetime
 
-from quellenlot_agents.models import SourceInput
+from quellenlot_agents.models import SharedWordingReport, SourceInput
 from quellenlot_agents.shared_wording import find_shared_wording
 
 _WIRE = (
@@ -40,6 +40,11 @@ class SharedWordingTests(unittest.TestCase):
             ),
         ]
         report = find_shared_wording(articles)
+        self.assertEqual(len(report.source_similarities), 3)
+        for score in report.source_similarities:
+            self.assertIsNotNone(score.score)
+            self.assertEqual(score.first.version_id, f"{score.first.source_id}-v1")
+            self.assertEqual(score.second.version_id, f"{score.second.source_id}-v1")
         self.assertEqual(
             {(item.first.source_id, item.second.source_id) for item in report.matches},
             {("a", "b"), ("a", "c"), ("b", "c")},
@@ -71,6 +76,11 @@ class SharedWordingTests(unittest.TestCase):
         self.assertEqual(pair.first.text, _RELEASE)
         self.assertEqual(pair.second.text, _RELEASE)
         self.assertEqual(pair.similarity, 100.0)
+        score = report.source_similarities[0].score
+        if score is None:
+            self.fail("Both sources have enough text to score.")
+        self.assertGreater(score, 0)
+        self.assertLess(score, pair.similarity)
 
     def test_same_topic_and_short_common_phrases_do_not_trigger_matches(self) -> None:
         """Leave independent text about the same event unflagged."""
@@ -80,7 +90,9 @@ class SharedWordingTests(unittest.TestCase):
             "Am kommenden Montag beginnt am Marktplatz ein neues Kapitel: Die Türen der "
             "Stadtbücherei gehen auf, während der Leihbetrieb zunächst eingeschränkt bleibt.",
         )
-        self.assertEqual(find_shared_wording([original, independent]).matches, [])
+        report = find_shared_wording([original, independent])
+        self.assertEqual(report.matches, [])
+        self.assertEqual(report.source_similarities[0].score, 0.0)
 
     def test_candidate_limits_are_visible(self) -> None:
         """Record that lengthy repeated sources exceed the bounded matcher."""
@@ -88,3 +100,29 @@ class SharedWordingTests(unittest.TestCase):
         report = find_shared_wording([_source("a", text), _source("b", text)])
         self.assertTrue(report.limited)
         self.assertGreater(len(report.matches), 0)
+        self.assertEqual(report.source_similarities[0].score, 100.0)
+
+    def test_source_similarity_measures_unique_phrases_across_whole_snapshots(self) -> None:
+        """Score the shared wording once and mark very short captures as unavailable."""
+        words = "eins zwei drei vier fünf sechs sieben acht neun zehn elf zwölf"
+        report = find_shared_wording(
+            [
+                _source("base", words),
+                _source("copy", words.replace("fünf", "fu\u0308nf").upper()),
+                _source("longer", f"{words} dreizehn vierzehn fünfzehn sechzehn"),
+                _source("short", "Kein auswertbarer Artikel"),
+            ]
+        )
+        scores = {
+            (pair.first.source_id, pair.second.source_id): pair.score
+            for pair in report.source_similarities
+        }
+        self.assertEqual(len(scores), 6)
+        self.assertEqual(scores["base", "copy"], 100.0)
+        self.assertEqual(scores["base", "longer"], 100.0 * 8 / 12)
+        self.assertIsNone(scores["base", "short"])
+
+    def test_legacy_shared_wording_report_still_loads(self) -> None:
+        """Leave pair scores absent when an old report only contains passage matches."""
+        report = SharedWordingReport.model_validate_json('{"matches":[],"limited":false}')
+        self.assertEqual(report.source_similarities, [])

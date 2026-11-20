@@ -175,11 +175,15 @@ Each result links to the paper and identifies metadata-only, abstract, or full-t
 
 ### Shared wording
 
-Quellenlot compares the captured source text locally using RapidFuzz. The `shared_wording` field appears in the standalone claim report or once on the article report (`review.shared_wording` for a URL case). Each match contains excerpts from both source versions, their zero-based character offsets in those snapshots, and an ordered-token similarity score from 0 to 100. The ending offset is exclusive.
+The `shared_wording` field appears in the standalone claim report or once on the article report (`review.shared_wording` for a URL case). Open **Textähnlichkeit der Quellen** below the source graph in the browser to compare every pair of captured articles. Each score links to the two source versions in `shared_wording.source_similarities`. [Browser guide and previews](web/README.md#source-article-similarity)
+
+The score is the percentage of distinct five-token phrases that appear in both snapshots out of all such phrases in either snapshot (Jaccard similarity). It treats upper- and lowercase alike and counts repeated phrases once. Zero means the captures share no five-token phrases. A score of 100 means their phrase sets match. If either snapshot has fewer than 12 tokens, `score` is `null`. The browser flags captures whose completeness is unverified. Quellenlot calculates the score locally from the available text without an additional model call.
+
+The `matches` list contains individual passage matches found with RapidFuzz. Each match contains excerpts from both source versions, their zero-based character offsets in those snapshots, and an ordered-token similarity score from 0 to 100. The ending offset is exclusive.
 
 The matcher looks for lightly edited paragraphs, sentences, and quoted passages. It requires at least 12 tokens and a similarity score of 90. It samples up to 160 passage windows per source and reports up to three matches per source pair and 60 per case. The `limited` flag indicates when a candidate or reporting cap was reached.
 
-Shared wording can come from syndication, attributed quotations, or a common press release. The report retains all source findings so that additions, changes in numbers or wording, and distinct reporting are visible. Source publication, update, and capture dates describe the available snapshots. Establishing who first published a particular passage requires dated versions of the passage itself.
+Shared wording can come from syndication, attributed quotations, or a common press release. The article score measures wording, so independently phrased accounts of the same event can score low. The report retains all source findings so that additions, changes in numbers or wording, and distinct reporting are visible. Source publication, update, and capture dates describe the available snapshots. Establishing who first published a particular passage requires dated versions of the passage itself.
 
 ### Claim-level source diff
 

@@ -198,7 +198,27 @@ function renderReport(report) {
     renderGraph();
     renderClaimStudies();
   }
+  renderSourceSimilarities(report.sourceSimilarities || []);
   renderPrivateReview(report);
+}
+
+function renderSourceSimilarities(pairs) {
+  const panel = $("source-similarity");
+  panel.hidden = !pairs.length;
+  panel.open = false;
+  const number = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 2 });
+  $("source-similarity-rows").replaceChildren(...pairs.map(({ first, second, score }) => {
+    const row = element("tr");
+    for (const source of [first, second]) {
+      const cell = element("td");
+      const title = source.name || source.id;
+      cell.append(sourceLink(source, null, title) || document.createTextNode(title));
+      if (source.complete === false) cell.append(element("small", "", "Vollständigkeit ungeprüft"));
+      row.append(cell);
+    }
+    row.append(element("td", "", score === null ? "Zu wenig Text" : number.format(score) + " %"));
+    return row;
+  }));
 }
 
 function selectClaim(index) {
@@ -691,6 +711,25 @@ function normalizedSource(source, originalId) {
   };
 }
 
+function normalizedSourceSimilarities(report) {
+  const pairs = report.shared_wording?.source_similarities;
+  if (!Array.isArray(pairs)) return [];
+  const sources = new Map(report.sources.filter((source) => source?.source_id && source.version_id)
+    .map((source) => [source.source_id, normalizedSource(source, report.article_source_id)]));
+  const resolve = (reference) => {
+    const source = sources.get(reference?.source_id);
+    return source?.version === reference?.version_id ? source : null;
+  };
+  return pairs.flatMap((pair) => {
+    const first = resolve(pair?.first);
+    const second = resolve(pair?.second);
+    const score = pair?.score;
+    if (!first || !second || first === second ||
+      (score !== null && (!Number.isFinite(score) || score < 0 || score > 100))) return [];
+    return [{ first, second, score }];
+  }).sort((left, right) => (right.score ?? -1) - (left.score ?? -1));
+}
+
 function normalizedEvidence(comparisons, originalId) {
   return comparisons
     .filter(({ source, judgments }) => source?.source_id !== originalId && judgments?.length)
@@ -1053,6 +1092,7 @@ function readReport(data) {
       : ["Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung."],
     generatedSummary: summary.length > 0,
     claims,
+    sourceSimilarities: normalizedSourceSimilarities(report),
     retrievalIssues,
     timelineSources: [...report.sources, ...(retrievalReport
       ? data.retrievals.flatMap((item) => item.snapshot ? [item.snapshot] : []) : [])],
