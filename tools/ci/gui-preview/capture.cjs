@@ -73,12 +73,12 @@ async function captureWalkthrough(browser, frames) {
     assert.equal(await evidence.locator(".relation").textContent(), "Widerspricht");
     await shot("#workspace");
 
-    await page.locator("#source-controls").getByRole("button", { name: "TU Dresden" }).click();
+    await page.locator("#diff-sources").getByRole("button", { name: "TU Dresden" }).click();
     assert.match(await evidence.locator("blockquote").textContent(), /Anfang Juni/);
     await evidence.getByText("Datum und Version", { exact: true }).click();
     assert.match(await evidence.locator("dl").textContent(), /19\.10\.2022.*20\.10\.2022/);
     await graph.getByText("verweist auf", { exact: true }).waitFor();
-    await shot("#evidence-panel");
+    await shot("#source-detail");
 
     await graph.locator(".graph-origin").getByRole("button", { name: "Freitas & Syga" }).click();
     assert.match(await evidence.locator(".source-type").textContent(), /ifo Dresden berichtet/);
@@ -183,6 +183,117 @@ async function checkTheme(browser) {
   }
 }
 
+async function checkClaimDiff(browser) {
+  const release = "Nach sechs Monaten empfängt die Bibliothek wieder alle Besucherinnen und Besucher aus dem Landkreis zu den üblichen Zeiten.";
+  const revised = release.replace("üblichen", "verkürzten");
+  const observed = "Am ersten Tag warteten Besucher vor dem Gebäude.";
+  const snapshot = (source_id, title, published, updated, text_is_complete = true) => ({
+    source_id, title, version_id: "v1", url: `https://example.org/${source_id}`, text_is_complete,
+    published_at: published ? { value: published } : null,
+    updated_at: updated ? { value: updated } : null,
+    captured_at: "2025-02-03T14:00:00Z",
+  });
+  const original = snapshot("article", "Bibliothek aktuell", "2025-02-02", "2025-02-03");
+  const releaseSource = snapshot("release", "Stadtmitteilung", "2025-02-01");
+  const news = snapshot("news", "Lokalzeitung", "2025-02-03");
+  const omitted = snapshot("newsletter", "Stadtteilbrief", "2025-02-02");
+  const partial = snapshot("excerpt", "Unvollständiger Archivtext", null, "2025-02-01", false);
+  const unreviewed = snapshot("archive", "Archiv", null);
+  const sources = [original, releaseSource, news, omitted, partial, unreviewed];
+  const citation = (source, ...shared_wording_match_indexes) => ({
+    source_id: source.source_id, version_id: source.version_id, locators: ["Absatz 2"], shared_wording_match_indexes,
+  });
+  const passage = (source, text) => ({ ...citation(source), text });
+  const judgment = (agent_id, relation, ...evidence_ids) => ({
+    agent_id, relation, reasoning: "Begründung von " + agent_id, evidence_ids,
+  });
+  const first = {
+    claim_id: "claim-1",
+    article_quote: { ...passage(original, release), verified: true },
+    review: {
+      claim: "Die Bibliothek hat wieder regulär geöffnet.", status: "complete",
+      source_diff: {
+        sources: [
+          { source: original, judgments: [judgment("eins", "supports", "common")] },
+          { source: releaseSource, judgments: [judgment("eins", "supports", "common")] },
+          { source: news, judgments: [judgment("eins", "qualifies", "revised", "observed"), judgment("zwei", "contradicts", "revised")] },
+          { source: omitted, judgments: [judgment("eins", "omits")] },
+          { source: partial, judgments: [judgment("eins", "not_assessable")] },
+          { source: unreviewed, judgments: [] },
+        ],
+        evidence: [
+          { evidence_id: "common", kind: "shared_wording", text: release, citations: [citation(original, 0), citation(releaseSource, 0)] },
+          { evidence_id: "revised", kind: "source_specific", text: revised, citations: [citation(news, 1)] },
+          { evidence_id: "observed", kind: "source_specific", text: observed, citations: [citation(news)] },
+        ],
+      },
+    },
+    source_comparison: [],
+  };
+  const legacyQuote = "Der Eintritt ist frei.";
+  const legacy = {
+    claim_id: "claim-2",
+    review: { claim: legacyQuote, status: "complete" },
+    source_comparison: [{
+      source: releaseSource,
+      judgments: [{ relation: "supports", citations: [{ ...passage(releaseSource, legacyQuote), verified: true }] }],
+    }],
+  };
+  const report = {
+    status: "complete", article_source_id: "article", sources, claims: [first, legacy],
+    shared_wording: {
+      limited: true,
+      matches: [
+        { first: passage(original, release), second: passage(releaseSource, release), similarity: 100 },
+        { first: passage(news, revised), second: passage(releaseSource, release), similarity: 94.44 },
+        { first: passage(omitted, "Passage ohne Bezug"), second: passage(news, "Passage ohne Bezug"), similarity: 100 },
+      ],
+    },
+  };
+  for (const width of [1280, 390]) {
+    const { page, errors } = await openDemo(browser, { width, height: 900 });
+    try {
+      await page.locator("#report-file").setInputFiles({
+        name: "claim-diff.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(report)),
+      });
+      const rows = page.locator("#diff-sources > li");
+      const names = rows.locator("button");
+      await names.first().waitFor();
+      assert.deepEqual(await names.allTextContents(), ["Stadtmitteilung", "Bibliothek aktuell", "Stadtteilbrief", "Lokalzeitung", "Unvollständiger Archivtext", "Archiv"]);
+      assert.match(await rows.nth(1).textContent(), /Veröffentlicht 02\.02\.2025Aktualisiert 03\.02\.2025/);
+      assert.match(await rows.nth(2).textContent(), /Nicht behandelt/);
+      assert.match(await rows.nth(4).textContent(), /Veröffentlichung unbekannt.*Nicht beurteilbar.*Nur Auszug/);
+      assert.match(await rows.nth(5).textContent(), /Keine Modellbeurteilung/);
+      await rows.nth(3).getByRole("button", { name: "Lokalzeitung" }).click();
+      const detail = page.locator("#source-detail");
+      assert.deepEqual(await detail.locator(".relation").allTextContents(), ["Schränkt ein", "Widerspricht"]);
+      assert.deepEqual(await detail.locator(".judgment .source-reason").allTextContents(), ["Begründung von eins", "Begründung von zwei"]);
+      await detail.getByRole("link", { name: "Zitat 3" }).focus();
+      await page.keyboard.press("Enter");
+      assert.equal(await page.locator(":focus blockquote").textContent(), observed);
+      const sharedQuote = page.locator("#claim-quote-1");
+      assert.deepEqual(await sharedQuote.getByRole("link").allTextContents(), ["Bibliothek aktuell", "Stadtmitteilung"]);
+      assert.equal(await sharedQuote.locator("blockquote").textContent(), release);
+      const matches = page.locator(".diff-match");
+      assert.equal(await matches.count(), 2);
+      await matches.nth(0).locator("summary").click();
+      assert.equal(await matches.nth(0).locator("blockquote").count(), 0);
+      assert.equal(await matches.nth(0).getByRole("link", { name: "Zitat 1" }).count(), 1);
+      await matches.nth(1).locator("summary").click();
+      assert.deepEqual(await matches.nth(1).locator("blockquote").allTextContents(), [release, revised]);
+      assert.equal(await matches.nth(1).locator("del").textContent(), "üblichen");
+      assert.equal(await matches.nth(1).locator("ins").textContent(), "verkürzten");
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+      await page.locator("#claim-list button").nth(1).click();
+      assert.equal(await matches.count(), 0);
+      assert.equal(await detail.locator("blockquote").textContent(), `„${legacyQuote}“`);
+      assert.deepEqual(errors, []);
+    } finally {
+      await page.close();
+    }
+  }
+}
+
 function encodeGif(frames) {
   execFileSync(commands.ffmpeg, [
     "-hide_banner", "-loglevel", "error", "-y", "-filter_complex_threads", "1",
@@ -229,6 +340,7 @@ async function main() {
       count = await captureWalkthrough(browser, frames);
       await checkImportOutcomes(browser);
       await checkTheme(browser);
+      await checkClaimDiff(browser);
     } finally {
       await browser.close();
     }

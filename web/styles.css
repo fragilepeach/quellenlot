@@ -76,7 +76,7 @@ body {
   background-size: auto, 24px 24px, 24px 24px;
 }
 h1, h2, h3, p, blockquote { margin: 0; }
-h1, h2, h3, blockquote, q, .brand { font-family: var(--mono); }
+h1, h2, h3, h4, h5, h6, blockquote, q, .brand { font-family: var(--mono); }
 button, textarea { font: inherit; }
 button, summary { cursor: pointer; }
 button { color: inherit; }
@@ -283,7 +283,6 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .article-excerpt { margin-top: 9px; font-size: 0.875rem; color: var(--purple); }
 .article-excerpt summary, .source-metadata summary { min-height: 26px; width: fit-content; }
 .article-excerpt blockquote { margin: 5px 0 9px; }
-.source-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .source-button {
   border: 1px solid var(--control-border);
   border-radius: 3px;
@@ -300,10 +299,14 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .source-button[aria-pressed="true"] { border-color: var(--purple-line); background: var(--purple-wash); color: var(--purple); font-weight: 680; }
 .source-detail { margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
 .source-caption { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.source-detail h4 { margin: 0 0 9px; font-size: 0.95rem; }
 .source-type, .judgment-meta { font-size: 0.875rem; color: var(--subtle); line-height: 1.4; }
 .relation { color: var(--purple); background: var(--purple-wash); font-size: 0.84rem; font-weight: 700; border-radius: 2px; padding: 3px 7px; }
 .relation[data-kind="contradicts"] { color: var(--error); background: var(--error-wash); }
 .relation[data-kind="qualifies"] { color: var(--caution); background: var(--caution-wash); }
+.relation[data-kind="supports"] { color: var(--green); background: var(--green-wash); }
+.relation[data-kind="omits"], .relation[data-kind="not_assessable"] { color: var(--subtle); background: var(--input); }
+.relation[data-kind="not_assessable"] { border: 1px dashed var(--control-border); }
 .source-detail blockquote, .article-excerpt blockquote {
   border-inline-start: 3px solid var(--purple-line);
   background: var(--purple-wash);
@@ -322,6 +325,29 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .source-metadata dd { margin: 0; }
 .source-link { display: inline-block; min-height: 24px; font-weight: 635; }
 .judgment + .judgment { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; }
+
+.claim-diff { margin-top: 15px; overflow-wrap: anywhere; }
+.claim-diff h4, .claim-diff h5, .claim-diff h6 { margin: 0; font-size: 0.9rem; line-height: 1.4; }
+.diff-note, .diff-dates, .diff-occurrences { color: var(--subtle); font-size: 0.83rem; line-height: 1.45; }
+.diff-note { margin-top: 4px; }
+.diff-sources, .diff-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.diff-sources, .diff-occurrences { list-style: none; padding: 0; }
+.diff-sources { margin: 9px 0 0; }
+.diff-source, .diff-excerpt, .diff-match { border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; }
+.diff-source { background: var(--input); }
+.diff-source-title { width: 100%; font-weight: 680; }
+.diff-dates { display: grid; gap: 2px; margin-top: 7px; font-variant-numeric: tabular-nums; }
+.diff-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.diff-reference { display: inline-flex; align-items: center; min-height: 24px; padding: 0 5px; font-size: 0.84rem; font-weight: 650; }
+.diff-excerpt, .diff-match, #diff-wording:not(:empty) { margin-top: 9px; }
+.diff-quote { font-size: 0.9rem; line-height: 1.55; margin-top: 7px; }
+.diff-occurrences { display: grid; gap: 3px; margin: 6px 0 0; }
+.diff-occurrences .source-link, .diff-side .source-link { margin-top: 0; }
+.diff-match summary { min-height: 30px; font-size: 0.875rem; line-height: 1.4; color: var(--purple); }
+.diff-legend { margin: 0 0 8px; }
+.diff-side { min-width: 0; padding: 7px 8px; background: var(--input); border-radius: 4px; }
+.diff-side del { color: var(--error); background: var(--error-wash); }
+.diff-side ins { color: var(--green); background: var(--green-wash); text-decoration: underline; }
 
 .graph { display: grid; gap: 0; margin-top: 13px; position: relative; }
 .graph-root { width: fit-content; max-width: 100%; border-radius: 2px; background: var(--purple-wash); color: var(--purple); padding: 7px 10px; font: 600 0.9rem/1.35 var(--mono); overflow-wrap: anywhere; }
@@ -362,4 +388,5 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
   .primary-button { width: 100%; }
   .case-heading { margin-bottom: 14px; }
   .card { padding: 15px; }
+  .diff-sources, .diff-pair { grid-template-columns: minmax(0, 1fr); }
 }
