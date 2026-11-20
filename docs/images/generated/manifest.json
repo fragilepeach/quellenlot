@@ -1,6 +1,6 @@
 {
-  "source_commit": "61c6af2a0656003b28aa16bf82013aaec4033b1c",
-  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44737290263",
+  "source_commit": "37e0979dd159c2f05f3b678542d015729dfcef61",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44738375491",
   "scenario": "Tankrabatt demo, fixture-backed analyses and trends, and curated Bundestag records",
   "playwright": "1.58.2",
   "media": [
@@ -60,8 +60,8 @@
       "height": 630,
       "frames": 178,
       "fps": 25,
-      "bytes": 905787,
-      "sha256": "c694dd23988333c10bd7c3e2b953c8e4c623ba14f6b6edd0b0fb0967dba94bb9"
+      "bytes": 905805,
+      "sha256": "e91c83c48f0cf441ec3b89dd7b593a010dc4c9204afb948a157c3341ed17fa64"
     },
     {
       "file": "claim-diff.png",
@@ -75,10 +75,26 @@
       "file": "claim-diff.gif",
       "width": 840,
       "height": 591,
-      "frames": 88,
+      "frames": 138,
       "fps": 25,
-      "bytes": 621298,
-      "sha256": "176f20f41d96239b5fbe0ff3b521cb23d38d7e7808d4efbf3bc8c3e60f1bd183"
+      "bytes": 685696,
+      "sha256": "fa7d200de7ed81ccf5a6d49c3f1d7d8c19c0485c1378307a7a977cea8ded16ba"
+    },
+    {
+      "file": "source-similarity.png",
+      "width": 1280,
+      "height": 900,
+      "frames": 1,
+      "bytes": 100189,
+      "sha256": "6ceb5666541413cef047bb8856c00bffbaf96bbeacfcb96096d3443a77cd7b69"
+    },
+    {
+      "file": "source-similarity-mobile.png",
+      "width": 390,
+      "height": 900,
+      "frames": 1,
+      "bytes": 77237,
+      "sha256": "a4c13f093fb31509db3e9d8dd90f35d90881737143dff45d4d2877a73b58c522"
     },
     {
       "file": "shared-provenance.png",
@@ -169,8 +185,8 @@
       "height": 591,
       "frames": 176,
       "fps": 25,
-      "bytes": 1756766,
-      "sha256": "01e60435c3bac95b5b7a86f5fafb20ee483cf0ac9861d3262d2c75c6aced30b2"
+      "bytes": 1756774,
+      "sha256": "5bd4cdd6cd452e1c373f4db6346f9bc525b1308234a4dde7f8f8d32b44c4ddb3"
     },
     {
       "file": "source-interests.png",
