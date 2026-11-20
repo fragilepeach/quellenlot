@@ -518,6 +518,13 @@ async function checkClaimDiff(browser, record) {
     status: "complete", article_source_id: "article", sources, claims: [first, legacy],
     shared_wording: {
       limited: true,
+      source_similarities: [
+        { first: citation(original), second: citation(omitted), score: 0 },
+        { first: citation(original), second: citation(partial), score: null },
+        { first: citation(releaseSource), second: citation(news), score: 62.5 },
+        { first: citation({ ...original, version_id: "old" }), second: citation(news), score: 90 },
+        { first: citation(original), second: citation(releaseSource), score: 100 },
+      ],
       matches: [
         { first: passage(original, release), second: passage(releaseSource, release), similarity: 100 },
         { first: passage(news, revised), second: passage(releaseSource, release), similarity: 94.44 },
@@ -632,11 +639,31 @@ async function checkClaimDiff(browser, record) {
         await captureSection(page, page.locator("#diff-wording"), "claim-diff.png");
         await comparison.hold(1.8);
       }
+      const similarity = page.locator("#source-similarity");
+      await similarity.locator("summary").click();
+      const scoreRows = similarity.locator("tbody tr");
+      assert.deepEqual(await scoreRows.locator("td:last-child").allTextContents(),
+        ["100 %", "62,5 %", "0 %", "Zu wenig Text"]);
+      assert.deepEqual(await scoreRows.first().getByRole("link").allTextContents(),
+        ["Bibliothek aktuell", "Stadtmitteilung"]);
+      await scoreRows.last().getByText("Vollständigkeit ungeprüft", { exact: true }).waitFor();
+      await captureSection(page, similarity, width === 1280 ? "source-similarity.png" : "source-similarity-mobile.png");
+      await comparison?.hold(2);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
       await page.locator("#claim-list button").nth(1).click();
       assert.equal(await matches.count(), 0);
       assert.equal(await plenum.isVisible(), false);
       assert.equal(await detail.locator("blockquote").textContent(), `„${legacyQuote}“`);
+      if (comparison) {
+        const oldBundle = structuredClone(bundle);
+        delete oldBundle.review.shared_wording.source_similarities;
+        oldBundle.review.sources[0].title = "Älterer Prüfbericht";
+        await page.locator("#report-file").setInputFiles({
+          name: "old-report.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(oldBundle)),
+        });
+        await page.getByRole("heading", { name: "Älterer Prüfbericht" }).waitFor();
+        assert.equal(await similarity.isVisible(), false);
+      }
       assert.deepEqual(errors, []);
     } finally {
       await page.close();

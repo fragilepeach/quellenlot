@@ -475,6 +475,15 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .source-provenance > summary { width: fit-content; min-height: 26px; font-size: 0.9rem; color: var(--purple); }
 .provenance-targets, .provenance-links { padding-inline-start: 1.25rem; }
 .provenance-targets > li { margin-block: 0.75rem; }
+.source-similarity { margin-top: 20px; overflow-wrap: anywhere; }
+.source-similarity > summary { color: var(--purple); font: 600 0.95rem/1.4 var(--mono); }
+.source-similarity p { margin-block: 10px; color: var(--subtle); font-size: 0.875rem; }
+.source-similarity table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.source-similarity th, .source-similarity td { border-top: 1px solid var(--border); padding: 7px; text-align: start; }
+.source-similarity td { vertical-align: top; }
+.source-similarity .source-link { margin: 0; }
+.source-similarity small { display: block; color: var(--subtle); }
+.source-similarity td:last-child { font-variant-numeric: tabular-nums; }
 .empty-report { padding: 18px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); }
 .back-to-claim { display: none; }
 

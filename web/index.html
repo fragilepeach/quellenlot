@@ -194,6 +194,14 @@
         <div id="graph-selection" class="graph-selection" hidden></div>
         <div id="graph-provenance"></div>
       </section>
+      <details id="source-similarity" class="card source-similarity" hidden>
+        <summary>Textähnlichkeit der Quellen</summary>
+        <p id="source-similarity-method">Der Wert zeigt den Anteil gemeinsamer Wortfolgen unter allen Wortfolgen aus den beiden erfassten Texten.</p>
+        <table aria-label="Textähnlichkeit je Quellenpaar" aria-describedby="source-similarity-method">
+          <thead><tr><th scope="col">Quelle A</th><th scope="col">Quelle B</th><th scope="col">Ähnlichkeit</th></tr></thead>
+          <tbody id="source-similarity-rows"></tbody>
+        </table>
+      </details>
     </section>
 
     <section class="card private-review" id="private-review" aria-labelledby="private-review-title" hidden>

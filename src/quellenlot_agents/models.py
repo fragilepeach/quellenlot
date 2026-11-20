@@ -340,11 +340,16 @@ class RelationCount(ContractModel):
     count: int
 
 
-class SourcePassage(ContractModel):
-    """Link an exact excerpt to character offsets in a supplied source version."""
+class SourceVersionRef(ContractModel):
+    """Identify the exact version of a source in the report."""
 
     source_id: str
     version_id: str
+
+
+class SourcePassage(SourceVersionRef):
+    """Link an exact excerpt to character offsets in a supplied source version."""
+
     start: int = Field(ge=0)
     end: int = Field(gt=0)
     text: str = Field(min_length=1)
@@ -358,11 +363,20 @@ class SharedPassage(ContractModel):
     similarity: float = Field(ge=0, le=100)
 
 
+class SourceSimilarity(ContractModel):
+    """Record wording overlap for a pair of source snapshots."""
+
+    first: SourceVersionRef
+    second: SourceVersionRef
+    score: float | None = Field(ge=0, le=100)
+
+
 class SharedWordingReport(ContractModel):
-    """Record bounded passage comparisons between sources in a case."""
+    """Record source-pair scores and bounded passage matches in a case."""
 
     matches: list[SharedPassage] = Field(default_factory=list[SharedPassage])
     limited: bool = False
+    source_similarities: list[SourceSimilarity] = Field(default_factory=list[SourceSimilarity])
 
 
 class DiffCitation(ContractModel):

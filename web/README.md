@@ -51,11 +51,11 @@ Start an analysis with the article, a comparison URL and a question. Inspect pro
 <details>
 <summary>Claim-level comparison</summary>
 
-Read the dated source judgments, open the exact quotes, and expand a RapidFuzz match to inspect the changed words.
+Read the dated source judgments, open the exact quotes, and expand a RapidFuzz match to inspect the changed words. Open **Textähnlichkeit der Quellen** to compare wording across pairs of captured articles.
 
 ![Exact quotations in a claim comparison with changed words highlighted](../docs/images/generated/claim-diff.png)
 
-![Inspect the chronology and open a wording comparison](../docs/images/generated/claim-diff.gif)
+![Inspect the chronology, open a wording comparison, and view the similarity scores](../docs/images/generated/claim-diff.gif)
 
 </details>
 
@@ -201,6 +201,16 @@ Open `report.json` with **Bericht öffnen**. Both article report shapes are supp
 **Quellenvergleich** orders the selected claim's sources by publication day and displays update dates alongside them. Sources with unknown publication dates appear last. Select a source to read each model's reasoning and inspect the capture time and snapshot version. **Nicht behandelt** means a model found no coverage in the supplied text. **Nicht beurteilbar** also covers omissions that could not be assessed from an incomplete excerpt.
 
 Repeated verified quotations link to one excerpt with a link for each source. **Mögliche Textübernahme** shows RapidFuzz matches linked to the selected claim's citations. Expand a match to see the original passages and highlighted wording changes. A match can reflect common wording or a common upstream source. Publication and update dates establish the visible chronology of the sources. The exact origin of the wording requires separate evidence.
+
+## Source article similarity
+
+Open **Textähnlichkeit der Quellen** below the source graph in a newly generated article report. The table ranks each pair of captured articles by how much wording they share. It counts distinct five-token phrases, so one verbatim quotation can yield a high passage match and a much lower score across the two articles.
+
+**Vollständigkeit ungeprüft** means the score covers the available capture. **Zu wenig Text** means one capture contains fewer than 12 tokens. Generate a new report to see scores for a case saved before this feature.
+
+![Article-pair wording scores showing two matching captures, a partial overlap, no overlap, and a capture with too little text](../docs/images/generated/source-similarity.png)
+
+[Mobile preview](../docs/images/generated/source-similarity-mobile.png)
 
 ## Studies for a claim
 

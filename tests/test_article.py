@@ -884,6 +884,8 @@ class ArticleCliTests(unittest.TestCase):
             self._run(article_case, _OllamaReplies(claims=(_FIRST_CLAIM,)))
         )
         self.assertEqual(len(article.shared_wording.matches), 1)
+        self.assertEqual(len(article.shared_wording.source_similarities), 1)
+        self.assertIsNotNone(article.shared_wording.source_similarities[0].score)
         self.assertIsNone(article.claims[0].review.shared_wording)
         self.assertEqual(len(article.claims[0].source_comparison), 2)
 
