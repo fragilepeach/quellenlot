@@ -492,3 +492,43 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .release-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .release-actions button:disabled { opacity: .55; cursor: default; }
 #release-status { margin-top: 8px; }
+
+.topic-trends { margin-top: 20px; overflow-wrap: anywhere; }
+.topic-trends > summary { color: var(--purple); font: 600 0.95rem/1.4 var(--mono); }
+.trend-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 14px; margin-top: 14px; }
+.trend-controls h3, .trend-events h3 { margin-bottom: 9px; }
+.trend-controls input, .trend-controls select {
+  width: 100%;
+  min-height: 42px;
+  padding: 7px 9px;
+  border: 1px solid var(--control-border);
+  background: var(--input);
+  color: var(--ink);
+  font: inherit;
+}
+.trend-controls input:focus-visible, .trend-controls select:focus-visible { outline: 3px solid var(--purple); }
+.trend-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 9px 0; }
+.trend-note, .trend-axis, .trend-scale { color: var(--subtle); font-size: 0.84rem; line-height: 1.45; }
+.trend-note { margin-top: 6px; }
+.trend-note:empty { display: none; }
+.trend-series-panel, .trend-events { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 14px; }
+.trend-series-panel { --trend-color: var(--green); }
+.trend-series-panel[data-kind="search"] { --trend-color: var(--purple); }
+.trend-scale { margin-top: 8px; }
+.trend-plot { display: block; width: 100%; height: clamp(115px, 20vw, 180px); }
+.trend-grid { stroke: var(--border); }
+.trend-line, .trend-grid, .trend-marker { vector-effect: non-scaling-stroke; }
+.trend-line { fill: none; stroke: var(--trend-color); stroke-width: 2; }
+.trend-point { fill: var(--trend-color); }
+.trend-marker { stroke: var(--subtle); stroke-dasharray: 3 4; }
+.trend-marker.active { stroke: var(--caution); stroke-width: 2; }
+.trend-axis { display: flex; justify-content: space-between; gap: 10px; }
+.trend-data { margin-top: 9px; font-size: 0.87rem; }
+.trend-data table { margin-top: 8px; border-collapse: collapse; }
+.trend-data td, .trend-data th { padding: 4px 12px; border: 1px solid var(--border); text-align: left; }
+#trend-event-form { align-items: end; }
+#trend-events { margin: 10px 0 0; padding-inline-start: 20px; }
+#trend-events li { margin-top: 6px; }
+.trend-date { min-height: 32px; margin-inline-end: 8px; padding: 4px 8px; }
+.trend-date[aria-pressed="true"] { border-color: var(--caution); color: var(--caution); }
+.trend-event-kind { margin-inline-end: 7px; font-size: 0.84rem; color: var(--subtle); }

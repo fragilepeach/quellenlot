@@ -98,3 +98,15 @@ For a completed local analysis, **Entwurf speichern** keeps the text with that s
 Give unfamiliar readers the Tankrabatt case and ask them to find the passage that qualifies the claim of complete pass-through, identify whether the TU announcement and the Freitas–Syga study are independent, and explain the difference between publication and update dates. Observe where they click and ask them to explain each relationship in their own words. Repeat the first two tasks on a small mobile viewport and using only the keyboard.
 
 For a local run, evaluate citation coverage and whether each citation supports its claim separately.
+
+
+## Topic trends and events
+
+Open **Thementrends und Ereignisse** above the article review. When using the local browser server, enter a search phrase and choose 30 or 90 days of German-language or all-language news coverage. Quellenlot requests the daily share of articles monitored by GDELT that match the phrase and links to the corresponding query. The search term and filters are sent to GDELT when you click **GDELT abfragen**. Article URLs, report contents, and event annotations stay out of this request.
+
+Import a single-series **Interesse im zeitlichen Verlauf** CSV exported by Google Trends for search interest, including older periods. English and German daily, weekly, and monthly exports are accepted. Data remain in the browser tab. The search index and GDELT share retain separate scales. The charts leave gaps for unavailable values and dates.
+
+Add an event with its documented date, title, and evidence URL. Publication dates from the open report appear as **Veröffentlichung**. Select a date in the list to highlight it on each applicable chart. Events and imported series stay in the current browser tab until reload.
+
+- [GDELT DOC 2.0 timeline documentation](https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/)
+- [Export Google Trends data](https://support.google.com/trends/answer/4365538?hl=de)
