@@ -1,7 +1,7 @@
 {
-  "source_commit": "7b05edfa2431d967639ba874ef98ff164525cd15",
-  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44727879622",
-  "scenario": "Tankrabatt fixture, article claim investigation",
+  "source_commit": "f2fc4b8d42038b8a61ea15a372f01e189edfbf49",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44728627417",
+  "scenario": "Tankrabatt article investigation and 2025 Bundestag records",
   "playwright": "1.58.2",
   "media": [
     {
@@ -9,16 +9,16 @@
       "width": 1280,
       "height": 1985,
       "frames": 1,
-      "bytes": 236577,
-      "sha256": "d612660f6302f18eb05a7fe4d5d0906c87558785bc5711bc81fa0dddb56250e8"
+      "bytes": 240184,
+      "sha256": "e64825aaee8d55dddf6148ef65f393e4507886e02ab2845f3cb7ebf53511da23"
     },
     {
       "file": "mobile.png",
       "width": 390,
-      "height": 3016,
+      "height": 3060,
       "frames": 1,
-      "bytes": 208767,
-      "sha256": "3a3935fe6972a4871c314b863c59010fdd30d881e3ed39876ef1dd9c7c2d6d61"
+      "bytes": 212375,
+      "sha256": "044260cd93550061164629b8119a5074d66a3012235152293fee0ecdc802b0de"
     },
     {
       "file": "usage.gif",
@@ -28,6 +28,14 @@
       "fps": 20,
       "bytes": 761802,
       "sha256": "341ad9f136e3c3ceddf7122458c7da147326e06deb11e848ba382f999b934893"
+    },
+    {
+      "file": "parliament.png",
+      "width": 1280,
+      "height": 2574,
+      "frames": 1,
+      "bytes": 403710,
+      "sha256": "9fdb0161c63567ac16aa14b69484044562409ac1718e484cc3eeb1371f4861cc"
     }
   ]
 }
