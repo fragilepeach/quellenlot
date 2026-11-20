@@ -492,3 +492,25 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .release-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .release-actions button:disabled { opacity: .55; cursor: default; }
 #release-status { margin-top: 8px; }
+
+.release-preview {
+  width: min(48rem, calc(100% - 2rem));
+  padding: 1rem;
+  border: 1px solid var(--purple-line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink);
+}
+.release-preview::backdrop { background: rgb(12 10 17 / 72%); }
+.release-preview iframe {
+  display: block;
+  width: 100%;
+  height: min(58dvh, 32rem);
+  margin-block: .8rem;
+  border: 1px solid var(--control-border);
+  color-scheme: light dark;
+}
+.release-preview-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .8rem; }
+.release-preview-actions p { margin: 0 auto 0 0; min-width: 0; }
+.release-preview-actions p:empty { display: none; }
+.release-preview-actions button:disabled { opacity: .55; cursor: default; }

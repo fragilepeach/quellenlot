@@ -91,6 +91,8 @@ Expand **Belege zum Befund** to read the exact excerpts assigned to a finding an
 
 For a completed local analysis, **Entwurf speichern** keeps the text with that saved run. Reopen the run from **Gespeicherte Analysen** to resume editing. Review the sources and documented relationships, account for unresolved findings and missing evidence, then confirm both checklist items and choose **Freigabe erteilen**. Approval applies to the saved text and the exact SHA-256 digest of the report, including its citations and unresolved findings. Saving an edit clears approval. A new run or a changed report requires a fresh review.
 
+Open **Leservorschau öffnen** to inspect the approved text, the original article link when available, and the approval date and report digest under **Freigabedaten**. **HTML herunterladen** saves that same reader view as a self-contained page. It can be opened offline. The local interface checks that the approval is current when it opens the preview and when it exports the page.
+
 **Freigegebenen Text exportieren** downloads the human-written text, approval time, article link, and report digest. The assessment and interests data remain in the private run. With a manually imported report, **Freigabeentwurf speichern** continues to download a JSON draft after the checklist. Reports without a final assessment covering its assigned findings remain available for inspection. The interface keeps editorial material local, and publishing the exported text is a separate editorial action.
 
 ## Usability test before backend integration

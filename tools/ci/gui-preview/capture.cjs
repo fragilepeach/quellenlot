@@ -665,10 +665,12 @@ async function checkLocalRun(browser) {
     const save = page.getByRole("button", { name: "Entwurf speichern", exact: true });
     const approve = page.getByRole("button", { name: "Freigabe erteilen", exact: true });
     const exportText = page.getByRole("button", { name: "Freigegebenen Text exportieren", exact: true });
-    const statement = "Die Quelle nennt einen unklaren Zeitpunkt.";
+    const preview = page.getByRole("button", { name: "Leservorschau öffnen" });
+    const statement = "Die Quelle nennt einen unklaren Zeitpunkt.\n\nGrenzwert: <5 % & nur für die erste Woche.";
     await text.fill(statement);
     assert.ok(await save.isEnabled());
     assert.ok(await approve.isDisabled());
+    assert.ok(await preview.isDisabled());
     await save.click();
     await page.getByText("Entwurf gespeichert.", { exact: true }).waitFor();
     assert.ok(await approve.isDisabled());
@@ -691,6 +693,34 @@ async function checkLocalRun(browser) {
     assert.equal(exported.article_url, articleUrl);
     assert.equal(exported.editorial, undefined);
 
+    await preview.click();
+    const dialog = page.getByRole("dialog", { name: "Leservorschau" });
+    const frame = dialog.frameLocator("iframe");
+    await frame.getByRole("heading", { name: "Redaktionelle Einordnung" }).waitFor();
+    assert.equal(await frame.locator(".statement").textContent(), statement);
+    assert.equal(await frame.getByRole("link", { name: "Geprüften Artikel öffnen" }).getAttribute("href"), articleUrl);
+    await frame.getByText("Freigabedaten", { exact: true }).click();
+    assert.equal(await frame.locator("time").getAttribute("datetime"), approvedAt);
+    assert.equal(await frame.locator("code").textContent(), digest);
+    assert.equal(await frame.getByText("Zeitpunkt offen.", { exact: false }).count(), 0);
+    await dialog.screenshot({ ...screenshotOptions, path: join(output, "reader-preview.png") });
+
+    const htmlButton = dialog.getByRole("button", { name: "HTML herunterladen" });
+    const [htmlFile] = await Promise.all([page.waitForEvent("download"), htmlButton.click()]);
+    assert.equal(htmlFile.suggestedFilename(), "quellenlot-lesefassung.html");
+    const html = await readFile(await htmlFile.path(), "utf8");
+    assert.equal(html, await dialog.locator("iframe").getAttribute("srcdoc"));
+    assert.match(html, /Grenzwert: &lt;5 % &amp; nur/);
+    assert.doesNotMatch(html, /<script|finding-1|Vergleichsbericht|Zeitpunkt offen\./);
+
+    const approved = draft;
+    draft = { ...draft, revision: draft.revision + 1, approved_at: null };
+    await htmlButton.click();
+    await dialog.getByText("Die Freigabe hat sich geändert. Öffne den Bericht erneut.").waitFor();
+    draft = approved;
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+
     const review = page.locator("#private-review");
     await review.getByText("Eine Angabe bleibt offen.", { exact: true }).click();
     const evidence = review.locator(".editorial-evidence");
@@ -706,6 +736,7 @@ async function checkLocalRun(browser) {
     assert.equal(await text.inputValue(), "");
     assert.ok(await approve.isDisabled());
     assert.ok(await exportText.isDisabled());
+    assert.ok(await preview.isDisabled());
     for (const checkbox of await page.locator("#release-checks").getByRole("checkbox").all()) {
       assert.equal(await checkbox.isChecked(), false);
     }
@@ -716,6 +747,7 @@ async function checkLocalRun(browser) {
     assert.ok(await exportText.isEnabled());
     await text.fill("Eine korrigierte Einordnung.");
     assert.ok(await exportText.isDisabled());
+    assert.ok(await preview.isDisabled());
     await save.click();
     await page.getByText("Entwurf gespeichert.", { exact: true }).waitFor();
     assert.ok(await approve.isDisabled());
