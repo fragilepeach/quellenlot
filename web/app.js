@@ -154,6 +154,7 @@ function updateSelection(root, key, selected) {
 
 function renderReport(report) {
   state.report = report;
+  window.quellenlotTrends.setPublications(report.timelineSources || []);
   state.claimIndex = 0;
   $("selection-status").textContent = "";
   $("case-meta").textContent = report.meta;
@@ -853,6 +854,7 @@ function canPrepareRelease(editorial) {
 }
 
 function renderPrivateReview(report) {
+  if ($("release-preview").open) $("release-preview").close();
   const panel = $("private-review");
   const form = $("release-form");
   form.reset();
@@ -866,6 +868,7 @@ function renderPrivateReview(report) {
   $("release-check-title").textContent = managed ? "Vor der Freigabe prüfen" : "Vor dem Export prüfen";
   $("approve-release").hidden = !managed;
   $("export-release").hidden = !managed;
+  $("preview-release").hidden = !managed;
   const content = $("private-review-content");
   content.replaceChildren();
   if (!review) return;
@@ -917,6 +920,7 @@ function readReport(data) {
       summary: [],
       claims: [],
       retrievalIssues,
+      timelineSources: data.retrievals.flatMap((item) => item.snapshot ? [item.snapshot] : []),
       provenance: readSourceProvenance(data),
       empty: failed
         ? "Der Bericht enthält keinen auswertbaren Artikel."
@@ -967,6 +971,8 @@ function readReport(data) {
     generatedSummary: summary.length > 0,
     claims,
     retrievalIssues,
+    timelineSources: [...report.sources, ...(retrievalReport
+      ? data.retrievals.flatMap((item) => item.snapshot ? [item.snapshot] : []) : [])],
     provenance: retrievalReport ? readSourceProvenance(data) : null,
     empty: claims.length ? "" : empty,
   };
@@ -1089,7 +1095,10 @@ $("report-file").addEventListener("change", async (event) => {
 });
 
 function downloadJson(payload, filename) {
-  const blob = new Blob([JSON.stringify(payload, null, 2) + "\n"], { type: "application/json" });
+  downloadFile(new Blob([JSON.stringify(payload, null, 2) + "\n"], { type: "application/json" }), filename);
+}
+
+function downloadFile(blob, filename) {
   const href = URL.createObjectURL(blob);
   const link = element("a");
   link.href = href;
@@ -1137,18 +1146,96 @@ function updateReleaseControls() {
     : !sources_checked || !open_findings_addressed);
   $("approve-release").disabled = unavailable || !matchingDraft || Boolean(review.draft?.approved_at)
     || !sources_checked || !open_findings_addressed;
-  $("export-release").disabled = unavailable || !matchingDraft || !review.draft?.approved_at;
+  const releaseUnavailable = unavailable || !matchingDraft || !review.draft?.approved_at;
+  $("export-release").disabled = releaseUnavailable;
+  $("preview-release").disabled = releaseUnavailable;
+  $("download-preview").disabled = releaseUnavailable;
 }
 
-function exportRelease(review, text, reviewedAt) {
-  const articleUrl = safeUrl(state.report.article?.url)?.href;
-  downloadJson({
+function releasePayload(review, text, reviewedAt) {
+  return {
     format: "quellenlot-public-draft-v1",
     review_sha256: review.digest,
     reviewed_at: reviewedAt,
-    article_url: articleUrl || null,
+    article_url: safeUrl(state.report.article?.url)?.href || null,
     text,
-  }, "quellenlot-freigabeentwurf.json");
+  };
+}
+
+function exportRelease(release) {
+  downloadJson(release, "quellenlot-freigabeentwurf.json");
+}
+
+function readerHtml(release) {
+  const title = "Redaktionelle Einordnung";
+  const reader = document.implementation.createHTMLDocument(title + " · Quellenlot");
+  reader.documentElement.lang = "de";
+  const charset = reader.createElement("meta");
+  charset.charset = "utf-8";
+  reader.head.prepend(charset);
+  for (const [name, content] of [
+    ["viewport", "width=device-width, initial-scale=1"],
+    ["referrer", "no-referrer"],
+  ]) {
+    const meta = reader.createElement("meta");
+    meta.name = name;
+    meta.content = content;
+    reader.head.append(meta);
+  }
+  const policy = reader.createElement("meta");
+  policy.httpEquiv = "Content-Security-Policy";
+  policy.content = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
+  const style = reader.createElement("style");
+  style.textContent = `
+    :root { color-scheme: light dark; font: 100%/1.65 system-ui, sans-serif; color: #231a31; background: #faf7ff; }
+    body { margin: 0; border-block-start: 4px solid #9867df; }
+    main { max-inline-size: 66ch; margin-inline: auto; padding: clamp(1rem, 5vw, 3rem); }
+    h1, summary, code { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+    h1 { font-size: clamp(1.5rem, 5vw, 2.25rem); line-height: 1.2; }
+    .statement { white-space: pre-wrap; overflow-wrap: anywhere; }
+    a { color: #6333a7; text-underline-offset: .2em; }
+    details { margin-block-start: 2rem; border-block-start: 1px solid; padding-block-start: .8rem; }
+    summary { cursor: pointer; }
+    code { display: block; font-size: .875rem; overflow-wrap: anywhere; }
+    @media (prefers-color-scheme: dark) {
+      :root { color: #f1eafa; background: #171320; }
+      a { color: #cda2ff; }
+    }
+  `;
+  reader.head.append(policy, style);
+
+  const main = reader.createElement("main");
+  const heading = reader.createElement("h1");
+  heading.textContent = title;
+  const statement = reader.createElement("p");
+  statement.className = "statement";
+  statement.textContent = release.text;
+  main.append(heading, statement);
+
+  if (release.article_url) {
+    const original = reader.createElement("a");
+    original.href = release.article_url;
+    original.target = "_blank";
+    original.rel = "noopener noreferrer";
+    original.textContent = "Geprüften Artikel öffnen";
+    main.append(original);
+  }
+  const metadata = reader.createElement("details");
+  const caption = reader.createElement("summary");
+  caption.textContent = "Freigabedaten";
+  const time = reader.createElement("time");
+  time.dateTime = release.reviewed_at;
+  time.textContent = new Date(release.reviewed_at).toLocaleString("de-DE");
+  const approved = reader.createElement("p");
+  approved.append("Freigegeben am ", time);
+  const digest = reader.createElement("code");
+  digest.textContent = release.review_sha256;
+  const version = reader.createElement("p");
+  version.append("SHA-256 des Prüfberichts ", digest);
+  metadata.append(caption, approved, version);
+  main.append(metadata);
+  reader.body.append(main);
+  return "<!doctype html>\n" + reader.documentElement.outerHTML;
 }
 
 async function changeDraft(review, action) {
@@ -1193,7 +1280,7 @@ $("release-form").addEventListener("submit", (event) => {
     changeDraft(privateReview, "save");
     return;
   }
-  exportRelease(privateReview, text, new Date().toISOString());
+  exportRelease(releasePayload(privateReview, text, new Date().toISOString()));
   setReleaseStatus("Freigabeentwurf gespeichert. Die Veröffentlichung erfolgt separat.");
 });
 
@@ -1204,9 +1291,9 @@ $("approve-release").addEventListener("click", () => {
   }
 });
 
-$("export-release").addEventListener("click", async () => {
+async function withApprovedRelease(control, present, onError) {
   const review = state.report.privateReview;
-  if (!review?.draft?.approved_at || $("release-form").hidden || $("export-release").disabled) return;
+  if (!review?.draft?.approved_at || $("release-form").hidden || control.disabled) return;
   review.pending = true;
   updateReleaseControls();
   try {
@@ -1216,14 +1303,51 @@ $("export-release").addEventListener("click", async () => {
     if (current?.review_sha256 !== review.digest || current?.revision !== review.draft.revision || !current?.approved_at) {
       throw new Error("Die Freigabe hat sich geändert. Öffne den Bericht erneut.");
     }
-    exportRelease(review, current.text, current.approved_at);
-    setReleaseStatus("Freigegebener Text exportiert.");
+    present(releasePayload(review, current.text, current.approved_at));
   } catch (error) {
-    if (state.report.privateReview === review) setReleaseStatus(error.message, true);
+    if (state.report.privateReview === review) onError(error.message);
   } finally {
     review.pending = false;
     if (state.report.privateReview === review) updateReleaseControls();
   }
+}
+
+$("export-release").addEventListener("click", (event) => {
+  withApprovedRelease(event.currentTarget, (release) => {
+    exportRelease(release);
+    setReleaseStatus("Freigegebener Text exportiert.");
+  }, (message) => setReleaseStatus(message, true));
+});
+
+$("preview-release").addEventListener("click", (event) => {
+  withApprovedRelease(event.currentTarget, (release) => {
+    $("release-preview-frame").srcdoc = readerHtml(release);
+    $("release-preview-status").classList.remove("error");
+    $("release-preview-status").textContent = "";
+    $("release-preview").showModal();
+  }, (message) => setReleaseStatus(message, true));
+});
+
+$("release-preview").addEventListener("close", () => {
+  $("release-preview-frame").removeAttribute("srcdoc");
+  const opener = $("preview-release");
+  if (document.activeElement === document.body && !$("release-form").hidden && !opener.disabled) {
+    opener.focus();
+  }
+});
+
+$("download-preview").addEventListener("click", (event) => {
+  const status = $("release-preview-status");
+  status.classList.remove("error");
+  status.textContent = "";
+  withApprovedRelease(event.currentTarget, (release) => {
+    if (!$("release-preview").open) return;
+    downloadFile(new Blob([readerHtml(release)], { type: "text/html;charset=utf-8" }), "quellenlot-lesefassung.html");
+    status.textContent = "Lesefassung heruntergeladen.";
+  }, (message) => {
+    status.classList.add("error");
+    status.textContent = message;
+  });
 });
 
 $("urls").addEventListener("input", () => {
@@ -1366,6 +1490,7 @@ async function initializeLocalRuns() {
     const runs = await (await localRequest("/api/runs")).json();
     if (!Array.isArray(runs)) return;
     localRuns = true;
+    window.quellenlotTrends.enableNews();
     $("submit-case").textContent = "Analyse starten";
     localRunFeedback("");
     listLocalRuns(runs);

@@ -1,0 +1,56 @@
+.parliament { padding-block: 36px 12px; }
+.parliament > .case-meta { margin: 20px 0 6px; }
+.parliament > section { margin-top: 30px; }
+.parliament h2 { font-size: clamp(1.3rem, 3vw, 1.85rem); }
+.parliament section > h2 { margin-bottom: 12px; }
+.position-card { min-inline-size: 0; margin: 20px 0 0; }
+.position-card legend { max-width: 100%; padding-inline: 6px; font-weight: 660; }
+.position-options { display: flex; flex-wrap: wrap; gap: 10px; }
+.position-options label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding-inline: 11px;
+  border: 1px solid var(--control-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.position-options label:has(input:checked) { background: var(--green-wash); border-color: var(--green); }
+.position-options input { accent-color: var(--green); }
+.position-options input:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; }
+.programme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.programme-card { line-height: 1.5; }
+.programme-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 14px; }
+.programme-card blockquote, .timeline-record blockquote {
+  margin: 12px 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--purple-line);
+  line-height: 1.55;
+}
+.record-date, .record-context { color: var(--subtle); }
+.record-date { font: 400 0.84rem/1.4 var(--mono); font-variant-numeric: tabular-nums; }
+.programme-assessment { margin: 14px 0 6px; color: var(--green); }
+.programme-assessment[data-position="open"] { color: var(--caution); }
+.programme-match { margin-top: 12px; padding: 8px 10px; background: var(--purple-wash); }
+.programme-match:empty { display: none; }
+#parliament-context { max-width: 78ch; color: var(--subtle); line-height: 1.5; }
+#parliament-records { list-style: none; padding: 0; margin: 14px 0; display: grid; gap: 10px; }
+.timeline-record { scroll-margin-top: 12px; }
+.timeline-record:target { border-color: var(--purple); }
+.timeline-record summary { color: var(--purple); }
+.record-meta { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; font-size: 0.84rem; }
+.record-title { display: block; margin-top: 4px; color: var(--ink); font-weight: 670; }
+.record-body { margin-top: 12px; line-height: 1.5; }
+.record-body > p + p { margin-top: 8px; }
+.vote-result { color: var(--ink); font-weight: 670; }
+.record-links { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 0.88rem; }
+.vote-table { width: 100%; max-width: 660px; border-collapse: collapse; margin-top: 8px; font-variant-numeric: tabular-nums; }
+.vote-table caption { color: var(--subtle); text-align: left; font-size: 0.85rem; margin-bottom: 5px; }
+.vote-table th, .vote-table td { padding: 6px; border-bottom: 1px solid var(--border); text-align: right; }
+.vote-table th:first-child { text-align: left; }
+@media (max-width: 650px) {
+  .parliament { padding-top: 26px; }
+  .programme-grid { grid-template-columns: minmax(0, 1fr); }
+  .vote-table th, .vote-table td { padding-inline: 3px; font-size: 0.8rem; }
+}

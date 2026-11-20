@@ -17,6 +17,19 @@ Open `web/index.html` to explore the Tankrabatt case. Select a highlighted claim
 
 [GUI guide and mobile preview](web/README.md) · [Capture provenance](docs/images/generated/manifest.json)
 
+After approving an editorial draft in the local GUI, open **Leservorschau öffnen** to see the reader-facing page. **HTML herunterladen** saves that view as standalone HTML. [Editorial review and export guide](web/README.md#private-editorial-review)
+
+In a saved local analysis, select a claim and choose **Studien suchen** to find candidate papers and see which source text was available. [Claim study guide](web/README.md#studies-for-a-claim)
+
+Open **Programme & Abstimmungen** to compare party programme wording with motions, Bundestag roll calls, and later laws. The first case covers Germany's 2025 debt-rule changes and the infrastructure fund.
+
+<details>
+<summary>Preview the parliamentary comparison</summary>
+
+![Quellenlot comparing programme excerpts, selected caucus votes, and later laws on the 2025 debt-rule changes](docs/images/generated/parliament.png)
+
+</details>
+
 ## Workflow
 
 1. Supply an explicit claim or an original article. In article mode, the first model that returns a valid extraction supplies up to five distinct claims anchored to exact quotes. An optional question guides claim selection.
@@ -144,6 +157,12 @@ Quellenlot searches the extracted claims and, if supplied, the question anchored
 
 The report lists the executed queries under `discovery.queries`, shows attempted candidates and selection outcomes under `discovery.candidates`, and records individual fetch failures under `retrievals`. Search failures and searches with zero usable comparisons produce a partial report when the original can still be reviewed. Explicit comparison URLs take precedence whenever you supply them.
 
+### Studies for a claim
+
+Start the [local browser interface](web/README.md#using-the-local-agent), reopen a saved analysis, and select a claim. **Studien suchen** searches Crossref and checks up to five candidate DOIs in Europe PMC. The selected claim and locally generated search terms are sent to Crossref. The first configured Ollama model reads the available text locally.
+
+Each result links to the paper and identifies metadata-only, abstract, or full-text access. The interface marks when only excerpts entered the model and shows the supported fields with their exact quotations. A quotation verifies the source text. The model's interpretation still needs editorial review. Results are cached by claim alongside the saved run. See the [GUI guide](web/README.md#studies-for-a-claim) for the walkthrough.
+
 ### Shared wording
 
 Quellenlot compares the captured source text locally using RapidFuzz. The `shared_wording` field appears in the standalone claim report or once on the article report (`review.shared_wording` for a URL case). Each match contains excerpts from both source versions, their zero-based character offsets in those snapshots, and an ordered-token similarity score from 0 to 100. The ending offset is exclusive.
@@ -177,6 +196,8 @@ When at least one claim has verified comparison excerpts, each of the five model
 The editorial status describes assessment coverage. Unresolved disagreements remain visible even when every assigned finding was reviewed. It is `complete` when every claim has comparison evidence, all five notes are available, and the earlier review, search, and retrieval stages finished without reported failures. An article with no verified comparison excerpt gets `no_comparison_evidence` and skips the additional model calls. The notes ask a human editor to verify interpretations and source independence before making any publication decision.
 
 ## Development checks
+
+Update this README and any relevant feature guides in the same pull request as every new feature. Cover usage, configuration, and limitations that affect users. For GUI changes, refresh the affected screenshots and walkthroughs through the preview workflow.
 
 ```bash
 python -m pip install -e ".[dev]"

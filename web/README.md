@@ -24,11 +24,19 @@ Quellenlot opens in dark mode. Use **Dunkles Design** in the header to switch be
 
 ![Animated walkthrough from the highlighted Tankrabatt claim to the TU Dresden passage and its cited Freitas–Syga study](../docs/images/generated/usage.gif)
 
+## Party programmes and parliamentary records
+
+Choose **Programme & Abstimmungen** from the header. In the first case, compare the CDU/CSU and SPD programme excerpts on the debt rule and optionally answer the policy statement yourself. The comparison distinguishes a clear programme position from an open interpretation. Your answer stays in the open page.
+
+Follow the timeline to compare the FDP amendment with the subsequent final vote. Each roll call links its parliamentary text, official voting record, and the available debate context. The tables include the total and the selected caucuses, with non-votes shown separately from abstentions. The last records link the constitutional amendment's publication and the later law establishing the infrastructure fund.
+
+Cases are curated in [parliament-data.js](parliament-data.js). To add a case, supply exact programme and motion excerpts, document locators, dated records, verified vote totals, and later actions with primary-source links. Keep editorial interpretations explicit about whether a programme addresses the precise policy in the statement. The interface supports multiple cases through a case picker.
+
 ## How the previews are generated
 
 The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates, mobile focus behavior, theme switching, offline font loading and the imported claim diff before uploading the dark-mode screenshots and the 20 fps walkthrough GIF. The walkthrough holds the evidence on screen and animates scrolling and node dragging. It also imports a single report containing the claim diff, an upstream citation shared by two sources, and an unresolved private editorial review at desktop and mobile widths. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
 
-Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`. The artifact also includes a screenshot of the private editorial review with fixture data.
+Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`. The artifact also includes a screenshot of the private editorial review with fixture data and a [preview of the parliamentary comparison](../docs/images/generated/parliament.png). Chromium checks the parliamentary view at desktop and small mobile widths. The artifact and tracked documentation include desktop and mobile previews of the claim study panel populated with fixture data.
 
 To generate the files locally from the repository root, install Node.js and FFmpeg (including `ffprobe`), then run:
 
@@ -85,6 +93,10 @@ Repeated verified quotations link to one excerpt with a link for each source. **
 
 ## Studies for a claim
 
+![Saved claim study results showing full-text and metadata-only access, the observation period, and its source excerpt](../docs/images/generated/studies.png)
+
+[Mobile preview](../docs/images/generated/studies-mobile.png)
+
 Open a saved local run, select a claim, and click **Studien suchen**. Quellenlot sends the selected claim and an English query generated locally to [Crossref](https://www.crossref.org/documentation/retrieve-metadata/rest-api/), then checks candidate DOIs for abstracts and open full text in [Europe PMC](https://dev.europepmc.org/RestfulWebService). The article, question, and editorial notes are not part of the search request.
 
 Results distinguish metadata-only candidates, a retrieved abstract, and a retrieved full text. If the text exceeds the model input limit, the interface marks that excerpts were assessed. The study publication year and observation period are displayed separately. The local model describes the measure, population and place, observation period, finding, and its relationship to the claim. Fields need a matching quotation to appear. An exact quotation confirms that the words occur in the source. The interpretation still needs reading in context.
@@ -99,6 +111,8 @@ Expand **Belege zum Befund** to read the exact excerpts assigned to a finding an
 
 For a completed local analysis, **Entwurf speichern** keeps the text with that saved run. Reopen the run from **Gespeicherte Analysen** to resume editing. Review the sources and documented relationships, account for unresolved findings and missing evidence, then confirm both checklist items and choose **Freigabe erteilen**. Approval applies to the saved text and the exact SHA-256 digest of the report, including its citations and unresolved findings. Saving an edit clears approval. A new run or a changed report requires a fresh review.
 
+Open **Leservorschau öffnen** to inspect the approved text, the original article link when available, and the approval date and report digest under **Freigabedaten**. **HTML herunterladen** saves that same reader view as a self-contained page. It can be opened offline. The local interface checks that the approval is current when it opens the preview and when it exports the page.
+
 **Freigegebenen Text exportieren** downloads the human-written text, approval time, article link, and report digest. The assessment and interests data remain in the private run. With a manually imported report, **Freigabeentwurf speichern** continues to download a JSON draft after the checklist. Reports without a final assessment covering its assigned findings remain available for inspection. The interface keeps editorial material local, and publishing the exported text is a separate editorial action.
 
 ## Usability test before backend integration
@@ -106,3 +120,15 @@ For a completed local analysis, **Entwurf speichern** keeps the text with that s
 Give unfamiliar readers the Tankrabatt case and ask them to find the passage that qualifies the claim of complete pass-through, identify whether the TU announcement and the Freitas–Syga study are independent, and explain the difference between publication and update dates. Observe where they click and ask them to explain each relationship in their own words. Repeat the first two tasks on a small mobile viewport and using only the keyboard.
 
 For a local run, evaluate citation coverage and whether each citation supports its claim separately.
+
+
+## Topic trends and events
+
+Open **Thementrends und Ereignisse** above the article review. When using the local browser server, enter a search phrase and choose 30 or 90 days of German-language or all-language news coverage. Quellenlot requests the daily share of articles monitored by GDELT that match the phrase and links to the corresponding query. The search term and filters are sent to GDELT when you click **GDELT abfragen**. Article URLs, report contents, and event annotations stay out of this request.
+
+Import a single-series **Interesse im zeitlichen Verlauf** CSV exported by Google Trends for search interest, including older periods. English and German daily, weekly, and monthly exports are accepted. Data remain in the browser tab. The search index and GDELT share retain separate scales. The charts leave gaps for unavailable values and dates.
+
+Add an event with its documented date, title, and evidence URL. Publication dates from the open report appear as **Veröffentlichung**. Select a date in the list to highlight it on each applicable chart. Events and imported series stay in the current browser tab until reload.
+
+- [GDELT DOC 2.0 timeline documentation](https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/)
+- [Export Google Trends data](https://support.google.com/trends/answer/4365538?hl=de)

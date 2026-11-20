@@ -683,14 +683,25 @@ async function checkLocalRun(browser) {
     await studies.getByText("Textbelege", { exact: true }).click();
     await studies.getByText("300 German filling stations", { exact: true }).waitFor();
     assert.equal(await studies.getByRole("link", { name: "Studie zur Weitergabe", exact: true }).getAttribute("href"), "https://doi.org/10.1234/fuel");
+    for (const [width, filename] of [[1280, "studies.png"], [390, "studies-mobile.png"]]) {
+      await page.setViewportSize({ width, height: 960 });
+      await studies.evaluate((panel) => panel.scrollIntoView({ block: "start" }));
+      await page.evaluate(() => document.fonts.ready);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+      assert.ok(await studies.getByRole("link", { name: "Studie zur Weitergabe" }).isVisible());
+      await page.screenshot({ ...screenshotOptions, path: join(output, filename) });
+    }
+    await page.setViewportSize({ width: 1280, height: 960 });
     const text = page.getByLabel("Redaktioneller Text für die Veröffentlichung");
     const save = page.getByRole("button", { name: "Entwurf speichern", exact: true });
     const approve = page.getByRole("button", { name: "Freigabe erteilen", exact: true });
     const exportText = page.getByRole("button", { name: "Freigegebenen Text exportieren", exact: true });
-    const statement = "Die Quelle nennt einen unklaren Zeitpunkt.";
+    const preview = page.getByRole("button", { name: "Leservorschau öffnen" });
+    const statement = "Die Quelle nennt einen unklaren Zeitpunkt.\n\nGrenzwert: <5 % & nur für die erste Woche.";
     await text.fill(statement);
     assert.ok(await save.isEnabled());
     assert.ok(await approve.isDisabled());
+    assert.ok(await preview.isDisabled());
     await save.click();
     await page.getByText("Entwurf gespeichert.", { exact: true }).waitFor();
     assert.ok(await approve.isDisabled());
@@ -715,6 +726,42 @@ async function checkLocalRun(browser) {
     assert.equal(exported.article_url, articleUrl);
     assert.equal(exported.editorial, undefined);
 
+    await preview.click();
+    const dialog = page.getByRole("dialog", { name: "Leservorschau" });
+    const frame = dialog.frameLocator("iframe");
+    await frame.getByRole("heading", { name: "Redaktionelle Einordnung" }).waitFor();
+    assert.equal(await frame.locator(".statement").textContent(), statement);
+    assert.equal(await frame.getByRole("link", { name: "Geprüften Artikel öffnen" }).getAttribute("href"), articleUrl);
+    await frame.getByText("Freigabedaten", { exact: true }).click();
+    assert.equal(await frame.locator("time").getAttribute("datetime"), approvedAt);
+    assert.equal(await frame.locator("code").textContent(), digest);
+    assert.equal(await frame.getByText("Zeitpunkt offen.", { exact: false }).count(), 0);
+    const themeColors = () => frame.locator("html").evaluate((node) => {
+      const style = getComputedStyle(node);
+      return [style.color, style.backgroundColor];
+    });
+    await page.emulateMedia({ colorScheme: "light" });
+    assert.deepEqual(await themeColors(), ["rgb(35, 26, 49)", "rgb(250, 247, 255)"]);
+    await page.emulateMedia({ colorScheme: "dark" });
+    assert.deepEqual(await themeColors(), ["rgb(241, 234, 250)", "rgb(23, 19, 32)"]);
+    await dialog.screenshot({ ...screenshotOptions, path: join(output, "reader-preview.png") });
+
+    const htmlButton = dialog.getByRole("button", { name: "HTML herunterladen" });
+    const [htmlFile] = await Promise.all([page.waitForEvent("download"), htmlButton.click()]);
+    assert.equal(htmlFile.suggestedFilename(), "quellenlot-lesefassung.html");
+    const html = await readFile(await htmlFile.path(), "utf8");
+    assert.equal(html, await dialog.locator("iframe").getAttribute("srcdoc"));
+    assert.match(html, /Grenzwert: &lt;5 % &amp; nur/);
+    assert.doesNotMatch(html, /<script|finding-1|Vergleichsbericht|Zeitpunkt offen\./);
+
+    const approved = draft;
+    draft = { ...draft, revision: draft.revision + 1, approved_at: null };
+    await htmlButton.click();
+    await dialog.getByText("Die Freigabe hat sich geändert. Öffne den Bericht erneut.").waitFor();
+    draft = approved;
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+
     const review = page.locator("#private-review");
     await review.getByText("Eine Angabe bleibt offen.", { exact: true }).click();
     const evidence = review.locator(".editorial-evidence");
@@ -730,6 +777,7 @@ async function checkLocalRun(browser) {
     assert.equal(await text.inputValue(), "");
     assert.ok(await approve.isDisabled());
     assert.ok(await exportText.isDisabled());
+    assert.ok(await preview.isDisabled());
     for (const checkbox of await page.locator("#release-checks").getByRole("checkbox").all()) {
       assert.equal(await checkbox.isChecked(), false);
     }
@@ -740,6 +788,7 @@ async function checkLocalRun(browser) {
     assert.ok(await exportText.isEnabled());
     await text.fill("Eine korrigierte Einordnung.");
     assert.ok(await exportText.isDisabled());
+    assert.ok(await preview.isDisabled());
     await save.click();
     await page.getByText("Entwurf gespeichert.", { exact: true }).waitFor();
     assert.ok(await approve.isDisabled());
@@ -747,6 +796,138 @@ async function checkLocalRun(browser) {
     assert.deepEqual(errors, []);
   } finally {
     await page.close();
+  }
+}
+
+async function checkParliament(browser) {
+  for (const width of [1280, 390, 320]) {
+    const { page, errors } = await openDemo(browser, { width, height: 960 });
+    try {
+      await page.getByRole("link", { name: "Programme & Abstimmungen", exact: true }).click();
+      await page.getByRole("heading", { name: "Schuldenbremse und Investitionen", exact: true }).waitFor();
+      const programmes = page.locator("#programme-comparisons");
+      await programmes.getByText("An der grundgesetzlichen Schuldenbremse festhalten.", { exact: false }).waitFor();
+      await programmes.getByText("Spannung zur Ankündigung", { exact: true }).waitFor();
+      await page.getByRole("radio", { name: "Stimme zu", exact: true }).check();
+      assert.deepEqual(await programmes.getByRole("status").allTextContents(), [
+        "Das Programm legt sich zu dieser Frage nicht eindeutig fest.",
+        "Deine Position und die Programmaussage zeigen in dieselbe Richtung.",
+      ]);
+      await page.getByRole("radio", { name: "Stimme nicht zu", exact: true }).check();
+      await programmes.getByText("Deine Position und die Programmaussage gehen in unterschiedliche Richtungen.").waitFor();
+      await page.getByRole("radio", { name: "Stimme zu", exact: true }).check();
+
+      const final = page.locator("#schuldenbremse-schluss");
+      const amendment = page.locator("#schuldenbremse-aenderung");
+      await programmes.getByRole("link", { name: "Schlussabstimmung", exact: true }).first().click();
+      assert.equal(await page.locator(":focus").evaluate((node) => node.parentElement.id), "schuldenbremse-schluss");
+      await final.getByText("Die Stimmen gelten dem gesamten Paket.", { exact: false }).waitFor();
+      assert.deepEqual(await final.getByRole("row").nth(1).getByRole("cell").allTextContents(), ["512", "206", "0", "15"]);
+      assert.match(await final.getByRole("link", { name: /Namentliche Stimmen/ }).getAttribute("href"), /id=951$/);
+      assert.match(await final.getByRole("link", { name: /Wortlaut/ }).getAttribute("href"), /2015117\.pdf#page=10$/);
+      await amendment.locator("summary").click();
+      await amendment.getByText("einmalig bis zu 300 Milliarden Euro", { exact: false }).waitFor();
+      assert.deepEqual(await amendment.getByRole("row").nth(1).getByRole("cell").allTextContents(), ["85", "630", "2", "16"]);
+      assert.match(await amendment.getByRole("link", { name: /Namentliche Stimmen/ }).getAttribute("href"), /id=950$/);
+      await programmes.getByRole("link", { name: "Spätere Umsetzung", exact: true }).click();
+      const later = page.locator("#schuldenbremse-svikg");
+      await later.getByRole("link", { name: /SVIKG/ }).waitFor();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+      assert.deepEqual(errors, []);
+      if (width === 1280) {
+        const skip = page.getByRole("link", { name: "Zum Inhalt", exact: true });
+        assert.equal(await skip.evaluate((link) => getComputedStyle(link).clipPath), "inset(50%)");
+        await skip.focus();
+        assert.equal(await skip.evaluate((link) => getComputedStyle(link).clipPath), "none");
+        await skip.blur();
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.evaluate(() => document.fonts.ready);
+        await page.screenshot({ ...screenshotOptions, fullPage: true, path: join(output, "parliament.png") });
+      }
+      await page.getByRole("link", { name: "Artikel prüfen", exact: true }).click();
+      await page.getByRole("heading", { name: "Kam der Tankrabatt an?" }).waitFor();
+    } finally {
+      await page.close();
+    }
+  }
+}
+
+async function checkTopicTrends(browser) {
+  const origin = "http://127.0.0.1:8765";
+  const news = {
+    label: "Tankrabatt",
+    source_url: "https://api.gdeltproject.org/api/v2/doc/doc?query=Tankrabatt",
+    points: [
+      { date: "2026-11-04", value: 0 },
+      { date: "2026-11-06", value: 0.12 },
+      { date: "2026-11-07", value: 0.04 },
+    ],
+  };
+  const publication = {
+    source_id: "article", title: "Beispielbericht", url: "https://example.org/artikel",
+    published_at: { value: "2026-11-04" },
+  };
+  const csv = "Kategorie: Alle Kategorien\n\nTag,Tankrabatt: (Deutschland)\n2026-11-04,10\n2026-11-05,<1\n2026-11-06,100\n2026-11-07,25\n";
+  for (const [width, name] of [[1280, "desktop"], [390, "mobile"]]) {
+    const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    let attempts = 0;
+    await page.route(origin + "/**", async (route) => {
+      const { pathname } = new URL(route.request().url());
+      if (pathname === "/api/news-trend") {
+        assert.equal(route.request().method(), "POST");
+        assert.deepEqual(route.request().postDataJSON(), { topic: "Tankrabatt", days: 30, language: "german" });
+        if (attempts++ > 0) return route.fulfill({ status: 502, json: { error: "GDELT ist nicht verfügbar." } });
+        return route.fulfill({ json: news });
+      }
+      if (pathname === "/api/runs") return route.fulfill({ json: [] });
+      if (pathname === "/") return route.fulfill({ path: join(repo, "web/index.html") });
+      return route.fulfill({ path: join(repo, "web", pathname.slice(1)) });
+    });
+    try {
+      await page.goto(origin);
+      await page.getByText("Thementrends und Ereignisse", { exact: true }).click();
+      await page.getByLabel("Suchbegriff", { exact: true }).fill("Tankrabatt");
+      await page.getByRole("button", { name: "GDELT abfragen" }).click();
+      await page.getByText("Medienzeitreihe geladen.", { exact: true }).waitFor();
+      const newsPanel = page.locator('[data-kind="news"].trend-series-panel');
+      assert.equal((await newsPanel.locator(".trend-line").getAttribute("d")).split("M").length - 1, 2);
+
+      await page.getByLabel("Google-Trends-CSV", { exact: true }).setInputFiles({
+        name: "multiTimeline.csv", mimeType: "text/csv", buffer: Buffer.from(csv),
+      });
+      await page.getByText("CSV geladen.", { exact: true }).waitFor();
+      const search = page.locator('[data-kind="search"].trend-series-panel');
+      assert.equal((await search.locator(".trend-line").getAttribute("d")).split("M").length - 1, 2);
+      assert.equal(await search.locator("tbody tr").count(), 4);
+      assert.equal(await search.locator("tbody tr").nth(1).locator("td").last().textContent(), "<1");
+
+      await page.locator("#report-file").setInputFiles({
+        name: "report.json", mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify({
+          status: "no_claims", article_source_id: "article", sources: [publication], claims: [],
+        })),
+      });
+      const markers = page.locator("#trend-events");
+      await markers.getByText("Veröffentlichung", { exact: true }).waitFor();
+      assert.equal(await markers.getByRole("link", { name: "Beispielbericht" }).getAttribute("href"), publication.url);
+
+      await page.getByLabel("Ereignisdatum", { exact: true }).fill("2026-11-05");
+      await page.getByLabel("Ereignis", { exact: true }).fill("Beispielbeschluss");
+      await page.getByLabel("Beleglink", { exact: true }).fill("https://example.org/beschluss");
+      await page.getByRole("button", { name: "Ereignis hinzufügen" }).click();
+      await markers.getByRole("link", { name: "Beispielbeschluss" }).waitFor();
+      assert.equal(await page.locator(".trend-marker.active").count(), 2);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+      await page.locator("#topic-trends").screenshot({ ...screenshotOptions, path: join(output, "trends-" + name + ".png") });
+      await page.getByRole("button", { name: "GDELT abfragen" }).click();
+      await page.getByText("GDELT ist nicht verfügbar.", { exact: true }).waitFor();
+      assert.ok(await newsPanel.isVisible());
+      assert.deepEqual(errors, []);
+    } finally {
+      await page.close();
+    }
   }
 }
 
@@ -797,8 +978,10 @@ async function main() {
       count = await captureWalkthrough(browser, frames);
       await checkImportOutcomes(browser);
       await checkLocalRun(browser);
+      await checkTopicTrends(browser);
       await checkTheme(browser);
       await checkClaimDiff(browser);
+      await checkParliament(browser);
     } finally {
       await browser.close();
     }
@@ -807,12 +990,15 @@ async function main() {
       inspectMedia("desktop.png", 1280),
       inspectMedia("mobile.png", 390),
       inspectMedia("usage.gif", 840, count),
+      inspectMedia("parliament.png", 1280),
+      inspectMedia("studies.png", 1280),
+      inspectMedia("studies-mobile.png", 390),
     ]);
     const { GITHUB_SHA, GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID } = process.env;
     const manifest = {
       source_commit: GITHUB_SHA || null,
       workflow_run: GITHUB_RUN_ID ? `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}` : null,
-      scenario: "Tankrabatt fixture, article claim investigation",
+      scenario: "Tankrabatt article investigation, claim studies, and 2025 Bundestag records",
       playwright: require("playwright/package.json").version,
       media,
     };
