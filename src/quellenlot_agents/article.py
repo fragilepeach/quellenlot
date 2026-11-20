@@ -39,7 +39,9 @@ from quellenlot_agents.shared_wording import find_shared_wording
 from quellenlot_agents.source_capture import capture_source
 from quellenlot_agents.workflow import run_review, verify_quote
 
-type ArticleStage = Literal["capture", "extraction", "provenance", "comparison", "editorial"]
+type ArticleStage = Literal[
+    "capture", "extraction", "provenance", "comparison", "interests", "editorial"
+]
 type ArticleProgress = Callable[[ArticleStage, ArticleUrlReport | None], None]
 
 _EXTRACT_SYSTEM: Final[str] = """Extract up to five distinct, checkable factual claims that the
@@ -163,6 +165,8 @@ async def _compare_extracted(
     attempts: list[ExtractionAttempt],
     summary: list[ArticleSummarySentence],
     interest_urls: list[InterestUrlInput] | None = None,
+    *,
+    on_progress: ArticleProgress | None = None,
 ) -> tuple[ArticleReport, list[SourceRetrieval]]:
     """Review pre-extracted claims against all selected source snapshots."""
     sources = case.sources
@@ -196,6 +200,8 @@ async def _compare_extracted(
     interests = None
     interest_retrievals: list[SourceRetrieval] = []
     if config.check_interests or case.interest_evidence or bool(interest_urls):
+        if on_progress is not None:
+            on_progress("interests", None)
         interests, interest_retrievals = await review_interests(
             sources,
             config,
@@ -296,6 +302,7 @@ async def run_article_url_comparison(
             attempts,
             summary,
             case.interest_urls,
+            on_progress=on_progress,
         )
         retrievals.extend(interest_retrievals)
         if on_progress is not None:

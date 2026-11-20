@@ -49,6 +49,19 @@ Start an analysis with the article, a comparison URL and a question. Inspect pro
 </details>
 
 <details>
+<summary>Agent roles and live progress</summary>
+
+The five cards follow an analysis from the original article to the editorial assessment. Choose a role with an available result to inspect its evidence. [Agent roles and status labels](#agent-roles)
+
+![Five agent roles with the interests check active and editorial assessment pending](../docs/images/generated/agent-workflow.png)
+
+[Mobile screenshot](../docs/images/generated/agent-workflow-mobile.png)
+
+![Follow the active agent from source comparison through the final review and open its result](../docs/images/generated/agent-workflow.gif)
+
+</details>
+
+<details>
 <summary>Claim-level comparison</summary>
 
 Read the dated source judgments, open the exact quotes, and expand a RapidFuzz match to inspect the changed words. Open **Textähnlichkeit der Quellen** to compare wording across pairs of captured articles.
@@ -179,6 +192,20 @@ The output is written to `artifacts/gui-preview/`. The captures use the built-in
 4. If a source states where its finding comes from, show that citation. In the demo, the TU Dresden announcement points to the same Freitas–Syga study shown in the graph. An inferred historical origin or a duplicate-detection result needs separate treatment.
 
 The reading view keeps the article and the selected claim’s evidence in view side by side. On narrow screens, selecting a claim moves focus to its evidence heading.
+
+## Agent roles
+
+**Agenten im Prüfverlauf** shows the five roles below the article form. During a local run, **Läuft** marks the role reported by the server. **Phase beendet** means the run moved past that role. The interests check is optional.
+
+| Role | Opens the available result |
+| --- | --- |
+| **Behauptungsanalyse** | The article summary and its linked claims |
+| **Quellenrecherche** | Source links and provenance, or the retrieval issues when the graph is unavailable |
+| **Quellenvergleich** | Evidence for the selected claim, including the KI-Plenum when the report has model and peer reviews |
+| **Interessenprüfung** | Documented ownership, funding, and affiliations in the private review |
+| **Redaktionelle Schlussprüfung** | Model notes, assigned findings, and unresolved objections in the private review |
+
+The built-in case marks its sample results **Beispiel**. Saved and imported reports show available results, partial results, or missing evidence. Older reports still open and show **Kein Ergebnis** where they lack information for a role.
 
 ## Using the local agent
 
