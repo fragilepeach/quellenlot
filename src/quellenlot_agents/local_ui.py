@@ -29,6 +29,7 @@ from quellenlot_agents.models import (
     ContractModel,
     EditorialReport,
 )
+from quellenlot_agents.trends import TrendQuery, TrendUnavailable, fetch_news_trend
 
 _LOG = logging.getLogger(__name__)
 _LOOPBACK: Final = "127.0.0.1"
@@ -40,6 +41,7 @@ _ASSETS: Final = {
     "/index.html": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/graph.js": ("graph.js", "text/javascript; charset=utf-8"),
+    "/trends.js": ("trends.js", "text/javascript; charset=utf-8"),
     "/theme.js": ("theme.js", "text/javascript; charset=utf-8"),
     "/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/fonts/IBMPlexMono-Regular.woff2": ("fonts/IBMPlexMono-Regular.woff2", "font/woff2"),
@@ -369,7 +371,7 @@ class _LocalHandler(BaseHTTPRequestHandler):
         self._send(HTTPStatus.OK, body)
 
     def do_POST(self) -> None:
-        """Start a run or change a private editorial draft from the local browser."""
+        """Handle an analysis, editorial draft or coverage request from the local browser."""
         if not self._authorized(mutation=True):
             return
         run_path = _RUN_PATH.fullmatch(self.path)
@@ -378,7 +380,7 @@ class _LocalHandler(BaseHTTPRequestHandler):
             if run_path is not None and run_path.group(2) == "/editorial-draft"
             else None
         )
-        if self.path != "/api/runs" and draft_run_id is None:
+        if self.path not in {"/api/runs", "/api/news-trend"} and draft_run_id is None:
             self._error(HTTPStatus.NOT_FOUND, "Eintrag nicht gefunden.")
             return
         if self.headers.get_content_type() != "application/json":
@@ -392,10 +394,27 @@ class _LocalHandler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.BAD_REQUEST, "Die Anfrage ist leer oder zu groß.")
             return
         body = self.rfile.read(size)
-        if draft_run_id is not None:
+        if self.path == "/api/news-trend":
+            self._news_trend(body)
+        elif draft_run_id is not None:
             self._update_editorial_draft(draft_run_id, body)
         else:
             self._start_run(body)
+
+    def _news_trend(self, body: bytes) -> None:
+        try:
+            query = TrendQuery.model_validate_json(body)
+        except ValidationError:
+            self._error(HTTPStatus.BAD_REQUEST, "Gib einen Suchbegriff mit 3 bis 120 Zeichen ein.")
+            return
+        try:
+            trend = fetch_news_trend(query)
+        except ValueError as exc:
+            self._error(HTTPStatus.BAD_REQUEST, str(exc))
+        except TrendUnavailable as exc:
+            self._error(HTTPStatus.BAD_GATEWAY, str(exc))
+        else:
+            self._send(HTTPStatus.OK, trend.model_dump_json().encode("utf-8"))
 
     def _update_editorial_draft(self, run_id: str, body: bytes) -> None:
         try:

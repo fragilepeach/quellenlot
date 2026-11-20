@@ -766,6 +766,86 @@ async function checkLocalRun(browser) {
   }
 }
 
+
+async function checkTopicTrends(browser) {
+  const origin = "http://127.0.0.1:8765";
+  const news = {
+    label: "Tankrabatt",
+    source_url: "https://api.gdeltproject.org/api/v2/doc/doc?query=Tankrabatt",
+    points: [
+      { date: "2026-11-04", value: 0 },
+      { date: "2026-11-06", value: 0.12 },
+      { date: "2026-11-07", value: 0.04 },
+    ],
+  };
+  const publication = {
+    source_id: "article", title: "Beispielbericht", url: "https://example.org/artikel",
+    published_at: { value: "2026-11-04" },
+  };
+  const csv = "Kategorie: Alle Kategorien\n\nTag,Tankrabatt: (Deutschland)\n2026-11-04,10\n2026-11-05,<1\n2026-11-06,100\n2026-11-07,25\n";
+  for (const [width, name] of [[1280, "desktop"], [390, "mobile"]]) {
+    const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    let attempts = 0;
+    await page.route(origin + "/**", async (route) => {
+      const { pathname } = new URL(route.request().url());
+      if (pathname === "/api/news-trend") {
+        assert.equal(route.request().method(), "POST");
+        assert.deepEqual(route.request().postDataJSON(), { topic: "Tankrabatt", days: 30, language: "german" });
+        if (attempts++ > 0) return route.fulfill({ status: 502, json: { error: "GDELT ist nicht verfügbar." } });
+        return route.fulfill({ json: news });
+      }
+      if (pathname === "/api/runs") return route.fulfill({ json: [] });
+      if (pathname === "/") return route.fulfill({ path: join(repo, "web/index.html") });
+      return route.fulfill({ path: join(repo, "web", pathname.slice(1)) });
+    });
+    try {
+      await page.goto(origin);
+      await page.getByText("Thementrends und Ereignisse", { exact: true }).click();
+      await page.getByLabel("Suchbegriff", { exact: true }).fill("Tankrabatt");
+      await page.getByRole("button", { name: "GDELT abfragen" }).click();
+      await page.getByText("Medienzeitreihe geladen.", { exact: true }).waitFor();
+      const newsPanel = page.locator('[data-kind="news"].trend-series-panel');
+      assert.equal((await newsPanel.locator(".trend-line").getAttribute("d")).split("M").length - 1, 2);
+
+      await page.getByLabel("Google-Trends-CSV", { exact: true }).setInputFiles({
+        name: "multiTimeline.csv", mimeType: "text/csv", buffer: Buffer.from(csv),
+      });
+      await page.getByText("CSV geladen.", { exact: true }).waitFor();
+      const search = page.locator('[data-kind="search"].trend-series-panel');
+      assert.equal((await search.locator(".trend-line").getAttribute("d")).split("M").length - 1, 2);
+      assert.equal(await search.locator("tbody tr").count(), 4);
+      assert.equal(await search.locator("tbody tr").nth(1).locator("td").last().textContent(), "<1");
+
+      await page.locator("#report-file").setInputFiles({
+        name: "report.json", mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify({
+          status: "no_claims", article_source_id: "article", sources: [publication], claims: [],
+        })),
+      });
+      const markers = page.locator("#trend-events");
+      await markers.getByText("Veröffentlichung", { exact: true }).waitFor();
+      assert.equal(await markers.getByRole("link", { name: "Beispielbericht" }).getAttribute("href"), publication.url);
+
+      await page.getByLabel("Ereignisdatum", { exact: true }).fill("2026-11-05");
+      await page.getByLabel("Ereignis", { exact: true }).fill("Beispielbeschluss");
+      await page.getByLabel("Beleglink", { exact: true }).fill("https://example.org/beschluss");
+      await page.getByRole("button", { name: "Ereignis hinzufügen" }).click();
+      await markers.getByRole("link", { name: "Beispielbeschluss" }).waitFor();
+      assert.equal(await page.locator(".trend-marker.active").count(), 2);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+      await page.locator("#topic-trends").screenshot({ ...screenshotOptions, path: join(output, "trends-" + name + ".png") });
+      await page.getByRole("button", { name: "GDELT abfragen" }).click();
+      await page.getByText("GDELT ist nicht verfügbar.", { exact: true }).waitFor();
+      assert.ok(await newsPanel.isVisible());
+      assert.deepEqual(errors, []);
+    } finally {
+      await page.close();
+    }
+  }
+}
+
 function encodeGif(frames) {
   execFileSync(commands.ffmpeg, [
     "-hide_banner", "-loglevel", "error", "-y", "-filter_complex_threads", "1",
@@ -813,6 +893,7 @@ async function main() {
       count = await captureWalkthrough(browser, frames);
       await checkImportOutcomes(browser);
       await checkLocalRun(browser);
+      await checkTopicTrends(browser);
       await checkTheme(browser);
       await checkClaimDiff(browser);
     } finally {
