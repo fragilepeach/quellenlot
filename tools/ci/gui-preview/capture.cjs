@@ -627,7 +627,8 @@ async function checkLocalRun(browser) {
     assert.equal(payload.article_url, articleUrl);
     assert.equal(payload.question, question);
     assert.deepEqual(payload.comparison_urls, ["https://example.org/missing"]);
-    await page.getByText("HTTP 403", { exact: false }).waitFor();
+    await page.locator("#retrieval-issues > summary").click();
+    await page.locator("#retrieval-issues-list").getByText("HTTP 403", { exact: false }).waitFor();
     assert.equal(await start.isEnabled(), true);
     const text = page.getByLabel("Redaktioneller Text für die Veröffentlichung");
     const save = page.getByRole("button", { name: "Entwurf speichern", exact: true });
