@@ -180,9 +180,7 @@ def _prompt(article: ArticleReport, context: EditorialReport) -> str:
                 "claim_clipped": len(claim.review.claim) > 500,
                 "original_excerpt": claim.article_quote.text[:180],
                 "comparison_evidence": [
-                    _evidence_excerpt(
-                        evidence[evidence_id], claim, sources, item.assigned_findings
-                    )
+                    _evidence_excerpt(evidence[evidence_id], claim, sources, item.assigned_findings)
                     for evidence_id in item.evidence_shown_to_models
                 ],
                 "assigned_findings": [
@@ -293,11 +291,7 @@ async def assess_editorial(
     )
     if not coverage:
         return result
-    assigned = {
-        item.claim_id: item
-        for item in coverage
-        if item.evidence_shown_to_models
-    }
+    assigned = {item.claim_id: item for item in coverage if item.evidence_shown_to_models}
     if not assigned:
         if article.status != "failed":
             result.status = "no_comparison_evidence"
