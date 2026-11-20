@@ -193,7 +193,10 @@ function renderReport(report) {
     return control;
   }));
   if (report.claims.length) selectClaim(0);
-  else renderGraph();
+  else {
+    renderGraph();
+    renderClaimStudies();
+  }
   renderPrivateReview(report);
 }
 
@@ -208,6 +211,7 @@ function selectClaim(index) {
   const originalLink = sourceLink(state.report.article || {}, claim.quote, "Eingabeartikel öffnen");
   $("original-link").replaceChildren(...(originalLink ? [originalLink] : []));
   renderClaimDiff(claim);
+  renderClaimStudies();
   renderGraph(claim, number);
   selectSource(claim.evidence.find(({ source }) => !source.original)?.source.id || claim.evidence[0]?.source.id);
 }
@@ -1028,6 +1032,7 @@ async function showReportBytes(bytes, importId, run) {
     throw new Error("Die Datei enthält kein lesbares JSON.");
   }
   const report = readReport(data);
+  if (run) report.runId = run.run_id;
   if (report.privateReview && globalThis.crypto?.subtle) {
     const digest = await crypto.subtle.digest("SHA-256", bytes);
     const review = report.privateReview;
@@ -1371,6 +1376,112 @@ async function initializeLocalRuns() {
     // Plain static hosting continues to offer the JSON download and import workflow.
   }
 }
+
+let studyView = 0;
+let activeStudy = null;
+
+function studyPath() {
+  const runId = state.report.runId;
+  const claimId = state.report.claims[state.claimIndex]?.id;
+  return runId && claimId
+    ? "/api/runs/" + encodeURIComponent(runId) + "/claims/" + encodeURIComponent(claimId) + "/studies"
+    : null;
+}
+
+function studyCard(paper) {
+  const row = element("article", "study-result");
+  const title = element("h5");
+  const link = sourceLink({ url: paper.url }, null, paper.title);
+  title.append(link || document.createTextNode(paper.title));
+  row.append(title);
+  const access = {
+    metadata: "Nur Metadaten · Relevanz ungeprüft",
+    abstract: "Abstract abgerufen",
+    full_text: "Volltext abgerufen",
+  };
+  const labels = [paper.year ? "Publiziert " + paper.year : null,
+    paper.publication_type === "posted-content" ? "Vorabveröffentlichung" : null,
+    access[paper.access], paper.excerpt_only ? "Auszüge ausgewertet" : null];
+  row.append(element("p", "study-access", labels.filter(Boolean).join(" · ")));
+  const assessment = paper.assessment;
+  if (!assessment) {
+    if (paper.assessment_status === "failed") row.append(element("p", "", "Die KI-Auswertung ist fehlgeschlagen."));
+    return row;
+  }
+  const badge = element("span", "relation", relationLabels[assessment.relation] || "Unklar");
+  badge.dataset.kind = assessment.relation;
+  const judgement = element("p", "study-judgement", "KI-Einordnung ");
+  judgement.append(badge);
+  row.append(judgement);
+  const fields = [
+    ["Untersucht", assessment.measured], ["Population und Ort", assessment.population],
+    ["Untersuchungszeitraum", assessment.period], ["Ergebnis", assessment.finding],
+    ["Bezug zur Aussage", assessment.rationale],
+  ];
+  const facts = element("dl", "study-facts");
+  const quotes = element("details", "study-quotes");
+  quotes.append(element("summary", "", "Textbelege"));
+  const material = sourceLink({ url: paper.material_url }, null, "Textgrundlage öffnen");
+  if (material) quotes.append(material);
+  let hasQuote = false;
+  for (const [label, note] of fields) {
+    facts.append(element("dt", "", label), element("dd", "", note?.value || "Nicht aus dem Text belegt"));
+    if (note?.quote) {
+      hasQuote = true;
+      quotes.append(element("p", "", label), element("blockquote", "", note.quote));
+    }
+  }
+  row.append(facts);
+  if (hasQuote) row.append(quotes);
+  return row;
+}
+
+async function loadStudies(path, view, search) {
+  const feedback = $("studies-status");
+  try {
+    const response = await localRequest(path, search ? { method: "POST" } : undefined);
+    const result = await response.json();
+    if (view !== studyView) return;
+    if (!result) {
+      feedback.textContent = "Die Aussage wird bei der Suche an Crossref gesendet.";
+      return;
+    }
+    $("study-results").replaceChildren(...result.papers.map(studyCard));
+    feedback.textContent = result.status === "failed" ? "Die Studiensuche ist fehlgeschlagen."
+      : result.status === "partial" ? "Suche oder Auswertung war unvollständig."
+      : result.papers.length ? "" : "Keine passenden Studien in den geprüften Treffern gefunden.";
+    $("find-studies").textContent = "Erneut suchen";
+  } catch (error) {
+    if (view === studyView) feedback.textContent = error.message;
+  }
+}
+
+function renderClaimStudies() {
+  const view = ++studyView;
+  const path = studyPath();
+  $("claim-studies").hidden = !path;
+  $("study-results").replaceChildren();
+  $("studies-status").textContent = activeStudy === path && path ? "Studien werden gesucht und geprüft …" : "";
+  $("find-studies").textContent = "Studien suchen";
+  $("find-studies").disabled = Boolean(activeStudy);
+  if (path && path !== activeStudy) loadStudies(path, view, false);
+}
+
+$("find-studies").addEventListener("click", async () => {
+  const path = studyPath();
+  if (!path || activeStudy) return;
+  activeStudy = path;
+  $("find-studies").disabled = true;
+  $("studies-status").textContent = "Studien werden gesucht und geprüft …";
+  const view = ++studyView;
+  try {
+    await loadStudies(path, view, true);
+  } finally {
+    activeStudy = null;
+    $("find-studies").disabled = false;
+    if (view !== studyView && path === studyPath()) renderClaimStudies();
+  }
+});
 
 renderReport(demo);
 initializeLocalRuns();

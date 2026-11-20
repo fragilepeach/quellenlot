@@ -234,6 +234,13 @@ h1 { font-size: clamp(1.9rem, 4.3vw, 3.25rem); line-height: 1.13; }
 .composer-footer p:not(:empty) { margin-inline-end: auto; }
 .composer-footer p:empty, #release-status:empty { display: none; }
 .file-feedback:not(:empty) { margin-top: 12px; }
+.study-result { padding-block: 10px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.study-result h5 { margin: 0; font-size: 1rem; }
+.study-access, #studies-status { margin-block: 6px; color: var(--subtle); font-size: 0.875rem; }
+.study-facts { margin-block: 8px; }
+.study-facts dt { font-weight: 600; }
+.study-facts dd { margin: 0 0 7px; }
+.study-quotes summary { cursor: pointer; }
 .run-history { margin-block: 12px; overflow-wrap: anywhere; }
 .run-history summary { cursor: pointer; }
 .run-history ul { padding-inline-start: 1.25rem; }

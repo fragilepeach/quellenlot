@@ -29,12 +29,14 @@ from quellenlot_agents.models import (
     ContractModel,
     EditorialReport,
 )
+from quellenlot_agents.studies import ClaimStudyReport, find_claim_studies
 
 _LOG = logging.getLogger(__name__)
 _LOOPBACK: Final = "127.0.0.1"
 _JSON: Final = "application/json; charset=utf-8"
 _MAX_CASE_BYTES: Final = 256 * 1024
 _RUN_PATH: Final = re.compile(r"/api/runs/([0-9a-f]{32})(/report|/editorial-draft)?")
+_STUDIES_PATH: Final = re.compile(r"/api/runs/([0-9a-f]{32})/claims/(claim-[1-5])/studies")
 _ASSETS: Final = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/index.html": ("index.html", "text/html; charset=utf-8"),
@@ -84,6 +86,10 @@ class _DraftConflict(ValueError):
     """Reject changes made against a different draft or report."""
 
 
+class _StudiesBusy(RuntimeError):
+    """A local analysis or study search already holds the model slot."""
+
+
 def _can_review(editorial: EditorialReport | None) -> bool:
     if editorial is None or editorial.status not in {"complete", "partial"}:
         return False
@@ -123,11 +129,12 @@ class _LocalRuns:
         self.config = config
         self._lock = Lock()
         self._active: str | None = None
+        self._researching = False
 
     def start(self, case: ArticleUrlInput) -> _RunStatus | None:
         """Save a new case and start its background analysis."""
         with self._lock:
-            if self._active is not None:
+            if self._active is not None or self._researching:
                 return None
             run_id = uuid4().hex
             folder = self.directory / run_id
@@ -275,6 +282,33 @@ class _LocalRuns:
                 continue
         return sorted(runs, key=lambda run: run.started_at, reverse=True)
 
+    def studies(self, run_id: str, claim_id: str, *, start: bool) -> ClaimStudyReport | None:
+        """Read or run a separate research assessment for a saved claim."""
+        folder = self.directory / run_id
+        path = folder / f"studies-{claim_id}.json"
+        if not start:
+            return (
+                ClaimStudyReport.model_validate_json(path.read_bytes()) if path.exists() else None
+            )
+        with self._lock:
+            if self._active is not None or self._researching:
+                msg = "Es läuft bereits eine Analyse oder Studiensuche."
+                raise _StudiesBusy(msg)
+            report = ArticleUrlReport.model_validate_json((folder / "report.json").read_bytes())
+            claims = report.review.claims if report.review and report.case_id == run_id else []
+            claim = next((item for item in claims if item.claim_id == claim_id), None)
+            if claim is None:
+                msg = "Die Aussage wurde im gespeicherten Bericht nicht gefunden."
+                raise FileNotFoundError(msg)
+            self._researching = True
+        try:
+            studies = asyncio.run(find_claim_studies(claim_id, claim.review.claim, self.config))
+            _save(path, studies)
+            return studies
+        finally:
+            with self._lock:
+                self._researching = False
+
 
 class LocalServer(ThreadingHTTPServer):
     """Serve the browser client and its local review data over loopback."""
@@ -336,6 +370,10 @@ class _LocalHandler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         asset = _ASSETS.get(path)
         run_path = _RUN_PATH.fullmatch(path)
+        studies_path = _STUDIES_PATH.fullmatch(path)
+        if studies_path is not None:
+            self._serve_studies(studies_path[1], studies_path[2], start=False)
+            return
         try:
             if asset is not None:
                 filename, content_type = asset
@@ -371,6 +409,10 @@ class _LocalHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         """Start a run or change a private editorial draft from the local browser."""
         if not self._authorized(mutation=True):
+            return
+        studies_path = _STUDIES_PATH.fullmatch(self.path)
+        if studies_path is not None:
+            self._serve_studies(studies_path[1], studies_path[2], start=True)
             return
         run_path = _RUN_PATH.fullmatch(self.path)
         draft_run_id = (
@@ -415,6 +457,22 @@ class _LocalHandler(BaseHTTPRequestHandler):
                 HTTPStatus.INTERNAL_SERVER_ERROR, "Der Entwurf konnte nicht gespeichert werden."
             )
 
+    def _serve_studies(self, run_id: str, claim_id: str, *, start: bool) -> None:
+        try:
+            report = cast("LocalServer", self.server).runs.studies(run_id, claim_id, start=start)
+        except _StudiesBusy as exc:
+            self._error(HTTPStatus.CONFLICT, str(exc))
+        except FileNotFoundError:
+            self._error(HTTPStatus.NOT_FOUND, "Die gespeicherte Aussage wurde nicht gefunden.")
+        except (OSError, ValidationError):
+            _LOG.exception("Could not access claim studies")
+            self._error(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                "Die Studiensuche konnte nicht gespeichert werden.",
+            )
+        else:
+            self._send(HTTPStatus.OK, report.model_dump_json().encode() if report else b"null")
+
     def _start_run(self, body: bytes) -> None:
         try:
             case = ArticleUrlInput.model_validate_json(body)
@@ -430,7 +488,7 @@ class _LocalHandler(BaseHTTPRequestHandler):
             )
             return
         if status is None:
-            self._error(HTTPStatus.CONFLICT, "Es läuft bereits eine Analyse.")
+            self._error(HTTPStatus.CONFLICT, "Es läuft bereits eine Analyse oder Studiensuche.")
             return
         self._send(HTTPStatus.ACCEPTED, status.model_dump_json().encode("utf-8"))
 

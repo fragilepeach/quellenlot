@@ -9,7 +9,7 @@ import unittest
 from hashlib import sha256
 from pathlib import Path
 from threading import Event, Thread
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 
@@ -17,6 +17,7 @@ from quellenlot_agents.article import ArticleProgress
 from quellenlot_agents.config import ModelConfig, WorkflowConfig
 from quellenlot_agents.local_ui import LocalServer
 from quellenlot_agents.models import ArticleUrlInput, ArticleUrlReport, SourceRetrieval
+from quellenlot_agents.studies import ClaimStudyReport
 
 _CONFIG = WorkflowConfig(
     models=[ModelConfig(id=f"local-{i}", model=f"model-{i}") for i in range(5)]
@@ -145,6 +146,8 @@ class LocalUiTests(unittest.TestCase):
         """Persist and reopen private edits, rejecting stale versions and incomplete reviews."""
         run_id = "ac" * 16
         draft_url = f"/api/runs/{run_id}/editorial-draft"
+        studies_url = f"/api/runs/{run_id}/claims/claim-1/studies"
+        claim_text = "Der Zeitraum bleibt offen."
         run_data = {
             "run_id": run_id,
             "article_url": _CASE["article_url"],
@@ -192,7 +195,30 @@ class LocalUiTests(unittest.TestCase):
                         "sources": [],
                         "status": "partial",
                         "extraction_attempts": [],
-                        "claims": [],
+                        "claims": [
+                            {
+                                "claim_id": "claim-1",
+                                "article_quote": {
+                                    "source_id": "article",
+                                    "version_id": "v1",
+                                    "locator": "article",
+                                    "text": claim_text,
+                                    "verified": True,
+                                },
+                                "source_comparison": [],
+                                "review": {
+                                    "case_id": run_id,
+                                    "claim": claim_text,
+                                    "status": "complete",
+                                    "limitation": "Fixture",
+                                    "sources": [],
+                                    "analyses": [],
+                                    "reviews": [],
+                                    "relation_counts": [],
+                                    "unresolved_dissent": [],
+                                },
+                            },
+                        ],
                         "editorial": {
                             "status": "partial",
                             "claims": [coverage],
@@ -267,6 +293,25 @@ class LocalUiTests(unittest.TestCase):
                     self.assertEqual(approved.json()["review_sha256"], digest)
                     self.assertIsNotNone(approved.json()["approved_at"])
                     self.assertEqual(approved.json()["revision"], 2)
+
+                    result = ClaimStudyReport(
+                        claim_id="claim-1",
+                        claim=claim_text,
+                        queries=[claim_text],
+                        status="complete",
+                        papers=[],
+                    )
+                    search = AsyncMock(return_value=result)
+                    with patch("quellenlot_agents.local_ui.find_claim_studies", new=search):
+                        self.assertIsNone(client.get(studies_url).json())
+                        self.assertEqual(client.post(studies_url).status_code, 403)
+                        search.assert_not_awaited()
+                        studies = client.post(studies_url, headers=headers)
+                        self.assertEqual(studies.status_code, 200)
+                        search.assert_awaited_once_with("claim-1", claim_text, _CONFIG)
+                        self.assertEqual(client.get(studies_url).json(), studies.json())
+                    self.assertEqual(report_path.read_bytes(), original)
+                    self.assertEqual(client.get(draft_url).json(), approved.json())
 
                     # A replacement report cannot inherit the previous version's approval.
                     report_path.write_bytes(original + b"\n")

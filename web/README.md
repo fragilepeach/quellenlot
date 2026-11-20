@@ -83,6 +83,14 @@ Open `report.json` with **Bericht öffnen**. Both article report shapes are supp
 
 Repeated verified quotations link to one excerpt with a link for each source. **Mögliche Textübernahme** shows RapidFuzz matches linked to the selected claim's citations. Expand a match to see the original passages and highlighted wording changes. A match can reflect common wording or a common upstream source. Publication and update dates establish the visible chronology of the sources. The exact origin of the wording requires separate evidence.
 
+## Studies for a claim
+
+Open a saved local run, select a claim, and click **Studien suchen**. Quellenlot sends the selected claim and an English query generated locally to [Crossref](https://www.crossref.org/documentation/retrieve-metadata/rest-api/), then checks candidate DOIs for abstracts and open full text in [Europe PMC](https://dev.europepmc.org/RestfulWebService). The article, question, and editorial notes are not part of the search request.
+
+Results distinguish metadata-only candidates, a retrieved abstract, and a retrieved full text. If the text exceeds the model input limit, the interface marks that excerpts were assessed. The study publication year and observation period are displayed separately. The local model describes the measure, population and place, observation period, finding, and its relationship to the claim. Fields need a matching quotation to appear. An exact quotation confirms that the words occur in the source. The interpretation still needs reading in context.
+
+The search checks up to five distinct candidate DOIs and uses the first configured Ollama model. Results are saved with the run for that claim, separately from the private editorial report. Start the search again to refresh the results. Publisher paywalls and PDFs outside the supported repository can leave a paper at abstract or metadata access.
+
 ## Private editorial review
 
 Open a report containing interests or editorial results to see **Private Redaktionsprüfung**. For each investigated source, the panel shows documented ownership, funding and affiliations, verified evidence passages and unresolved categories. Each editorial claim shows earlier dissent, the assigned findings and the individual reviewers’ outcomes.

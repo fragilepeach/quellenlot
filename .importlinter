@@ -6,7 +6,7 @@ name = Entry points depend on workflows, workflows depend on adapters and contra
 type = layers
 layers =
     quellenlot_agents.cli | quellenlot_agents.local_ui
-    quellenlot_agents.article
+    quellenlot_agents.article | quellenlot_agents.studies
     quellenlot_agents.interests | quellenlot_agents.editorial
     quellenlot_agents.workflow | quellenlot_agents.discovery | quellenlot_agents.provenance
     quellenlot_agents.source_capture
