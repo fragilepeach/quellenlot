@@ -98,6 +98,8 @@ Use the same CLI command with JSON containing an `article` instead of an explici
 }
 ```
 
+Article reports can include an `article_summary` of up to three sentences drafted during claim extraction. Each sentence carries the ID of a distinct claim with a verified article quote. This is a summary of what the article says. A verified quote establishes that the passage appears in the article snapshot. The comparison and review results give the evidence assessment.
+
 Each claim entry contains the original quote, a source comparison in input order, and the detailed review. The comparison groups judgments by source and links exact-match citations to the supplied URL and snapshot version. A judgment may have no exact-match citation. Incomplete snapshots are marked unassessable when a model would otherwise report an omission.
 
 The detailed review holds the claim text, model disagreements, and peer review records. A peer review is successful only when it covers every assigned finding exactly once. If extraction finds no claims, the article report has status `no_claims`. An article run can make up to ten model calls per extracted claim after extraction. Keep source snapshots short enough for the configured context length.

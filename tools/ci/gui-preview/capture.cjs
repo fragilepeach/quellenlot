@@ -110,6 +110,36 @@ async function checkImportOutcomes(browser) {
     await importReport({ status, retrievals: [], review: { ...report, status } });
     await page.getByText("Importierter Bericht · Analyse fehlgeschlagen", { exact: true }).waitFor();
     assert.match(await page.locator("#empty-report").textContent(), /Extraktion fehlgeschlagen/);
+    const article = {
+      source_id: "article",
+      title: "Bibliothek",
+      version_id: "v1",
+      url: "https://example.org/bibliothek",
+    };
+    const quote = "Der Eintritt ist frei.";
+    const claim = {
+      claim_id: "claim-1",
+      article_quote: { source_id: "article", version_id: "v1", verified: true, text: quote },
+      review: { claim: quote, status: "complete" },
+      source_comparison: [],
+    };
+    const text = "Dem Bericht zufolge kostet der Eintritt nichts.";
+    const articleReport = { ...report, status: "complete", sources: [article], claims: [claim] };
+    await importReport({
+      ...articleReport,
+      article_summary: [{ text, claim_id: claim.claim_id }],
+    });
+    await page.getByRole("link", { name: text }).click();
+    assert.equal(await page.locator("#original-quote").textContent(), quote);
+    assert.ok(await page.locator("#original-quote").isVisible());
+    assert.match(await page.locator("#original-link a").getAttribute("href"), /#:~:text=/);
+
+    await importReport({
+      ...articleReport,
+      article_summary: [{ text, claim_id: "claim-missing" }],
+    });
+    await page.getByText("Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung.", { exact: true }).waitFor();
+    assert.equal(await page.getByRole("link", { name: text }).count(), 0);
     assert.deepEqual(errors, []);
   } finally {
     await page.close();

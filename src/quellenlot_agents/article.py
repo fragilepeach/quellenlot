@@ -14,6 +14,7 @@ from quellenlot_agents.interests import review_interests
 from quellenlot_agents.models import (
     ArticleCaseInput,
     ArticleReport,
+    ArticleSummarySentence,
     ArticleUrlInput,
     ArticleUrlReport,
     CaseInput,
@@ -45,8 +46,13 @@ facts when attribution matters. Skip opinions, predictions, and unsupported infe
 Use declared article dates as timeline context where relevant. Keep the time of the events
 distinct from publication, updates, and capture. Leave unstated event dates uncertain.
 For each statement, return one short verbatim quote from the article with its source ID and
-locator. Return an empty list if the supplied text contains no checkable factual claims.
-Return only JSON matching the requested schema."""
+locator. Return an empty claims list if the supplied text contains no checkable factual claims.
+In summary, write up to three concise sentences in the article's language, together giving a
+short overview of the article's main factual points. Attribute the statements to the article
+or the named speaker as appropriate. Base each sentence solely on one extracted claim, preserve
+its qualifiers, and set claim_index to that claim's position in claims, starting at 1. Use each
+claim at most once. If there are no claims, return an empty summary. Return only JSON matching
+the requested schema."""
 
 
 def _verify_claims(
@@ -64,11 +70,26 @@ def _verify_claims(
     return claims
 
 
+def _link_summary(
+    draft: DraftArticleExtraction, claim_count: int
+) -> list[ArticleSummarySentence]:
+    """Link summary sentences to distinct claims whose article quotes were verified."""
+    indexes = {sentence.claim_index for sentence in draft.summary}
+    if len(indexes) != len(draft.summary) or any(index > claim_count for index in indexes):
+        return []
+    return [
+        ArticleSummarySentence(text=sentence.text, claim_id=f"claim-{sentence.claim_index}")
+        for sentence in draft.summary
+    ]
+
+
 async def _extract_claims(
     article: SourceInput,
     question: str | None,
     config: WorkflowConfig,
-) -> tuple[list[tuple[str, VerifiedQuote]] | None, list[ExtractionAttempt]]:
+) -> tuple[
+    list[tuple[str, VerifiedQuote]] | None, list[ExtractionAttempt], list[ArticleSummarySentence]
+]:
     prompt = json.dumps(
         {"question": question, "article": article.model_dump(mode="json")},
         ensure_ascii=False,
@@ -93,8 +114,8 @@ async def _extract_claims(
             attempts.append(
                 ExtractionAttempt(agent_id=agent.id, model=agent.model, status="succeeded")
             )
-            return claims, attempts
-    return None, attempts
+            return claims, attempts, _link_summary(draft, len(claims))
+    return None, attempts, []
 
 
 def _compare_sources(review: RunReport) -> list[SourceComparison]:
@@ -125,8 +146,8 @@ async def run_article_comparison(case: ArticleCaseInput, config: WorkflowConfig)
     Returns:
         The source comparisons and the final editorial assessment.
     """
-    extracted, attempts = await _extract_claims(case.article, case.question, config)
-    report, _ = await _compare_extracted(case, config, extracted, attempts)
+    extracted, attempts, summary = await _extract_claims(case.article, case.question, config)
+    report, _ = await _compare_extracted(case, config, extracted, attempts, summary)
     report.editorial = await assess_editorial(report, config, [], None)
     return report
 
@@ -136,6 +157,7 @@ async def _compare_extracted(
     config: WorkflowConfig,
     extracted: list[tuple[str, VerifiedQuote]] | None,
     attempts: list[ExtractionAttempt],
+    summary: list[ArticleSummarySentence],
     interest_urls: list[InterestUrlInput] | None = None,
 ) -> tuple[ArticleReport, list[SourceRetrieval]]:
     """Review pre-extracted claims against all selected source snapshots."""
@@ -184,6 +206,7 @@ async def _compare_extracted(
         sources=[SourceSnapshot.from_source(source) for source in sources],
         status=status,
         extraction_attempts=attempts,
+        article_summary=summary,
         claims=comparisons,
         shared_wording=shared_wording,
         interests=interests,
@@ -213,7 +236,7 @@ async def run_article_url_comparison(
             retrievals.append(retrieval)
             if source is not None:
                 sources.append(source)
-        extracted, attempts = await _extract_claims(article, case.question, config)
+        extracted, attempts, summary = await _extract_claims(article, case.question, config)
         if (
             config.search is not None
             and not case.comparison_urls
@@ -238,6 +261,7 @@ async def run_article_url_comparison(
             config,
             extracted,
             attempts,
+            summary,
             case.interest_urls,
         )
         retrievals.extend(interest_retrievals)
