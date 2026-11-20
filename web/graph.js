@@ -59,9 +59,10 @@ function createEvidenceGraph(nodes, edges, activate) {
       if (Math.hypot(dx, dy) < 1) {
         path.removeAttribute("d");
       } else if (path.dataset.kind === "citation" && Math.abs(dy) < 24) {
-        const [, startY] = boundary(start, 0, 1);
-        const [, endY] = boundary(end, 0, 1);
-        const curve = Math.max(startY, endY) + 29;
+        const direction = Math.max(start.y, end.y) > canvas.clientHeight - 70 ? -1 : 1;
+        const [, startY] = boundary(start, 0, direction);
+        const [, endY] = boundary(end, 0, direction);
+        const curve = (direction > 0 ? Math.max(startY, endY) : Math.min(startY, endY)) + direction * 29;
         path.setAttribute("d", `M ${start.x} ${startY} C ${start.x} ${curve} ${end.x} ${curve} ${end.x} ${endY}`);
       } else {
         const [x1, y1] = boundary(start, dx, dy);

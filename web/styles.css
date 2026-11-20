@@ -429,6 +429,7 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .graph-node[data-kind="claim"] { border-color: var(--purple-line); color: var(--purple); background: var(--purple-wash); }
 .graph-node:hover { border-color: var(--purple); }
 .graph-node[aria-pressed="true"] { outline: 2px solid var(--purple-line); outline-offset: 2px; }
+.graph-node:focus-visible { outline: 3px solid var(--purple); outline-offset: 4px; }
 .graph-node.is-dragging { z-index: 2; cursor: grabbing; }
 .graph-node-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .graph-node .relation { font-size: 0.73rem; overflow-wrap: anywhere; }

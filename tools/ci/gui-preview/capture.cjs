@@ -101,12 +101,12 @@ async function captureWalkthrough(browser, frames) {
     assert.match(await evidence.locator("blockquote").textContent(), /Anfang Juni/);
     await evidence.getByText("Datum und Version", { exact: true }).click();
     assert.match(await evidence.locator("dl").textContent(), /19\.10\.2022.*20\.10\.2022/);
-    await scrollTo("#source-detail", 10);
+    await scrollTo("#source-detail", 7);
     await hold(1.7);
 
     const citation = graph.locator('.graph-connections > [data-kind="citation"]');
     await graph.getByText("→ Verweist auf", { exact: true }).waitFor();
-    await scrollTo("#graph-heading", 10);
+    await scrollTo("#graph-heading", 7);
     await hold(1.2);
     const source = graph.getByRole("button", { name: /TU Dresden/ });
     const oldPath = await citation.getAttribute("d");
@@ -297,7 +297,7 @@ async function checkImportOutcomes(browser) {
       ] },
     });
     const graph = page.locator(".source-provenance");
-    await graph.locator("summary").click();
+    await graph.locator(":scope > summary").click();
     const sharedNode = page.locator("#graph").getByRole("button", { name: "Gemeinsame Studie", exact: true });
     assert.equal(await sharedNode.count(), 1);
     assert.equal(await page.locator('#graph .graph-connections > [data-kind="citation"]').count(), 3);
@@ -527,7 +527,7 @@ function encodeGif(frames) {
   execFileSync(commands.ffmpeg, [
     "-hide_banner", "-loglevel", "error", "-y", "-filter_complex_threads", "1",
     "-framerate", String(gifFps), "-i", join(frames, "frame-%d.png"),
-    "-filter_complex", "scale=840:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse=dither=bayer:diff_mode=rectangle",
+    "-filter_complex", "scale=840:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=none:diff_mode=rectangle",
     "-loop", "0", join(output, "usage.gif"),
   ]);
 }
@@ -546,7 +546,7 @@ async function inspectMedia(name, expectedWidth, expectedFrames = 1) {
     assert.ok(Math.abs(Number(format.duration) - expectedFrames / gifFps) <= 0.1, "GIF plays at the target frame rate");
   }
   const bytes = await readFile(path);
-  assert.ok(bytes.length > 10_000 && bytes.length < 2_000_000, name);
+  assert.ok(bytes.length > 10_000 && bytes.length < 2_000_000, `${name} has ${bytes.length} bytes`);
   return {
     file: name,
     width: stream.width,
