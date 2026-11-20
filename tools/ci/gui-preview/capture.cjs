@@ -766,6 +766,58 @@ async function checkLocalRun(browser) {
   }
 }
 
+async function checkParliament(browser) {
+  for (const width of [1280, 390, 320]) {
+    const { page, errors } = await openDemo(browser, { width, height: 960 });
+    try {
+      await page.getByRole("link", { name: "Programme & Abstimmungen", exact: true }).click();
+      await page.getByRole("heading", { name: "Schuldenbremse und Investitionen", exact: true }).waitFor();
+      const programmes = page.locator("#programme-comparisons");
+      await programmes.getByText("An der grundgesetzlichen Schuldenbremse festhalten.", { exact: false }).waitFor();
+      await programmes.getByText("Spannung zur Ankündigung", { exact: true }).waitFor();
+      await page.getByRole("radio", { name: "Stimme zu", exact: true }).check();
+      assert.deepEqual(await programmes.getByRole("status").allTextContents(), [
+        "Das Programm legt sich zu dieser Frage nicht eindeutig fest.",
+        "Deine Position und die Programmaussage zeigen in dieselbe Richtung.",
+      ]);
+      await page.getByRole("radio", { name: "Stimme nicht zu", exact: true }).check();
+      await programmes.getByText("Deine Position und die Programmaussage gehen in unterschiedliche Richtungen.").waitFor();
+      await page.getByRole("radio", { name: "Stimme zu", exact: true }).check();
+
+      const final = page.locator("#schuldenbremse-schluss");
+      const amendment = page.locator("#schuldenbremse-aenderung");
+      await programmes.getByRole("link", { name: "Schlussabstimmung", exact: true }).first().click();
+      assert.equal(await page.locator(":focus").evaluate((node) => node.parentElement.id), "schuldenbremse-schluss");
+      await final.getByText("Die Stimmen gelten dem gesamten Paket.", { exact: false }).waitFor();
+      assert.deepEqual(await final.getByRole("row").nth(1).getByRole("cell").allTextContents(), ["512", "206", "0", "15"]);
+      assert.match(await final.getByRole("link", { name: /Namentliche Stimmen/ }).getAttribute("href"), /id=951$/);
+      assert.match(await final.getByRole("link", { name: /Wortlaut/ }).getAttribute("href"), /2015117\.pdf#page=10$/);
+      await amendment.locator("summary").click();
+      await amendment.getByText("einmalig bis zu 300 Milliarden Euro", { exact: false }).waitFor();
+      assert.deepEqual(await amendment.getByRole("row").nth(1).getByRole("cell").allTextContents(), ["85", "630", "2", "16"]);
+      assert.match(await amendment.getByRole("link", { name: /Namentliche Stimmen/ }).getAttribute("href"), /id=950$/);
+      await programmes.getByRole("link", { name: "Spätere Umsetzung", exact: true }).click();
+      const later = page.locator("#schuldenbremse-svikg");
+      await later.getByRole("link", { name: /SVIKG/ }).waitFor();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+      assert.deepEqual(errors, []);
+      if (width === 1280) {
+        const skip = page.getByRole("link", { name: "Zum Inhalt", exact: true });
+        assert.equal(await skip.evaluate((link) => getComputedStyle(link).clipPath), "inset(50%)");
+        await skip.focus();
+        assert.equal(await skip.evaluate((link) => getComputedStyle(link).clipPath), "none");
+        await skip.blur();
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.evaluate(() => document.fonts.ready);
+        await page.screenshot({ ...screenshotOptions, fullPage: true, path: join(output, "parliament.png") });
+      }
+      await page.getByRole("link", { name: "Artikel prüfen", exact: true }).click();
+      await page.getByRole("heading", { name: "Kam der Tankrabatt an?" }).waitFor();
+    } finally {
+      await page.close();
+    }
+  }
+}
 
 async function checkTopicTrends(browser) {
   const origin = "http://127.0.0.1:8765";
@@ -896,6 +948,7 @@ async function main() {
       await checkTopicTrends(browser);
       await checkTheme(browser);
       await checkClaimDiff(browser);
+      await checkParliament(browser);
     } finally {
       await browser.close();
     }
@@ -904,12 +957,13 @@ async function main() {
       inspectMedia("desktop.png", 1280),
       inspectMedia("mobile.png", 390),
       inspectMedia("usage.gif", 840, count),
+      inspectMedia("parliament.png", 1280),
     ]);
     const { GITHUB_SHA, GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID } = process.env;
     const manifest = {
       source_commit: GITHUB_SHA || null,
       workflow_run: GITHUB_RUN_ID ? `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}` : null,
-      scenario: "Tankrabatt fixture, article claim investigation",
+      scenario: "Tankrabatt article investigation and 2025 Bundestag records",
       playwright: require("playwright/package.json").version,
       media,
     };

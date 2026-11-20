@@ -126,7 +126,8 @@ button:focus-visible, a:focus-visible, summary:focus-visible, textarea:focus-vis
 .brand-mark i { width: 13px; height: 2px; background: var(--lime-ink); }
 .brand-mark i:nth-child(2) { width: 9px; }
 .brand-mark i:nth-child(3) { width: 5px; }
-.masthead-actions { grid-column: 3; display: flex; align-items: center; gap: 10px; }
+.masthead-actions { grid-column: 3; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.parliament-nav { display: inline-flex; align-items: center; min-height: 40px; font-size: 0.875rem; font-weight: 670; }
 .quiet-button, .outline-button, .primary-button {
   border-radius: 3px;
   min-height: 40px;
