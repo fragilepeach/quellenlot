@@ -395,7 +395,7 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
   .diff-sources, .diff-pair { grid-template-columns: minmax(0, 1fr); }
 }
 
-.private-review { margin-top: 24px; }
+.private-review { margin-top: 24px; overflow-wrap: anywhere; }
 .private-review details { margin-top: 10px; }
 .private-review summary { cursor: pointer; font-weight: 600; }
 .private-review h4 { margin-bottom: 6px; }

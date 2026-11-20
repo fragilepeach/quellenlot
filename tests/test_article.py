@@ -671,6 +671,8 @@ class ArticleCliTests(unittest.TestCase):
             requests.append(path)
             if path == "/link":
                 return _html_response(
+                    '<meta property="og:site_name" content="Lokalzeitung">'
+                    '<meta name="author" content="Lea Winter">'
                     '<article><nav><a href="/navigation">Navigation</a></nav>'
                     f'<p>{_FIRST_CLAIM}</p><p><a href="/redirect-study">Die <b>Studie</b></a>'
                     ' und <a href="#absatz">Absatz</a>.</p></article>'
@@ -732,6 +734,20 @@ class ArticleCliTests(unittest.TestCase):
         self.assertEqual(dates["updated_at"], {"value": "2026-11-05", "provenance": "open_graph"})
         self.assertEqual(study.retrieved_at, study.snapshot.captured_at)
         self.assertEqual(len(report.review.sources), 2)
+        self.assertEqual(original.publisher, "Lokalzeitung")
+        self.assertEqual(original.authors, ["Lea Winter"])
+        editorial = report.review.editorial
+        if editorial is None:
+            self.fail("The editorial review must include upstream retrieval gaps.")
+        self.assertEqual(editorial.status, "partial")
+        self.assertIn(edges[(study.source_id, "Anhang")], editorial.retrieval_gaps)
+        assignment = editorial.claims[0].assigned_findings[0]
+        self.assertEqual(assignment.source_id, "comparison-1")
+        for assessment in editorial.assessments:
+            self.assertEqual(
+                [finding.finding_id for finding in assessment.claims[0].findings],
+                [assignment.finding_id],
+            )
         quote = report.review.claims[0].article_quote
         self.assertEqual(quote.version_id, original.version_id)
         self.assertEqual(quote.start, 0)
