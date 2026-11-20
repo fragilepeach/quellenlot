@@ -30,6 +30,8 @@ Open **Programme & Abstimmungen** to compare party programme wording with motion
 
 </details>
 
+For topic context, open **Thementrends und Ereignisse** to fetch news coverage from GDELT, import search interest from a Google Trends CSV, and annotate dates with sources. [Topic trends guide](web/README.md#topic-trends-and-events)
+
 ## Workflow
 
 1. Supply an explicit claim or an original article. In article mode, the first model that returns a valid extraction supplies up to five distinct claims anchored to exact quotes. An optional question guides claim selection.
@@ -43,7 +45,7 @@ The example pool is a starting point, not a validated ranking. It lists Qwen3.8 
 
 ## Quick start
 
-Requires Python 3.12+ and a running local Ollama server.
+Requires Python 3.12+ and a running local Ollama server. Run the setup from the repository root.
 
 ```bash
 python -m venv .venv
@@ -52,7 +54,11 @@ python -m pip install -e .
 cp config.example.toml models.toml
 ```
 
-Pull the models listed in `models.toml` (the first download requires internet access). Then prepare an input JSON:
+Pull the models listed in `models.toml` using the commands in [config.example.toml](config.example.toml). The first download requires internet access.
+
+To start a saved browser analysis, run `quellenlot-ui --config models.toml` and open `http://127.0.0.1:8765`. Paste the article URL and any comparison URLs, add a question if needed, and select **Analyse starten**. The [GUI guide](web/README.md#using-the-local-agent) covers saved runs and report imports.
+
+To run a standalone claim through the CLI, prepare an input JSON:
 
 ```json
 {
@@ -209,7 +215,7 @@ python -m build
 twine check dist/*
 ```
 
-GitHub Actions runs the full suite on pushes, pull request updates, merge-queue events, and manual runs. The checks cover every tracked Python source and stub, including tests and tooling, without a changed-file baseline or CI auto-fixes.
+The [Python quality workflow](.github/workflows/python-quality.yml) runs the full suite on pushes, pull request updates, merge-queue events, and manual runs. The checks cover every tracked Python source and stub, including tests and tooling, without a changed-file baseline or CI auto-fixes.
 
 - Ruff enforces linting, formatting, annotations, and Google-style docstrings. The documentation contract checks descriptive summaries and applicable `Args`, `Returns`, `Yields`, and `Raises` sections for public APIs. It rejects explicit generic annotations and inline diagnostic suppressions.
 - Pyright runs in strict mode with warnings treated as failures. Astral's ty enables every rule as an error.

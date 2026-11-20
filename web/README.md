@@ -1,6 +1,6 @@
-# Quellenlot GUI prototype
+# Quellenlot browser interface
 
-Open `web/index.html` in a modern browser. The prototype uses local HTML, CSS and JavaScript with no build step. The Tankrabatt case opens by default. Its input article and summary are written for the demo. Its evidence passages and external links come from published sources.
+Open `web/index.html` in a modern browser for the static demo or to import a report. The Tankrabatt case opens by default. Its input article and summary are written for the demo. Its evidence passages and external links come from published sources. Start the [local browser server](#using-the-local-agent) to run and save analyses, search for papers, fetch GDELT news trends, and approve editorial drafts. Both modes use local HTML, CSS and JavaScript with no build step.
 
 Quellenlot opens in dark mode. Use **Dunkles Design** in the header to switch between dark and light. The browser remembers your selection when local storage is available. Headings and evidence quotations use IBM Plex Mono, bundled under its [Open Font License](fonts/IBM-Plex-Mono-OFL.txt).
 
@@ -36,7 +36,7 @@ Cases are curated in [parliament-data.js](parliament-data.js). To add a case, su
 
 The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates, mobile focus behavior, theme switching, offline font loading and the imported claim diff before uploading the dark-mode screenshots and the 20 fps walkthrough GIF. The walkthrough holds the evidence on screen and animates scrolling and node dragging. It also imports a single report containing the claim diff, an upstream citation shared by two sources, and an unresolved private editorial review at desktop and mobile widths. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
 
-Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`. The artifact also includes a screenshot of the private editorial review with fixture data and a [preview of the parliamentary comparison](../docs/images/generated/parliament.png). Chromium checks the parliamentary view at desktop and small mobile widths. The artifact and tracked documentation include desktop and mobile previews of the claim study panel populated with fixture data.
+Pull requests that change the browser interface or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the tracked images after a successful capture on `main` when their bytes change. It can also be run manually for `main`. The tracked images include the [parliamentary comparison](../docs/images/generated/parliament.png) and desktop and mobile claim study previews. The artifact also includes fixture screenshots of the private editorial review, the reader preview and the trend charts.
 
 To generate the files locally from the repository root, install Node.js and FFmpeg (including `ffprobe`), then run:
 
@@ -65,7 +65,7 @@ The output is written to `artifacts/gui-preview/`. The walkthrough uses the buil
 3. Inspect the exact passage, the type of evidence relationship and the document dates. Publication, modification and capture are separate. A web page may have changed since capture. Evidence without a verified excerpt stays visibly marked.
 4. If a source states where its finding comes from, show that citation. In the demo, the TU Dresden announcement points to the same Freitas–Syga study shown in the graph. An inferred historical origin or a duplicate-detection result needs separate treatment.
 
-The prototype follows one review at a time. A conversational thread would make it easier to ask follow-ups and harder to locate the active claim and evidence. A graph-led page would make dependencies prominent while the reader is still trying to understand the article. The side-by-side reading view keeps the claim and evidence in scope. On narrow screens, activating a claim moves focus to its evidence heading.
+The reading view keeps the article and the selected claim’s evidence in view side by side. On narrow screens, selecting a claim moves focus to its evidence heading.
 
 ## Using the local agent
 
@@ -117,12 +117,11 @@ Open **Leservorschau öffnen** to inspect the approved text, the original articl
 
 **Freigegebenen Text exportieren** downloads the human-written text, approval time, article link, and report digest. The assessment and interests data remain in the private run. With a manually imported report, **Freigabeentwurf speichern** continues to download a JSON draft after the checklist. Reports without a final assessment covering its assigned findings remain available for inspection. The interface keeps editorial material local, and publishing the exported text is a separate editorial action.
 
-## Usability test before backend integration
+## Usability checks
 
 Give unfamiliar readers the Tankrabatt case and ask them to find the passage that qualifies the claim of complete pass-through, identify whether the TU announcement and the Freitas–Syga study are independent, and explain the difference between publication and update dates. Observe where they click and ask them to explain each relationship in their own words. Repeat the first two tasks on a small mobile viewport and using only the keyboard.
 
-For a local run, evaluate citation coverage and whether each citation supports its claim separately.
-
+For a local run, check both citation coverage and whether each citation supports its claim.
 
 ## Topic trends and events
 
