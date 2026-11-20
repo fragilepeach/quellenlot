@@ -66,6 +66,14 @@ quellenlot-agents --config models.toml --input case.json --output report.json
 
 Open `report.json` with **Bericht öffnen**. Both article report shapes are supported, including partial runs, failed URL retrieval and runs with no extractable claims. The current evidence section shows model-level observations and mechanically verified passages from the report. New article reports can include a model-written summary linked to the article’s original wording. Select a sentence to open its claim and article quote. Older reports still open with the extracted claims. Automatic source-to-source links require provenance in the report. Model agreement is never rendered as a truth rating.
 
+## Private editorial review
+
+Open a report containing interests or editorial results to see **Private Redaktionsprüfung**. For each investigated source, the panel shows documented ownership, funding and affiliations, verified evidence passages and unresolved categories. Each editorial claim shows earlier dissent, the assigned findings and the individual reviewers’ outcomes.
+
+To prepare a release, inspect the evidence and open issues, confirm both checklist items, and write the text intended for publication. **Freigabeentwurf speichern** downloads a local JSON draft with the human-written text, the article link and the SHA-256 digest of the reviewed report. The imported notes and interests data stay in the private review. Reopening a report clears the checklist and draft text. Reports without a final assessment that covers its assigned findings remain available for inspection.
+
+The browser does not transmit the report or publish the draft. The saved draft can be reviewed and published through a separate editorial process.
+
 ## Usability test before backend integration
 
 Give unfamiliar readers the Tankrabatt case and ask them to find the passage that qualifies the claim of complete pass-through, identify whether the TU announcement and the Freitas–Syga study are independent, and explain the difference between publication and update dates. Observe where they click and ask them to explain each relationship in their own words. Repeat the first two tasks on a small mobile viewport and using only the keyboard.

@@ -9,6 +9,19 @@ const relationLabels = {
   not_assessable: "Nicht beurteilbar",
 };
 
+const interestLabels = {
+  ownership: "Eigentümerschaft",
+  funding: "Finanzierung",
+  author_affiliation: "Verbindungen der Autor*innen",
+  political_affiliation: "Politische Verbindungen",
+};
+
+const outcomeLabels = {
+  agrees: "Zustimmung",
+  challenges: "Einwand",
+  unclear: "Unklar",
+};
+
 const demoSources = {
   ifo: {
     id: "ifo",
@@ -179,6 +192,7 @@ function renderReport(report) {
     return control;
   }));
   if (report.claims.length) selectClaim(0);
+  renderPrivateReview(report);
 }
 
 function selectClaim(index) {
@@ -324,6 +338,171 @@ function normalizedEvidence(comparisons, originalId) {
     }));
 }
 
+
+function reviewList(items) {
+  const list = element("ul");
+  for (const item of items) list.append(element("li", "", item));
+  return list;
+}
+
+function renderInterests(interests) {
+  const details = element("details");
+  details.append(element("summary", "", "Eigentümerschaft, Finanzierung und Verbindungen"));
+  if (!interests?.sources?.length) {
+    details.append(element("p", "", "Keine Interessenprüfung mit Quellen im Bericht."));
+    return details;
+  }
+
+  for (const entry of interests.sources) {
+    const source = entry.source;
+    details.append(element("h4", "", source.title || source.source_id));
+    if (source.publisher) details.append(element("p", "", "Herausgeber: " + source.publisher));
+    if (source.authors?.length) {
+      details.append(element("p", "", "Autor*innen: " + source.authors.join(", ")));
+    }
+    const unknown = (entry.unresolved_categories || []).map((category) => interestLabels[category] || category);
+    if (unknown.length) details.append(element("p", "", "Offen: " + unknown.join(", ")));
+    for (const assessment of entry.assessments || []) {
+      if (assessment.status === "failed") {
+        details.append(element("p", "", assessment.agent_id + " · Interessenprüfung fehlgeschlagen"));
+      }
+      for (const finding of assessment.findings || []) {
+        const quote = finding.evidence;
+        const snapshot = (entry.evidence_sources || []).find((item) =>
+          item.source_id === quote?.source_id && item.version_id === quote?.version_id
+        );
+        const category = interestLabels[finding.category] || finding.category;
+        details.append(element("p", "", assessment.agent_id + " · " + category + " · " + finding.relationship));
+        if (snapshot && quote.verified === true) {
+          details.append(element("blockquote", "", quote.text));
+          const link = sourceLink(snapshot, quote.text, "Beleg der Verbindung öffnen");
+          if (link) details.append(link);
+        }
+      }
+    }
+    const gaps = (entry.retrievals || []).filter((item) => item.status !== "captured");
+    if (gaps.length) details.append(reviewList(gaps.map((item) => "Abruflücke: " + item.requested_url)));
+  }
+  return details;
+}
+
+function renderEditorial(editorial, claims) {
+  const section = element("div");
+  const notes = editorial?.assessments || [];
+  const succeeded = notes.filter((note) => note.status === "succeeded").length;
+  section.append(element("p", "", "Abgeschlossene Schlussprüfungen: " + succeeded + " von " + notes.length));
+  const failed = notes.filter((note) => note.status === "failed");
+  if (failed.length) {
+    section.append(reviewList(failed.map((note) => note.agent_id + " · Schlussprüfung unvollständig")));
+  }
+  if (editorial?.retrieval_gaps?.length) {
+    section.append(reviewList(editorial.retrieval_gaps.map((gap) => "Abruflücke: " + gap.requested_url)));
+  }
+  if (editorial?.incomplete_source_ids?.length) {
+    section.append(element("p", "", "Unvollständige Quellen: " + editorial.incomplete_source_ids.join(", ")));
+  }
+  if (editorial?.discovery_incomplete) {
+    section.append(element("p", "", "Die Vergleichsquellensuche war unvollständig."));
+  }
+  for (const coverage of editorial?.claims || []) {
+    const index = claims.findIndex((item) => item.id === coverage.claim_id);
+    const claim = claims[index];
+    const details = element("details");
+    details.append(element("summary", "", claim?.text || coverage.claim_id));
+    if (claim) {
+      const inspect = button("Quellenvergleich zur Aussage öffnen", "quiet-button");
+      inspect.addEventListener("click", () => {
+        selectClaim(index);
+        $("evidence-heading").focus();
+      });
+      details.append(inspect);
+    }
+    if (coverage.comparison_sources_without_quotes?.length) {
+      details.append(element("p", "", "Vergleichsquellen ohne bestätigtes Zitat: " +
+        coverage.comparison_sources_without_quotes.join(", ")));
+    }
+    const assigned = coverage.assigned_findings || [];
+    details.append(element("p", "", assigned.length + " Befunde zugewiesen, " +
+      (coverage.unassigned_finding_count || 0) + " weitere Befunde im Quellenvergleich."));
+    const dissent = coverage.unresolved_dissent?.length ? coverage.unresolved_dissent : claim?.dissent;
+    if (dissent?.length) {
+      details.append(element("h4", "", "Offene Einwände aus der Quellenprüfung"));
+      details.append(reviewList(dissent));
+    }
+    const unresolved = new Set(coverage.unresolved_finding_ids || []);
+    for (const finding of assigned) {
+      const relation = relationLabels[finding.relation] || finding.relation;
+      details.append(element("h4", "", finding.finding_id + " · " + finding.source_id + " · " + relation));
+      if (finding.reasoning) details.append(element("p", "", finding.reasoning));
+      if (unresolved.has(finding.finding_id)) {
+        details.append(element("p", "", "In der Schlussprüfung umstritten oder unklar."));
+      }
+      const outcomes = [];
+      for (const note of notes) {
+        const result = note.claims?.find((item) => item.claim_id === coverage.claim_id)
+          ?.findings?.find((item) => item.finding_id === finding.finding_id);
+        if (result) {
+          outcomes.push(note.agent_id + " · " + (outcomeLabels[result.outcome] || result.outcome) +
+            " · " + result.reasoning);
+        }
+      }
+      if (outcomes.length) details.append(reviewList(outcomes));
+    }
+    for (const note of notes) {
+      const result = note.claims?.find((item) => item.claim_id === coverage.claim_id);
+      if (result) {
+        details.append(element("p", "", note.agent_id + " · " + result.assessment));
+        if (result.next_check) details.append(element("p", "", "Nächste Prüfung: " + result.next_check));
+      }
+    }
+    section.append(details);
+  }
+  return section;
+}
+
+function exactlyCovers(ids, assigned) {
+  return ids.length === assigned.size &&
+    new Set(ids).size === ids.length &&
+    ids.every((id) => assigned.has(id));
+}
+
+function canPrepareRelease(editorial) {
+  if (!["complete", "partial"].includes(editorial?.status)) return false;
+  const assigned = new Map();
+  for (const claim of editorial.claims || []) {
+    if (!claim.assigned_findings?.length) continue;
+    const ids = claim.assigned_findings.map((finding) => finding.finding_id);
+    if (assigned.has(claim.claim_id) || new Set(ids).size !== ids.length) return false;
+    assigned.set(claim.claim_id, new Set(ids));
+  }
+  const reviewers = (editorial.assessments || []).filter((item) => item.status === "succeeded");
+  const claimIds = new Set(assigned.keys());
+  return assigned.size > 0 && reviewers.length > 0 && reviewers.every((item) =>
+    Array.isArray(item.claims) && exactlyCovers(item.claims.map((claim) => claim.claim_id), claimIds) &&
+    item.claims.every((claim) => Array.isArray(claim.findings) &&
+      exactlyCovers(claim.findings.map((finding) => finding.finding_id), assigned.get(claim.claim_id)))
+  );
+}
+
+function renderPrivateReview(report) {
+  const panel = $("private-review");
+  const form = $("release-form");
+  form.reset();
+  const review = report.privateReview;
+  panel.hidden = !review;
+  form.hidden = true;
+  $("save-release").disabled = true;
+  $("release-status").textContent = "Der Entwurf wird als Datei heruntergeladen.";
+  const content = $("private-review-content");
+  content.replaceChildren();
+  if (!review) return;
+  content.append(renderInterests(review.interests), renderEditorial(review.editorial, report.claims));
+  form.hidden = !canPrepareRelease(review.editorial) || !review.digest;
+  if (form.hidden) {
+    content.append(element("p", "", "Für einen Freigabeentwurf ist ein auswertbarer Schlussbericht erforderlich."));
+  }
+}
+
 function normalizedSummary(items, claims) {
   if (!Array.isArray(items) || !items.length || items.length > 3) return [];
   const summary = [];
@@ -369,6 +548,7 @@ function readReport(data) {
     return {
       id: claim.claim_id,
       text: claim.review.claim,
+      dissent: claim.review.unresolved_dissent,
       status: claim.review.status === "complete" ? "Modellbefunde verfügbar" : "Modellprüfung unvollständig",
       quote: quote?.verified === true && typeof quote.text === "string" && article &&
         quote.source_id === article.source_id &&
@@ -388,6 +568,10 @@ function readReport(data) {
     title: article?.title || "Artikelprüfung",
     question: report.question,
     article,
+    privateReview: report.interests || report.editorial ? {
+      interests: report.interests,
+      editorial: report.editorial,
+    } : null,
     summary: summary.length
       ? summary
       : ["Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung."],
@@ -428,7 +612,10 @@ $("back-to-claim").addEventListener("click", () => {
   $("claim-list").children[state.claimIndex]?.focus();
 });
 
+let latestImport = 0;
+
 $("demo").addEventListener("click", () => {
+  latestImport += 1;
   $("file-feedback").textContent = "";
   renderReport(demo);
   $("case-title").focus();
@@ -438,25 +625,70 @@ $("open-report").addEventListener("click", () => $("report-file").click());
 $("report-file").addEventListener("change", async (event) => {
   const file = event.target.files[0];
   if (!file) return;
+  const importId = ++latestImport;
+  $("release-form").hidden = true;
   const feedback = $("file-feedback");
   event.target.value = "";
   feedback.classList.remove("error");
   try {
     if (file.size > 5_000_000) throw new Error("Die Datei ist größer als 5 MB.");
+    const bytes = await file.arrayBuffer();
     let data;
     try {
-      data = JSON.parse(await file.text());
+      data = JSON.parse(new TextDecoder().decode(bytes));
     } catch {
       throw new Error("Die Datei enthält kein lesbares JSON.");
     }
-    renderReport(readReport(data));
+    const report = readReport(data);
+    if (report.privateReview && globalThis.crypto?.subtle) {
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      report.privateReview.digest = Array.from(new Uint8Array(digest), (value) =>
+        value.toString(16).padStart(2, "0")
+      ).join("");
+    }
+    if (importId !== latestImport) return;
+    renderReport(report);
     feedback.textContent = "Bericht geöffnet.";
     $("case-title").focus();
   } catch (error) {
+    if (importId !== latestImport) return;
     feedback.classList.add("error");
     feedback.textContent = error.message || "Der Bericht konnte nicht gelesen werden.";
     $("open-report").focus();
   }
+});
+
+function downloadJson(payload, filename) {
+  const blob = new Blob([JSON.stringify(payload, null, 2) + "\n"], { type: "application/json" });
+  const href = URL.createObjectURL(blob);
+  const link = element("a");
+  link.href = href;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
+$("release-form").addEventListener("input", () => {
+  $("save-release").disabled = !$("release-form").checkValidity() || !$("release-text").value.trim();
+});
+
+$("release-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const { privateReview } = state.report;
+  const statement = $("release-text").value.trim();
+  if ($("release-form").hidden || !privateReview?.digest || !statement ||
+      !$("release-form").checkValidity()) return;
+  const articleUrl = safeUrl(state.report.article?.url)?.href;
+  downloadJson({
+    format: "quellenlot-public-draft-v1",
+    review_sha256: privateReview.digest,
+    reviewed_at: new Date().toISOString(),
+    article_url: articleUrl || null,
+    text: statement,
+  }, "quellenlot-freigabeentwurf.json");
+  $("release-status").textContent = "Freigabeentwurf gespeichert. Die Veröffentlichung erfolgt separat.";
 });
 
 $("urls").addEventListener("input", () => {
@@ -485,15 +717,7 @@ $("composer").addEventListener("submit", (event) => {
   const question = $("question").value.trim();
   const payload = { case_id: "artikel-" + Date.now(), article_url, comparison_urls };
   if (question) payload.question = question;
-  const blob = new Blob([JSON.stringify(payload, null, 2) + "\n"], { type: "application/json" });
-  const href = URL.createObjectURL(blob);
-  const link = element("a");
-  link.href = href;
-  link.download = "case.json";
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(href), 1000);
+  downloadJson(payload, "case.json");
   feedback.classList.remove("error");
   feedback.textContent = "case.json gespeichert. Lade hier anschließend den Bericht des lokalen Agenten.";
 });

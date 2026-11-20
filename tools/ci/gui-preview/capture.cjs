@@ -140,6 +140,79 @@ async function checkImportOutcomes(browser) {
     });
     await page.getByText("Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung.", { exact: true }).waitFor();
     assert.equal(await page.getByRole("link", { name: text }).count(), 0);
+
+    const finding = { finding_id: "claim-1-finding-1", source_id: "comparison", relation: "qualifies" };
+    const coverage = {
+      claim_id: "claim-1",
+      assigned_findings: [finding],
+      unresolved_dissent: ["Die Vergleichsquelle nennt einen anderen Zeitraum."],
+      unresolved_finding_ids: [finding.finding_id],
+    };
+    const note = {
+      claim_id: "claim-1",
+      assessment: "Die Aussage ist weiter zu prüfen.",
+      findings: [{ finding_id: finding.finding_id, outcome: "challenges", reasoning: "Zeitraum unklar." }],
+    };
+    const evidence = {
+      source_id: "interest-evidence",
+      version_id: "interest-v1",
+      url: "https://example.org/finanzierung",
+    };
+    const withReview = {
+      ...articleReport,
+      interests: {
+        sources: [{
+          source: article,
+          evidence_sources: [evidence],
+          unresolved_categories: ["ownership"],
+          assessments: [{
+            agent_id: "model-1",
+            findings: [{
+              category: "funding",
+              relationship: "Die Stadt finanziert die Bibliothek.",
+              evidence: { ...evidence, verified: true, text: "Die Stadt übernimmt die Kosten." },
+            }],
+          }],
+        }],
+      },
+      editorial: {
+        status: "partial",
+        claims: [coverage],
+        assessments: [{ agent_id: "model-1", status: "succeeded", claims: [note] }],
+      },
+    };
+    await importReport(withReview);
+    const panel = page.locator("#private-review");
+    await panel.waitFor();
+    await panel.getByText("Eigentümerschaft, Finanzierung und Verbindungen", { exact: true }).click();
+    await panel.getByText("Offen: Eigentümerschaft", { exact: true }).waitFor();
+    assert.match(await panel.getByRole("link", { name: "Beleg der Verbindung öffnen" }).getAttribute("href"), /finanzierung/);
+    await panel.getByText(quote, { exact: true }).click();
+    await panel.getByText("Die Vergleichsquelle nennt einen anderen Zeitraum.", { exact: true }).waitFor();
+    await panel.getByText("In der Schlussprüfung umstritten oder unklar.", { exact: true }).waitFor();
+    const save = panel.getByRole("button", { name: "Freigabeentwurf speichern" });
+    assert.ok(await save.isDisabled());
+    await panel.getByLabel("Redaktioneller Text für die Veröffentlichung").fill("Die Aussage bleibt offen.");
+    for (const checkbox of await panel.getByRole("checkbox").all()) await checkbox.check();
+    assert.ok(await save.isEnabled());
+    const [download] = await Promise.all([page.waitForEvent("download"), save.click()]);
+    const draft = JSON.parse(await readFile(await download.path(), "utf8"));
+    assert.equal(draft.text, "Die Aussage bleibt offen.");
+    assert.match(draft.review_sha256, /^[a-f0-9]{64}$/);
+    assert.equal(draft.interests, undefined);
+    assert.equal(draft.editorial, undefined);
+    await importReport({
+      ...withReview,
+      editorial: {
+        ...withReview.editorial,
+        assessments: [{
+          agent_id: "model-1",
+          status: "succeeded",
+          claims: [{ ...note, findings: [note.findings[0], note.findings[0]] }],
+        }],
+      },
+    });
+    await panel.locator("#release-form").waitFor({ state: "hidden" });
     assert.deepEqual(errors, []);
   } finally {
     await page.close();
