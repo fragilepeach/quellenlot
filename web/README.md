@@ -57,7 +57,7 @@ The five cards follow an analysis from the original article to the editorial ass
 
 [Mobile screenshot](../docs/images/generated/agent-workflow-mobile.png)
 
-![Follow the active agent from source comparison through the final review and open its result](../docs/images/generated/agent-workflow.gif)
+![Follow all five active roles in order and open a result](../docs/images/generated/agent-workflow.gif)
 
 </details>
 
@@ -195,11 +195,11 @@ The reading view keeps the article and the selected claim’s evidence in view s
 
 ## Agent roles
 
-**Agenten im Prüfverlauf** shows the five roles below the article form. During a local run, **Läuft** marks the role reported by the server. **Phase beendet** means the run moved past that role. The interests check is optional.
+**Agenten im Prüfverlauf** shows the five roles below the article form. During a local run, the panel shows the article URL and marks the role reported by the server **Läuft**. **Phase beendet** means the run moved past that role. The interests check is optional.
 
 | Role | Opens the available result |
 | --- | --- |
-| **Behauptungsanalyse** | The article summary and its linked claims |
+| **Behauptungsanalyse** | The linked summary when available, otherwise the extracted claims |
 | **Quellenrecherche** | Source links and provenance, or the retrieval issues when the graph is unavailable |
 | **Quellenvergleich** | Evidence for the selected claim, including the KI-Plenum when the report has model and peer reviews |
 | **Interessenprüfung** | Documented ownership, funding, and affiliations in the private review |

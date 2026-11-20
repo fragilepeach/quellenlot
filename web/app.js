@@ -223,6 +223,10 @@ function renderAgentWorkflow(report, run = report?.runProgress) {
   const phase = agentCards.findIndex(({ role }) => role === agentPhases.get(run?.stage));
   const stopped = run?.status === "interrupted" || Boolean(run?.error) ||
     (run?.status === "failed" && !report);
+  const runSource = $("agent-run-source");
+  const sourceLabel = (running || stopped) && run.article_url ? "Lauf für " + run.article_url : "";
+  if (runSource.textContent !== sourceLabel) runSource.textContent = sourceLabel;
+  runSource.hidden = !sourceLabel;
   agentCards.forEach(({ item, label, link, status, anchor, role }, index) => {
     const active = running && index === phase;
     const interrupted = stopped && index === phase;
@@ -237,7 +241,8 @@ function renderAgentWorkflow(report, run = report?.runProgress) {
     if (active) item.setAttribute("aria-current", "step");
     else item.removeAttribute("aria-current");
 
-    const target = $(anchor);
+    const target = role === "article" && report !== demo && !report?.generatedSummary ?
+      $("claims-heading") : $(anchor);
     const resultTarget = target && !target.closest("[hidden]") ? target :
       role === "research" && !$("retrieval-issues").hidden ? $("retrieval-issues").querySelector("summary") : null;
     link.hidden = !(example || outcome !== "absent") || running || !resultTarget;

@@ -526,7 +526,9 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 #release-status { margin-top: 8px; }
 
 .agent-workflow { margin-top: 22px; }
-.agent-workflow h2 { margin-bottom: 10px; font-size: 1rem; }
+.agent-workflow-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 10px; }
+.agent-workflow-heading h2 { font-size: 1rem; }
+.agent-workflow-heading p { color: var(--subtle); font-size: .82rem; overflow-wrap: anywhere; }
 #agent-roles {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

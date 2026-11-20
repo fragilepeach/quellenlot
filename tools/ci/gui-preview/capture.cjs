@@ -702,7 +702,7 @@ async function checkLocalRun(browser, recorder) {
     run_id: runId, article_url: articleUrl, started_at: "2026-11-20T08:00:00Z",
     status: "running", stage: "capture", has_report: false,
   };
-  let stage = "comparison";
+  let stage = "capture";
   let payload;
   let draft;
   let studySearches = 0;
@@ -826,13 +826,22 @@ async function checkLocalRun(browser, recorder) {
     const intake = await recorder.open("local-analysis.gif", page);
     await intake.hold(1.3);
     await start.click();
-    await page.getByText("Aussagen werden mit den Belegen verglichen …", { exact: true }).waitFor();
-    assert.equal(await start.isDisabled(), true);
-    await intake.hold(1);
     const agents = await recorder.open("agent-workflow.gif", page);
     const current = workflow.locator('[aria-current="step"]');
+    await workflow.locator('[data-role="article"][aria-current="step"]').waitFor();
+    await workflow.getByText("Lauf für " + articleUrl, { exact: true }).waitFor();
+    await agents.scrollTo(workflow, 1);
+    await agents.hold();
+    stage = "provenance";
+    await workflow.locator('[data-role="research"][aria-current="step"]').waitFor();
+    await agents.hold();
+    stage = "comparison";
     await workflow.locator('[data-role="comparison"][aria-current="step"]').waitFor();
+    await page.getByText("Aussagen werden mit den Belegen verglichen …", { exact: true }).waitFor();
     assert.equal(await current.count(), 1);
+    assert.equal(await start.isDisabled(), true);
+    await intake.scrollTo("#intake-heading", 1);
+    await intake.hold(1);
     await agents.scrollTo(workflow, 1);
     await agents.hold(1.1);
     stage = "interests";
@@ -845,6 +854,9 @@ async function checkLocalRun(browser, recorder) {
     stage = null;
     await page.getByRole("heading", { name: "Lokaler Prüfbericht", exact: true }).waitFor();
     assert.equal(await current.count(), 0);
+    assert.ok(await page.locator("#agent-run-source").isHidden());
+    assert.equal(await workflow.getByRole("link", { name: "Behauptungsanalyse" }).getAttribute("href"),
+      "#claims-heading");
     assert.deepEqual(await roles.locator(".agent-status").allTextContents(),
       ["Ergebnis", "Teilbericht", "Teilbericht", "Keine Belege", "Teilbericht"]);
     await agents.scrollTo(workflow);

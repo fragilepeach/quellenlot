@@ -60,8 +60,11 @@
     </section>
 
     <section class="agent-workflow" id="agent-workflow" aria-labelledby="agent-workflow-title">
-      <h2 id="agent-workflow-title">Agenten im Prüfverlauf</h2>
-      <ol id="agent-roles"></ol>
+      <div class="agent-workflow-heading">
+        <h2 id="agent-workflow-title">Agenten im Prüfverlauf</h2>
+        <p id="agent-run-source" hidden></p>
+      </div>
+      <ol id="agent-roles" role="list"></ol>
     </section>
 
     <details class="card topic-trends" id="topic-trends">
@@ -139,7 +142,7 @@
           </section>
           <section class="claim-section" aria-labelledby="claims-heading">
             <div class="section-heading">
-              <h3 id="claims-heading">Aussagen im Artikel</h3>
+              <h3 id="claims-heading" tabindex="-1">Aussagen im Artikel</h3>
               <span class="count" id="claim-count"></span>
             </div>
             <div id="claim-list" class="claim-list"></div>
