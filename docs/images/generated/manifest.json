@@ -1,7 +1,7 @@
 {
-  "source_commit": "f2fc4b8d42038b8a61ea15a372f01e189edfbf49",
-  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44728627417",
-  "scenario": "Tankrabatt article investigation and 2025 Bundestag records",
+  "source_commit": "8878ee07b87dd33c0287e6870eef3d81301c344f",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44732094322",
+  "scenario": "Tankrabatt article investigation, claim studies, and 2025 Bundestag records",
   "playwright": "1.58.2",
   "media": [
     {
@@ -36,6 +36,22 @@
       "frames": 1,
       "bytes": 403710,
       "sha256": "9fdb0161c63567ac16aa14b69484044562409ac1718e484cc3eeb1371f4861cc"
+    },
+    {
+      "file": "studies.png",
+      "width": 1280,
+      "height": 1120,
+      "frames": 1,
+      "bytes": 115659,
+      "sha256": "7f21feaf3b78c64448601e9e13d1007351ab938f009bcb0a93adc7a53f280963"
+    },
+    {
+      "file": "studies-mobile.png",
+      "width": 390,
+      "height": 1120,
+      "frames": 1,
+      "bytes": 105225,
+      "sha256": "b14d3396fc2b50b18b3c5898de0108bedf307779b717a15cd4583ce9766dbb6b"
     }
   ]
 }
