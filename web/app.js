@@ -1533,16 +1533,24 @@ function studyCard(paper) {
     if (paper.assessment_status === "failed") row.append(element("p", "", "Die KI-Auswertung ist fehlgeschlagen."));
     return row;
   }
-  const badge = element("span", "relation", relationLabels[assessment.relation] || "Unklar");
-  badge.dataset.kind = assessment.relation;
+  const confirmed = assessment.review_status === "confirmed";
+  const relation = confirmed ? assessment.relation : "unclear";
+  const badge = element("span", "relation", relationLabels[relation] || "Unklar");
+  badge.dataset.kind = relation;
   const judgement = element("p", "study-judgement", "KI-Einordnung ");
   judgement.append(badge);
   row.append(judgement);
+  if (!confirmed) {
+    const message = assessment.review_status === "unavailable" ? "Zweitprüfung fehlgeschlagen."
+      : assessment.review_status === "withheld" ? "Der Bezug zur Aussage konnte nicht bestätigt werden."
+      : "Älteres Ergebnis ohne Zweitprüfung. Suche erneut, um den Bezug zu prüfen.";
+    row.append(element("p", "study-access", message));
+  }
   const fields = [
     ["Untersucht", assessment.measured], ["Population und Ort", assessment.population],
     ["Untersuchungszeitraum", assessment.period], ["Ergebnis", assessment.finding],
-    ["Bezug zur Aussage", assessment.rationale],
   ];
+  if (confirmed) fields.push(["Bezug zur Aussage", assessment.rationale]);
   const facts = element("dl", "study-facts");
   const quotes = element("details", "study-quotes");
   quotes.append(element("summary", "", "Textbelege"));

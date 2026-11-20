@@ -635,8 +635,13 @@ async function checkLocalRun(browser) {
           measured: { value: "Zapfsäulenpreise", quote: "We measured pump prices" },
           finding: { value: "Weitergabe variierte nach Kraftstoff", quote: "Pass-through varied by fuel type" },
           rationale: { value: "Vollständige Weitergabe nur für Diesel", quote: "Full pass-through was observed only for diesel" },
-          relation: "qualifies" } };
+          relation: "qualifies", review_status: "confirmed" } };
       return route.fulfill({ json: studySearches ? { status: "complete", papers: [paper,
+        { title: "Studie mit abweichender Einordnung", access: "abstract",
+          url: "https://doi.org/10.1234/legacy", assessment: {
+            relation: "supports", finding: { value: "Im letzten Monat 50 Prozent." },
+            rationale: { value: "Belegt vollständige Weitergabe." },
+          } },
         { title: "Nur indexierte Studie", url: "https://doi.org/10.1234/index", access: "metadata" }] } : null });
     }
     if (pathname === nextPath + "/editorial-draft") return route.fulfill({ json: null });
@@ -684,6 +689,9 @@ async function checkLocalRun(browser) {
     await studies.getByText("Juni bis August 2022", { exact: true }).waitFor();
     await studies.getByText("Zapfsäulenpreise", { exact: true }).waitFor();
     await studies.getByText("Weitergabe variierte nach Kraftstoff", { exact: true }).waitFor();
+    await studies.getByText("Vollständige Weitergabe nur für Diesel", { exact: true }).waitFor();
+    await studies.getByText("Im letzten Monat 50 Prozent.", { exact: true }).waitFor();
+    assert.equal(await studies.getByText("Belegt vollständige Weitergabe.", { exact: true }).count(), 0);
     await studies.getByText("Textbelege", { exact: true }).click();
     await studies.getByText("300 German filling stations", { exact: true }).waitFor();
     assert.equal(await studies.getByRole("link", { name: "Studie zur Weitergabe", exact: true }).getAttribute("href"), "https://doi.org/10.1234/fuel");

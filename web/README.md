@@ -101,7 +101,9 @@ Open a saved local run, select a claim, and click **Studien suchen**. Quellenlot
 
 Results distinguish metadata-only candidates, a retrieved abstract, and a retrieved full text. If the text exceeds the model input limit, the interface marks that excerpts were assessed. The study publication year and observation period are displayed separately. The local model describes the measure, population and place, observation period, finding, and its relationship to the claim. Fields need a matching quotation to appear. An exact quotation confirms that the words occur in the source. The interpretation still needs reading in context.
 
-The search checks up to five distinct candidate DOIs and uses the first configured Ollama model. Results are saved with the run for that claim, separately from the private editorial report. Start the search again to refresh the results. Publisher paywalls and PDFs outside the supported repository can leave a paper at abstract or metadata access.
+The search checks up to five distinct candidate DOIs. The first configured Ollama model extracts source-backed details. A second configured model independently checks any directional conclusion against the retrieved text. Quellenlot shows the rationale only when the second model agrees with the relation and confirms the interpretation. Otherwise the card shows an unclear relation alongside the extracted material. Older results keep their excerpts and need a fresh search for a reviewed relation.
+
+Results are saved with the run for that claim, separately from the private editorial report. Start the search again to refresh the results. Publisher paywalls and PDFs outside the supported repository can leave a paper at abstract or metadata access.
 
 ## Private editorial review
 
