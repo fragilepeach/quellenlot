@@ -53,3 +53,22 @@ class ArticleDateTests(unittest.TestCase):
         article = extract_article(html, None)
         self.assertIsNone(article.published_at)
         self.assertIsNone(article.updated_at)
+
+    def test_article_author_and_publisher_metadata(self) -> None:
+        """Read named article entities and prefer them over general page metadata."""
+        html = b"""
+        <head>
+        <meta property="og:site_name" content="Web portal">
+        <meta name="author" content="Meta Author">
+        <script type="application/ld+json">
+        {"@graph":[
+          {"@type":"WebSite","publisher":{"name":"Unrelated group"}},
+          {"@type":"NewsArticle","publisher":{"name":"Morgenpost"},
+           "author":[{"name":"Lea Winter"},{"name":"Tom Sommer"},
+                     "https://example.org/profile"]}
+        ]}
+        </script></head><article><p>Evidence.</p></article>
+        """
+        article = extract_article(html, None)
+        self.assertEqual(article.publisher, "Morgenpost")
+        self.assertEqual(article.authors, ("Lea Winter", "Tom Sommer"))

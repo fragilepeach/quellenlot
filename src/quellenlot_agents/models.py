@@ -35,6 +35,8 @@ class SourceInput(ContractModel):
     captured_at: datetime
     published_at: SourceDate | None = None
     updated_at: SourceDate | None = None
+    publisher: str | None = Field(default=None, min_length=1, max_length=300)
+    authors: list[str] = Field(default_factory=list[str], max_length=20)
     text: str = Field(min_length=1, max_length=200_000)
     text_is_complete: bool
 
@@ -82,6 +84,20 @@ NonBlankStatement = Annotated[
 ]
 
 
+class InterestUrlInput(ContractModel):
+    """Identify a public evidence page for one source in a URL case."""
+
+    target_source_id: str = Field(min_length=1, max_length=120)
+    url: AnyHttpUrl
+
+
+class InterestEvidenceInput(ContractModel):
+    """Attach a supplied evidence snapshot to the source whose interests it describes."""
+
+    target_source_id: str = Field(min_length=1, max_length=120)
+    source: SourceInput
+
+
 class ArticleCaseInput(ContractModel):
     """An original article, an optional question, and manually supplied comparisons."""
 
@@ -89,6 +105,9 @@ class ArticleCaseInput(ContractModel):
     article: SourceInput
     question: NonBlankStatement | None = None
     comparison_sources: list[SourceInput] = Field(default_factory=list[SourceInput], max_length=19)
+    interest_evidence: list[InterestEvidenceInput] = Field(
+        default_factory=list[InterestEvidenceInput], max_length=40
+    )
 
     @property
     def sources(self) -> list[SourceInput]:
@@ -110,6 +129,14 @@ class ArticleCaseInput(ContractModel):
             ValueError: The same source ID occurs more than once.
         """
         _require_unique_source_ids(self.sources)
+        source_ids = {source.source_id for source in self.sources}
+        evidence_ids = [item.source.source_id for item in self.interest_evidence]
+        if len(evidence_ids) != len(set(evidence_ids)) or source_ids.intersection(evidence_ids):
+            msg = "Interest evidence IDs must be unique and distinct from article source IDs."
+            raise ValueError(msg)
+        if any(item.target_source_id not in source_ids for item in self.interest_evidence):
+            msg = "Interest evidence must target a source in the article case."
+            raise ValueError(msg)
         return self
 
 
@@ -120,6 +147,25 @@ class ArticleUrlInput(ContractModel):
     article_url: AnyHttpUrl
     question: NonBlankStatement | None = None
     comparison_urls: list[AnyHttpUrl] = Field(default_factory=list[AnyHttpUrl], max_length=19)
+    interest_urls: list[InterestUrlInput] = Field(
+        default_factory=list[InterestUrlInput], max_length=40
+    )
+
+    @model_validator(mode="after")
+    def require_requested_interest_targets(self) -> ArticleUrlInput:
+        """Validate evidence targets against the requested URLs.
+
+        Returns:
+            The validated case with every evidence target present in the request.
+
+        Raises:
+            ValueError: Evidence targets neither the article nor a requested comparison.
+        """
+        source_ids = {"article", *(f"comparison-{i + 1}" for i in range(len(self.comparison_urls)))}
+        if any(item.target_source_id not in source_ids for item in self.interest_urls):
+            msg = "Interest evidence URLs must target the article or a requested comparison."
+            raise ValueError(msg)
+        return self
 
 
 Relation = Literal["supports", "qualifies", "contradicts", "omits", "not_assessable"]
@@ -245,6 +291,8 @@ class SourceSnapshot(ContractModel):
     captured_at: datetime
     published_at: SourceDate | None = None
     updated_at: SourceDate | None = None
+    publisher: str | None = None
+    authors: list[str] = Field(default_factory=list[str])
     content_sha256: str
     text_is_complete: bool
 
@@ -266,6 +314,8 @@ class SourceSnapshot(ContractModel):
             captured_at=source.captured_at,
             published_at=source.published_at,
             updated_at=source.updated_at,
+            publisher=source.publisher,
+            authors=source.authors,
             content_sha256=source.content_sha256,
             text_is_complete=source.text_is_complete,
         )
@@ -396,6 +446,92 @@ class ClaimComparison(ContractModel):
     review: RunReport
 
 
+InterestCategory = Literal[
+    "ownership",
+    "funding",
+    "author_affiliation",
+    "political_affiliation",
+]
+
+
+class DraftInterestFinding(ContractModel):
+    """A model-proposed relationship backed by one exact evidence quotation."""
+
+    category: InterestCategory
+    subject: str = Field(min_length=1, max_length=300)
+    related_entity: str = Field(min_length=1, max_length=300)
+    relationship: str = Field(min_length=1, max_length=2_000)
+    quote: DraftQuote
+
+
+class DraftInterestAssessment(ContractModel):
+    """Independent model findings about a source's documented interests."""
+
+    findings: list[DraftInterestFinding] = Field(max_length=12)
+
+
+class InterestFinding(ContractModel):
+    """An identified relationship and the exact source quote supporting it."""
+
+    category: InterestCategory
+    subject: str
+    related_entity: str
+    relationship: str
+    evidence: VerifiedQuote
+
+
+class InterestAssessment(ContractModel):
+    """Retain one independent model's conclusions or failure."""
+
+    agent_id: str
+    model: str
+    status: Literal["succeeded", "failed"]
+    findings: list[InterestFinding]
+    unknown_categories: list[InterestCategory]
+    error_code: str | None = None
+
+
+class InterestSearch(ContractModel):
+    """Document a search query issued for a source's affiliations."""
+
+    query: str
+    status: Literal["completed", "failed"]
+    result_count: int = Field(ge=0)
+    detail: str | None = None
+
+
+class SourceRetrieval(ContractModel):
+    """The result of retrieving a URL and extracting article text."""
+
+    source_id: str
+    requested_url: AnyHttpUrl
+    final_url: AnyHttpUrl | None = None
+    status: Literal["captured", "partial", "failed"]
+    detail: str
+
+
+class InterestSourceReview(ContractModel):
+    """Document evidence availability and independent assessments for one source."""
+
+    source: SourceSnapshot
+    evidence_sources: list[SourceSnapshot]
+    searches: list[InterestSearch]
+    retrievals: list[SourceRetrieval]
+    assessments: list[InterestAssessment]
+    unresolved_categories: list[InterestCategory]
+
+
+class InterestReport(ContractModel):
+    """Keep all source-interest investigations and missing-evidence outcomes."""
+
+    status: Literal["complete", "partial", "no_evidence"]
+    sources: list[InterestSourceReview]
+    limitation: str = (
+        "Reported relationships are model interpretations of supplied evidence. "
+        "Exact quotes confirm text occurrence only. Editorial verification is required."
+    )
+
+
 class ArticleReport(ContractModel):
     """The claim-by-claim comparison of an original article and supplied sources."""
 
@@ -407,16 +543,7 @@ class ArticleReport(ContractModel):
     extraction_attempts: list[ExtractionAttempt]
     claims: list[ClaimComparison]
     shared_wording: SharedWordingReport = Field(default_factory=SharedWordingReport)
-
-
-class SourceRetrieval(ContractModel):
-    """The result of retrieving a URL and extracting article text."""
-
-    source_id: str
-    requested_url: AnyHttpUrl
-    final_url: AnyHttpUrl | None = None
-    status: Literal["captured", "partial", "failed"]
-    detail: str
+    interests: InterestReport | None = None
 
 
 class SearchQuery(ContractModel):
