@@ -98,12 +98,12 @@
             <button id="suggest-news-events" class="outline-button" type="button" hidden>Medienausschlag untersuchen</button>
             <button id="suggest-search-events" class="outline-button" type="button" hidden>Suchausschlag untersuchen</button>
           </div>
-          <p class="trend-note" id="trend-suggestion-help">Für den stärksten jüngeren Tagesausschlag sucht GDELT nach Artikeln im Umfeld. Bei einer CSV verwende den Suchbegriff und die Sprache aus dem Formular oben.</p>
+          <p class="trend-note" id="trend-suggestion-help">GDELT sucht Artikel bis zu zwei Tage vor und nach dem stärksten geeigneten Tagesausschlag der letzten 90 Tage. Für eine CSV gelten Suchbegriff und Sprache aus dem Formular oben.</p>
           <p class="trend-note" id="trend-suggestion-status" role="status"></p>
           <ul id="trend-suggestion-list"></ul>
         </div>
         <form id="trend-event-form" class="trend-controls">
-          <div class="field"><label for="trend-event-date">Ereignisdatum</label><input id="trend-event-date" type="date" min="0001-01-01" max="9999-12-31" required></div>
+          <div class="field"><label for="trend-event-date">Ereignisdatum</label><input id="trend-event-date" type="date" min="0001-01-01" max="9999-12-31" aria-describedby="trend-event-date-help" required><p class="trend-note" id="trend-event-date-help">Prüfe das Datum des Ereignisses im Beleg.</p></div>
           <div class="field"><label for="trend-event-title">Ereignis</label><input id="trend-event-title" type="text" maxlength="180" required></div>
           <div class="field"><label for="trend-event-url">Beleglink</label><input id="trend-event-url" type="url" maxlength="2000" required></div>
           <button class="outline-button" type="submit">Ereignis hinzufügen</button>
@@ -158,7 +158,7 @@
                 <h4 id="diff-heading">Quellenvergleich</h4>
                 <div class="help">
                   <button class="help-button" type="button" aria-label="Hilfe zum Quellenvergleich" aria-describedby="diff-help" aria-expanded="false" aria-controls="diff-help">?</button>
-                  <p id="diff-help" class="help-text">Nach Veröffentlichungsdatum, soweit bekannt.</p>
+                  <p id="diff-help" class="help-text">Die Quellen sind nach Veröffentlichungsdatum sortiert. Quellen mit unbekanntem Veröffentlichungsdatum folgen am Ende. Aktualisierungs- und Abrufdatum stehen bei der jeweiligen Quelle.</p>
                 </div>
               </div>
               <ul id="diff-sources" class="diff-sources"></ul>

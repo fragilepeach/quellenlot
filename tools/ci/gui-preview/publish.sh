@@ -3,7 +3,8 @@ set -euo pipefail
 
 capture_dir=${1:?Pass the directory containing the validated preview artifact}
 media_dir=docs/images/generated
-images=(desktop.png mobile.png usage.gif parliament.png studies.png studies-mobile.png)
+mapfile -t images < <(node -p 'Object.keys(require("./tools/ci/gui-preview/gallery.json")).join("\n")')
+(( ${#images[@]} > 0 ))
 
 node -e '
   const assert = require("node:assert/strict");

@@ -15,7 +15,7 @@ Open `web/index.html` to explore the Tankrabatt case. Select a highlighted claim
 
 </details>
 
-[GUI guide and mobile preview](web/README.md) · [Capture provenance](docs/images/generated/manifest.json)
+[Feature gallery with screenshots and 25 fps walkthroughs](web/README.md#feature-gallery) · [Browser guide](web/README.md) · [Capture provenance](docs/images/generated/manifest.json)
 
 In the local GUI, **Thementrends und Ereignisse** can find the strongest recent daily spike in news coverage or imported search interest and suggest nearby articles from GDELT. The timeline keeps the GDELT index date separate from the event date you confirm. [Topic trends and event suggestions](web/README.md#topic-trends-and-events)
 
