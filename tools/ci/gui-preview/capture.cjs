@@ -206,6 +206,14 @@ async function checkImportOutcomes(browser, record) {
     await importReport({ status, retrievals: [], review: { ...report, status } });
     await page.getByText("Importierter Bericht · Analyse fehlgeschlagen", { exact: true }).waitFor();
     assert.match(await page.locator("#empty-report").textContent(), /Extraktion fehlgeschlagen/);
+
+    await importReport({
+      status, review: null,
+      retrievals: [{ source_id: "article", status, requested_url: "https://example.org/unavailable" }],
+    });
+    await page.getByRole("heading", { name: "Artikel konnte nicht gelesen werden" }).waitFor();
+    assert.deepEqual(await page.locator("#agent-roles .agent-status").allTextContents(),
+      ["Fehlgeschlagen", "Kein Ergebnis", "Kein Ergebnis", "Kein Ergebnis", "Kein Ergebnis"]);
     const article = {
       source_id: "article",
       title: "Bibliothek",

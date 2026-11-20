@@ -161,7 +161,8 @@ const agentRoles = [
 ];
 
 const agentPhases = new Map([
-  ["capture", 0], ["extraction", 0], ["provenance", 1], ["comparison", 2], ["interests", 3], ["editorial", 4],
+  ["capture", "article"], ["extraction", "article"], ["provenance", "research"],
+  ["comparison", "comparison"], ["interests", "interests"], ["editorial", "editorial"],
 ]);
 const agentOutcome = {
   complete: "Ergebnis",
@@ -198,9 +199,12 @@ const agentCards = agentRoles.map(([role, title, description, anchor]) => {
 
 function agentResults(report, retrieval) {
   const claims = report?.claims || [];
-  const failedDiscovery = retrieval?.discovery?.queries?.some((query) => query.status === "failed");
-  const captureGaps = retrieval?.retrievals.some((item) => item.source_id !== report?.article_source_id &&
-    !item.source_id?.startsWith("interest-evidence-") && item.status !== "captured");
+  const discovery = retrieval?.discovery;
+  const failedDiscovery = discovery && (discovery.queries?.some((query) => query.status === "failed") ||
+    discovery.candidates?.every((candidate) => candidate.status !== "included"));
+  const originalId = report?.article_source_id ?? "article";
+  const captureGaps = retrieval?.retrievals.some((item) => item.source_id !== originalId &&
+    !String(item.source_id).startsWith("interest-evidence-") && item.status !== "captured");
   const hasSources = report?.sources.length > 1 || retrieval?.provenance?.citations?.length;
   const claimStatus = claims.every((claim) => claim.review.status === "complete") ? "complete" :
     claims.every((claim) => claim.review.status === "failed") ? "failed" : "partial";
@@ -216,7 +220,7 @@ function agentResults(report, retrieval) {
 
 function renderAgentWorkflow(report, run = report?.runProgress) {
   const running = run?.status === "running";
-  const phase = agentPhases.get(run?.stage);
+  const phase = agentCards.findIndex(({ role }) => role === agentPhases.get(run?.stage));
   const stopped = run?.status === "interrupted" || Boolean(run?.error) ||
     (run?.status === "failed" && !report);
   agentCards.forEach(({ item, label, link, status, anchor, role }, index) => {
