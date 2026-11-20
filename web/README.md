@@ -77,6 +77,8 @@ Repeated verified quotations link to one excerpt with a link for each source. **
 
 Open a report containing interests or editorial results to see **Private Redaktionsprüfung**. For each investigated source, the panel shows documented ownership, funding and affiliations, verified evidence passages and unresolved categories. Each editorial claim shows earlier dissent, the assigned findings and the individual reviewers’ outcomes.
 
+Expand **Belege zum Befund** to read the exact excerpts assigned to a finding and open the source at the cited passage. The panel flags any assigned excerpt that cannot be matched to the finding’s source and snapshot version.
+
 To prepare a release, inspect the evidence and open issues, confirm both checklist items, and write the text intended for publication. **Freigabeentwurf speichern** downloads a local JSON draft with the human-written text, the article link and the SHA-256 digest of the reviewed report. The imported notes and interests data stay in the private review. Reopening a report clears the checklist and draft text. Reports without a final assessment that covers its assigned findings remain available for inspection.
 
 The browser does not transmit the report or publish the draft. The saved draft can be reviewed and published through a separate editorial process.

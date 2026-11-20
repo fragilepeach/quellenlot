@@ -290,8 +290,10 @@ function renderDiffSource({ source, judgments }) {
 
 function renderDiffExcerpt(excerpt) {
   const row = element("div", "diff-excerpt");
-  row.id = excerpt.anchor;
-  row.tabIndex = -1;
+  if (excerpt.anchor) {
+    row.id = excerpt.anchor;
+    row.tabIndex = -1;
+  }
   row.append(element("h5", "", excerpt.label + (excerpt.citations.length > 1 ? " · Gemeinsamer Wortlaut" : "")));
   row.append(element("blockquote", "diff-quote", excerpt.text));
   const occurrences = element("ul", "diff-occurrences");
@@ -652,7 +654,7 @@ function normalizedDiff(diff, wording, originalId) {
     }
     if (!citations.length) continue;
     const number = excerpts.size + 1;
-    excerpts.set(item.evidence_id, { label: "Zitat " + number, anchor: "claim-quote-" + number, text: item.text, citations });
+    excerpts.set(item.evidence_id, { id: item.evidence_id, label: "Zitat " + number, anchor: "claim-quote-" + number, text: item.text, citations });
   }
   const matches = [];
   for (const index of matchIndexes) {
@@ -723,6 +725,24 @@ function renderInterests(interests) {
   return details;
 }
 
+function renderFindingEvidence(finding, excerpts) {
+  const evidenceIds = new Set(Array.isArray(finding.evidence_ids) ? finding.evidence_ids : []);
+  if (!evidenceIds.size) return null;
+  const details = element("details", "editorial-evidence");
+  details.append(element("summary", "", "Belege zum Befund"));
+  for (const excerpt of excerpts) {
+    if (!evidenceIds.has(excerpt.id)) continue;
+    const citations = excerpt.citations.filter(({ source }) => source.id === finding.source_id);
+    if (!citations.length) continue;
+    details.append(renderDiffExcerpt({ ...excerpt, citations, anchor: null }));
+    evidenceIds.delete(excerpt.id);
+  }
+  if (evidenceIds.size) {
+    details.append(element("p", "diff-note", "Zugewiesene Belege fehlen für diese Quelle im Bericht."));
+  }
+  return details;
+}
+
 function renderEditorial(editorial, claims) {
   const section = element("div");
   const notes = editorial?.assessments || [];
@@ -774,6 +794,8 @@ function renderEditorial(editorial, claims) {
       if (unresolved.has(finding.finding_id)) {
         details.append(element("p", "", "In der Schlussprüfung umstritten oder unklar."));
       }
+      const evidence = renderFindingEvidence(finding, claim?.diff?.excerpts || []);
+      if (evidence) details.append(evidence);
       const outcomes = [];
       for (const note of notes) {
         const result = note.claims?.find((item) => item.claim_id === coverage.claim_id)

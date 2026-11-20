@@ -420,6 +420,7 @@ async function checkClaimDiff(browser) {
           { evidence_id: "common", kind: "shared_wording", text: release, citations: [citation(original, 0), citation(releaseSource, 0)] },
           { evidence_id: "revised", kind: "source_specific", text: revised, citations: [citation(news, 1)] },
           { evidence_id: "observed", kind: "source_specific", text: observed, citations: [citation(news)] },
+          { evidence_id: "stale", kind: "source_specific", text: "Eine ältere Darstellung.", citations: [citation({ ...news, version_id: "old" })] },
         ],
       },
     },
@@ -445,7 +446,10 @@ async function checkClaimDiff(browser) {
       ],
     },
   };
-  const finding = { finding_id: "claim-1-finding-1", source_id: news.source_id, relation: "qualifies" };
+  const finding = {
+    finding_id: "claim-1-finding-1", source_id: news.source_id, relation: "qualifies",
+    evidence_ids: ["revised", "common", "stale"],
+  };
   report.editorial = {
     status: "partial",
     claims: [{ claim_id: first.claim_id, assigned_findings: [finding], unresolved_finding_ids: [finding.finding_id] }],
@@ -486,6 +490,14 @@ async function checkClaimDiff(browser) {
       const privateReview = page.locator("#private-review");
       await privateReview.getByText(first.review.claim, { exact: true }).click();
       await privateReview.getByText("In der Schlussprüfung umstritten oder unklar.").waitFor();
+      const findingEvidence = privateReview.locator(".editorial-evidence");
+      await findingEvidence.getByText("Belege zum Befund", { exact: true }).click();
+      assert.deepEqual(await findingEvidence.locator("blockquote").allTextContents(), [revised]);
+      const articleLink = findingEvidence.getByRole("link", { name: "Lokalzeitung", exact: true });
+      const citationUrl = new URL(await articleLink.getAttribute("href"));
+      assert.equal(citationUrl.origin + citationUrl.pathname, news.url);
+      assert.equal(decodeURIComponent(citationUrl.hash), "#:~:text=" + revised);
+      await findingEvidence.getByText("Zugewiesene Belege fehlen für diese Quelle im Bericht.").waitFor();
       assert.ok(await privateReview.locator("#release-form").isVisible());
       assert.ok(await privateReview.getByRole("button", { name: "Freigabeentwurf speichern" }).isDisabled());
       assert.deepEqual(await names.allTextContents(), ["Stadtmitteilung", "Bibliothek aktuell", "Stadtteilbrief", "Lokalzeitung", "Unvollständiger Archivtext", "Archiv"]);
