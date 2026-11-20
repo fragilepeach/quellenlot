@@ -570,7 +570,7 @@ async function checkLocalRun(browser) {
       claims: [{
         claim_id: "claim-1",
         review: {
-          claim: "Eine Angabe bleibt offen.", status: "partial",
+          claim: "Die Steuersenkung wurde an allen Tankstellen vollständig weitergegeben.", status: "partial",
           source_diff: {
             sources: [{ source: comparison, judgments: [{ relation: "qualifies", evidence_ids: ["quote"] }] }],
             evidence: [{
@@ -632,7 +632,10 @@ async function checkLocalRun(browser) {
       const paper = { title: "Studie zur Weitergabe", url: "https://doi.org/10.1234/fuel",
         access: "full_text", excerpt_only: true,
         assessment: { population: note, period: { value: "Juni bis August 2022", quote: "June to August 2022" },
-          measured: { value: "Zapfsäulenpreise", quote: "We measured pump prices" }, relation: "qualifies" } };
+          measured: { value: "Zapfsäulenpreise", quote: "We measured pump prices" },
+          finding: { value: "Weitergabe variierte nach Kraftstoff", quote: "Pass-through varied by fuel type" },
+          rationale: { value: "Vollständige Weitergabe nur für Diesel", quote: "Full pass-through was observed only for diesel" },
+          relation: "qualifies" } };
       return route.fulfill({ json: studySearches ? { status: "complete", papers: [paper,
         { title: "Nur indexierte Studie", url: "https://doi.org/10.1234/index", access: "metadata" }] } : null });
     }
@@ -680,6 +683,7 @@ async function checkLocalRun(browser) {
     await studies.getByText("Nur Metadaten · Relevanz ungeprüft", { exact: true }).waitFor();
     await studies.getByText("Juni bis August 2022", { exact: true }).waitFor();
     await studies.getByText("Zapfsäulenpreise", { exact: true }).waitFor();
+    await studies.getByText("Weitergabe variierte nach Kraftstoff", { exact: true }).waitFor();
     await studies.getByText("Textbelege", { exact: true }).click();
     await studies.getByText("300 German filling stations", { exact: true }).waitFor();
     assert.equal(await studies.getByRole("link", { name: "Studie zur Weitergabe", exact: true }).getAttribute("href"), "https://doi.org/10.1234/fuel");
