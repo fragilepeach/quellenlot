@@ -187,6 +187,8 @@ The editorial status describes assessment coverage. Unresolved disagreements rem
 
 ## Development checks
 
+Update the relevant documentation in the same pull request as every new feature. Cover usage, configuration, and limitations that affect users. For GUI changes, refresh the affected screenshots and walkthroughs through the preview workflow.
+
 ```bash
 python -m pip install -e ".[dev]"
 pre-commit install
