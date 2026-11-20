@@ -542,6 +542,17 @@ class InterestReport(ContractModel):
     )
 
 
+class EditorialFindingAssignment(ContractModel):
+    """Identify an individual source finding included in the final review."""
+
+    finding_id: str
+    source_id: str
+    agent_id: str
+    relation: Relation
+    evidence_ids: list[str]
+    reasoning: str
+
+
 class EditorialClaimCoverage(ContractModel):
     """Show available comparison evidence and unresolved issues for one claim."""
 
@@ -551,6 +562,22 @@ class EditorialClaimCoverage(ContractModel):
     evidence_shown_to_models: list[str]
     comparison_sources_without_quotes: list[str]
     unresolved_dissent_count: int
+    unresolved_dissent: list[str] = Field(default_factory=list[str])
+    assigned_findings: list[EditorialFindingAssignment] = Field(
+        default_factory=list[EditorialFindingAssignment]
+    )
+    unassigned_finding_count: int = 0
+    unresolved_finding_ids: list[str] = Field(default_factory=list[str])
+
+
+class EditorialFindingNote(ContractModel):
+    """A final reviewer's judgment on one explicitly assigned finding."""
+
+    finding_id: str
+    outcome: ReviewOutcome
+    reasoning: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=220)
+    ]
 
 
 class EditorialClaimNote(ContractModel):
@@ -564,6 +591,9 @@ class EditorialClaimNote(ContractModel):
     next_check: (
         Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
         | None
+    )
+    findings: list[EditorialFindingNote] = Field(
+        default_factory=list[EditorialFindingNote], max_length=3
     )
 
 

@@ -103,6 +103,24 @@
         </div>
       </div>
     </section>
+
+    <section class="card private-review" id="private-review" aria-labelledby="private-review-title" hidden>
+      <h3 id="private-review-title">Private Redaktionsprüfung</h3>
+      <div id="private-review-content"></div>
+      <form id="release-form" hidden>
+        <fieldset>
+          <legend>Vor dem Export prüfen</legend>
+          <label><input type="checkbox" required> Ich habe Quellen und dokumentierte Verbindungen geprüft.</label>
+          <label><input type="checkbox" required> Ich habe offene Befunde und fehlende Belege im Entwurf berücksichtigt.</label>
+        </fieldset>
+        <div class="field">
+          <label for="release-text">Redaktioneller Text für die Veröffentlichung</label>
+          <textarea id="release-text" rows="4" maxlength="4000" required></textarea>
+        </div>
+        <button class="primary-button" id="save-release" type="submit" disabled>Freigabeentwurf speichern</button>
+        <p id="release-status" role="status">Der Entwurf wird als Datei heruntergeladen.</p>
+      </form>
+    </section>
   </main>
 </body>
 </html>

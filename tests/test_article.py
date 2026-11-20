@@ -213,12 +213,21 @@ class _OllamaReplies:
         notes: list[_Json] = []
         for claim in claims:
             evidence = _json_rows(claim["comparison_evidence"])
+            assigned = _json_rows(claim["assigned_findings"])
             notes.append(
                 {
                     "claim_id": claim["claim_id"],
                     "evidence_ids": [evidence[0]["evidence_id"]],
                     "assessment": "Die Angaben zur Öffnung weichen voneinander ab.",
                     "next_check": "Den aktuellen Öffnungstermin bei der Stadt bestätigen.",
+                    "findings": [
+                        {
+                            "finding_id": item["finding_id"],
+                            "outcome": "agrees",
+                            "reasoning": "Der zitierte Wortlaut trägt die Einordnung.",
+                        }
+                        for item in assigned
+                    ],
                 }
             )
         return {"claims": notes}
@@ -365,6 +374,9 @@ class ArticleCliTests(unittest.TestCase):
         self.assertEqual(replies.editorial_tasks[0]["question"], _QUESTION)
         first_coverage, second_coverage = editorial.claims
         self.assertEqual(first_coverage.unresolved_dissent_count, 10)
+        self.assertEqual(first_coverage.unresolved_dissent, first.review.unresolved_dissent)
+        self.assertEqual(len(first_coverage.assigned_findings), 1)
+        self.assertEqual(first_coverage.unassigned_finding_count, 4)
         self.assertEqual(second_coverage.comparison_evidence_ids, [])
         self.assertEqual(second_coverage.comparison_sources_without_quotes, ["comparison"])
         tasks = _json_rows(replies.editorial_tasks[0]["editorial_claims"])
@@ -415,6 +427,54 @@ class ArticleCliTests(unittest.TestCase):
         self.assertEqual([item.status for item in editorial_report.assessments], ["failed"] * 5)
         self.assertEqual([item.claims for item in editorial_report.assessments], [[]] * 5)
         self.assertEqual(editorial_report.claims[0].comparison_evidence_ids, ["evidence-2"])
+
+    def test_final_review_checks_finding_coverage_and_keeps_disagreement(self) -> None:
+        """Reject missing, repeated, and foreign findings while retaining dissent."""
+        replies = _OllamaReplies(claims=(_FIRST_CLAIM,))
+        case: dict[str, _Json] = {
+            "case_id": "finding-coverage",
+            "article": _ARTICLE,
+            "comparison_sources": [_COMPARISON],
+        }
+
+        def editorial(task: dict[str, _Json]) -> dict[str, _Json]:
+            document = _OllamaReplies.editorial_reply(task)
+            note = _json_rows(document["claims"])[0]
+            finding = _json_rows(note["findings"])[0]
+            match len(replies.editorial_tasks):
+                case 1:
+                    note["findings"] = []
+                case 2:
+                    note["findings"] = [finding, finding]
+                case 3:
+                    finding["finding_id"] = "another-claim-finding-1"
+                case 5:
+                    finding["outcome"] = "challenges"
+                case _:
+                    pass
+            return document
+
+        with patch.object(replies, "editorial_reply", new=editorial):
+            report = ArticleReport.model_validate_json(self._run(case, replies))
+        result = report.editorial
+        if result is None:
+            self.fail("The report must retain the final editorial review.")
+        self.assertEqual(result.status, "partial")
+        self.assertEqual(
+            [item.status for item in result.assessments],
+            ["failed", "failed", "failed", "succeeded", "succeeded"],
+        )
+        coverage = result.claims[0]
+        finding_id = coverage.assigned_findings[0].finding_id
+        self.assertEqual(coverage.unresolved_finding_ids, [finding_id])
+        self.assertEqual(
+            [
+                note.findings[0].finding_id
+                for item in result.assessments[3:]
+                for note in item.claims
+            ],
+            [finding_id, finding_id],
+        )
 
     def test_article_only(self) -> None:
         """An article alone gets reviewed with no question or comparison sources."""
