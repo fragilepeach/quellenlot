@@ -197,4 +197,4 @@ GitHub Actions runs the full suite on pushes, pull request updates, merge-queue 
 
 ## Scope boundary
 
-Quellenlot includes a local agent library, a CLI and a browser prototype with a private editorial checklist. Persistence, hosted access control and public publication remain separate work. Local model quality for German political research still needs evaluation against a held-out set before relying on the results.
+Quellenlot includes a local agent library, a CLI, and a loopback browser interface with local run history and a private editorial checklist. Run `quellenlot-ui --config models.toml` from the checkout to start an analysis from the browser. See the [GUI guide](web/README.md#using-the-local-agent) for setup and storage paths. Hosted access control and public publication remain separate work. Local model quality for German political research still needs evaluation against a held-out set before relying on the results.

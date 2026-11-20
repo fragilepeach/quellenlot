@@ -61,7 +61,17 @@ The prototype follows one review at a time. A conversational thread would make i
 
 ## Using the local agent
 
-Save the form as `case.json`, then run the existing CLI from an environment with the configured Ollama models:
+From the repository root with the package installed and Ollama running, launch the local server:
+
+```bash
+quellenlot-ui --config models.toml
+```
+
+Open `http://127.0.0.1:8765` and select **Analyse starten**. The form shows each stage and opens the report when the analysis ends. **Abrufprobleme** lists unavailable or partially captured sources. **Gespeicherte Analysen** reopens earlier runs, including the last saved checkpoint of an interrupted run. One run can be active at a time in the server.
+
+The server binds to `127.0.0.1`. Runs stay under `$XDG_DATA_HOME/quellenlot/runs` (default `~/.local/share/quellenlot/runs`), with `case.json`, `status.json`, and the latest `report.json` under each run ID. The report contains the captured snapshots. Pass `--runs-dir` to choose another directory or `--port` to change the browser port. Keep the Ollama server running while the analysis is underway.
+
+For the static file workflow, open `web/index.html`, save the form as `case.json`, then run the CLI from an environment with the configured Ollama models:
 
 ```sh
 quellenlot-agents --config models.toml --input case.json --output report.json
@@ -87,4 +97,4 @@ The browser does not transmit the report or publish the draft. The saved draft c
 
 Give unfamiliar readers the Tankrabatt case and ask them to find the passage that qualifies the claim of complete pass-through, identify whether the TU announcement and the Freitas–Syga study are independent, and explain the difference between publication and update dates. Observe where they click and ask them to explain each relationship in their own words. Repeat the first two tasks on a small mobile viewport and using only the keyboard.
 
-The next integration slice is one local run from the composer to this view using the ready-made CLI contract, with durable case and snapshot IDs and explicit run states for capture, partial results and failure. Evaluate citation coverage and whether each citation supports its claim separately.
+For a local run, evaluate citation coverage and whether each citation supports its claim separately.
