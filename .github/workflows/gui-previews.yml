@@ -18,6 +18,44 @@ permissions:
   contents: read
 
 jobs:
+  prune-merged-branches:
+    name: Remove verified merged branches
+    if: ${{ github.event_name == 'push' && github.repository == 'fragilepeach/quellenlot' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Delete the verified branch tips
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git --hostname github.com
+          # One-time branch cleanup. Every deletion is leased to its verified tip.
+          if [[ "${GITHUB_REPOSITORY:-}" == fragilepeach/quellenlot && "${GITHUB_REF:-}" == refs/heads/main ]]; then
+            remote_heads=$(git ls-remote --heads origin)
+            leases=()
+            deletions=()
+            while read -r expected ref; do
+              observed=$(awk -v ref="$ref" '$2 == ref { print $1 }' <<< "$remote_heads")
+              if [[ "$observed" == "$expected" ]]; then
+                leases+=("--force-with-lease=$ref:$expected")
+                deletions+=(":$ref")
+              elif [[ -n "$observed" ]]; then
+                echo "Skipped updated branch ${ref#refs/heads/}."
+              fi
+            done <<'VERIFIED_MERGED_REFS'
+            c19ae519aaec6934932741186f75236244af7ed1 refs/heads/codex/claim-plenum-event-suggestions
+          VERIFIED_MERGED_REFS
+            if (( ${#deletions[@]} )); then
+              git push --atomic "${leases[@]}" origin "${deletions[@]}"
+            fi
+          fi
+
   capture:
     name: Capture and validate GUI previews
     runs-on: ubuntu-24.04
