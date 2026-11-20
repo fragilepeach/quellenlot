@@ -37,15 +37,35 @@ async function openDemo(browser, viewport) {
   return { page, errors };
 }
 
-async function captureOverview(browser, width, height, name) {
+async function captureOverview(browser, width, height, name, record) {
   const { page, errors } = await openDemo(browser, { width, height });
   try {
     await page.screenshot({ ...screenshotOptions, fullPage: true, path: join(output, name) });
     if (width < 600) {
+      const clip = await record.open("mobile-workflow.gif", page);
+      await clip.scrollTo("#review", 1);
+      await clip.hold();
       await page.getByRole("link", { name: "in allen drei Monaten gleich stark gewirkt" }).click();
       assert.equal(await page.locator(":focus").getAttribute("id"), "evidence-heading");
+      await clip.hold(1.4);
       await page.getByRole("button", { name: "Zur ausgewählten Aussage" }).click();
       assert.equal(await page.locator(":focus").getAttribute("data-claim"), "1");
+      await clip.hold(1);
+      await clip.scrollTo("#main");
+      const theme = page.getByRole("button", { name: "Dunkles Design" });
+      await theme.click();
+      assert.equal(await theme.getAttribute("aria-pressed"), "false");
+      await page.locator("#urls").fill("https://example.org/artikel");
+      await clip.hold();
+      const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        page.getByRole("button", { name: "Anfrage speichern" }).click(),
+      ]);
+      assert.equal(download.suggestedFilename(), "case.json");
+      assert.equal(JSON.parse(await readFile(await download.path(), "utf8")).article_url,
+        "https://example.org/artikel");
+      await page.getByText(/case.json gespeichert/).waitFor();
+      await clip.hold(1.6);
     }
     assert.deepEqual(errors, []);
   } finally {
@@ -257,9 +277,15 @@ async function checkImportOutcomes(browser, record) {
         assessments: [{ agent_id: "model-1", status: "succeeded", claims: [note] }],
       },
     };
-    await importReport(withReview);
-    const panel = page.locator("#private-review");
     const clip = await record.open("report-import.gif", page);
+    const openReport = page.getByRole("button", { name: "Bericht öffnen" });
+    await openReport.focus();
+    await clip.hold();
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), openReport.click()]);
+    await chooser.setFiles({
+      name: "report.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(withReview)),
+    });
+    const panel = page.locator("#private-review");
     await panel.waitFor();
     await clip.scrollTo("#review", 1);
     await clip.hold();
@@ -828,6 +854,8 @@ async function checkLocalRun(browser, recorder) {
     assert.equal(studySearches, 1);
     assert.equal(await text.inputValue(), statement);
     assert.ok(await approve.isDisabled());
+    await intake.scrollTo("#review", 1);
+    await intake.hold(1.4);
     for (const checkbox of await page.locator("#release-checks").getByRole("checkbox").all()) {
       await checkbox.check();
     }
@@ -1101,11 +1129,11 @@ async function checkTopicTrends(browser, record) {
   }
 }
 
-function encodeGif(directory, name) {
+function encodeGif(directory, name, width) {
   execFileSync(commands.ffmpeg, [
     "-hide_banner", "-loglevel", "error", "-y", "-filter_complex_threads", "1",
     "-framerate", String(gifFps), "-i", join(directory, "frame-%d.png"),
-    "-filter_complex", "scale=840:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=none:diff_mode=rectangle",
+    "-filter_complex", `scale=${width}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=none:diff_mode=rectangle`,
     "-loop", "0", join(output, name),
   ]);
 }
@@ -1144,7 +1172,7 @@ async function main() {
     const record = createRecorder(frames);
     try {
       await captureOverview(browser, 1280, 960, "desktop.png");
-      await captureOverview(browser, 390, 844, "mobile.png");
+      await captureOverview(browser, 390, 844, "mobile.png", record);
       await captureWalkthrough(browser, record);
       await checkImportOutcomes(browser, record);
       await checkLocalRun(browser, record);
@@ -1159,7 +1187,7 @@ async function main() {
     for (const [name, width] of Object.entries(gallery)) {
       if (name.endsWith(".gif")) {
         const { directory, frame } = record.get(name);
-        encodeGif(directory, name);
+        encodeGif(directory, name, width);
         media.push(await inspectMedia(name, width, frame));
       } else {
         media.push(await inspectMedia(name, width));

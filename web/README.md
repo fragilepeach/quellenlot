@@ -26,7 +26,16 @@ Quellenlot opens in dark mode. Use **Dunkles Design** in the header to switch be
 
 The walkthroughs play at 25 frames per second. The article demo includes published evidence, and the parliamentary case uses curated official records. Local analyses, imported comparison and editorial reports, paper searches and trend responses use controlled demonstration data.
 
-[Light mode on mobile](../docs/images/generated/light-mobile.png)
+<details>
+<summary>Mobile navigation, themes and static export</summary>
+
+Select a claim to jump to its evidence and return to the same claim. Switch the theme and use **Anfrage speichern** to download a local CLI request as `case.json`.
+
+[Light theme screenshot](../docs/images/generated/light-mobile.png)
+
+![Follow a claim on a phone, switch to light mode and export a CLI request](../docs/images/generated/mobile-workflow.gif)
+
+</details>
 
 <details>
 <summary>Local analyses and saved runs</summary>
@@ -148,7 +157,7 @@ tools/ci/gui-preview/node_modules/.bin/playwright install chromium
 node tools/ci/gui-preview/capture.cjs
 ```
 
-The output is written to `artifacts/gui-preview/`. The walkthrough uses the built-in fixture and runs without Ollama.
+The output is written to `artifacts/gui-preview/`. The captures use the built-in demo and fixture responses, so they run without Ollama.
 
 ## Design research
 
