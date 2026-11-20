@@ -22,7 +22,15 @@ async function openDemo(browser, viewport) {
   await page.route(/^https?:/, (route) => route.abort());
   await page.goto(entry);
   await page.getByRole("heading", { name: "Kam der Tankrabatt an?" }).waitFor();
-  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  const plexLoaded = await page.evaluate(async () => {
+    const faces = await Promise.all([
+      document.fonts.load('400 16px "IBM Plex Mono"'),
+      document.fonts.load('600 16px "IBM Plex Mono"'),
+    ]);
+    await document.fonts.ready;
+    return faces.every((weight) => weight.some((face) => face.status === "loaded"));
+  });
+  assert.ok(plexLoaded, "Both IBM Plex Mono weights load offline");
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), viewport.width);
   return { page, errors };
 }
@@ -146,6 +154,35 @@ async function checkImportOutcomes(browser) {
   }
 }
 
+async function checkTheme(browser) {
+  const width = 320;
+  const { page, errors } = await openDemo(browser, { width, height: 800 });
+  const toggle = page.getByRole("button", { name: "Dunkles Design" });
+  const scheme = () => page.locator("html").evaluate((root) => getComputedStyle(root).colorScheme);
+
+  try {
+    assert.equal(await scheme(), "dark");
+    assert.equal(await toggle.getAttribute("aria-pressed"), "true");
+
+    await toggle.focus();
+    await page.keyboard.press("Space");
+    assert.equal(await scheme(), "light");
+    assert.equal(await toggle.getAttribute("aria-pressed"), "false");
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+
+    await page.reload();
+    await toggle.waitFor();
+    assert.equal(await scheme(), "light");
+    assert.equal(await toggle.getAttribute("aria-pressed"), "false");
+
+    await toggle.click();
+    assert.equal(await scheme(), "dark");
+    assert.deepEqual(errors, []);
+  } finally {
+    await page.close();
+  }
+}
+
 function encodeGif(frames) {
   execFileSync(commands.ffmpeg, [
     "-hide_banner", "-loglevel", "error", "-y", "-filter_complex_threads", "1",
@@ -191,6 +228,7 @@ async function main() {
       await captureOverview(browser, 390, 844, "mobile.png");
       count = await captureWalkthrough(browser, frames);
       await checkImportOutcomes(browser);
+      await checkTheme(browser);
     } finally {
       await browser.close();
     }
