@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="dark light">
   <title>Quellenlot · Artikel prüfen</title>
+  <script src="theme.js"></script>
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
 </head>
@@ -14,6 +15,7 @@
     <div class="shell masthead-inner">
       <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>quellenlot</div>
       <div class="masthead-actions">
+        <button id="theme-toggle" class="outline-button theme-toggle" type="button" aria-pressed="true" hidden>Dunkles Design</button>
         <button id="demo" class="quiet-button" type="button">Beispiel öffnen</button>
         <button id="open-report" class="outline-button" type="button">Bericht öffnen</button>
         <input id="report-file" type="file" accept=".json,application/json" hidden>
