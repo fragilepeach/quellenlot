@@ -2,6 +2,8 @@
 
 Open `web/index.html` in a modern browser. The prototype uses local HTML, CSS and JavaScript with no build step. The Tankrabatt case opens by default. Its input article and summary are written for the demo. Its evidence passages and external links come from published sources.
 
+Quellenlot opens in dark mode. Use **Dunkles Design** in the header to switch between dark and light. The browser remembers your selection when local storage is available. Headings and evidence quotations use IBM Plex Mono, bundled under its [Open Font License](fonts/IBM-Plex-Mono-OFL.txt).
+
 ## Screenshots and walkthrough
 
 ![Desktop view showing the Tankrabatt summary and the selected claim's evidence and citation path](../docs/images/generated/desktop.png)
@@ -23,7 +25,7 @@ Open `web/index.html` in a modern browser. The prototype uses local HTML, CSS an
 
 ## How the previews are generated
 
-The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates and mobile focus behavior before uploading the screenshots and GIF. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
+The [GUI previews workflow](../.github/workflows/gui-previews.yml) exercises the Tankrabatt demo, imported source comparisons, the provenance graph, private review, keyboard navigation and theme switching in Chromium. The [capture manifest](../docs/images/generated/manifest.json) records the tested revision, output dimensions and SHA-256 hashes.
 
 Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`.
 
@@ -64,10 +66,22 @@ Save the form as `case.json`, then run the existing CLI from an environment with
 quellenlot-agents --config models.toml --input case.json --output report.json
 ```
 
-Open `report.json` with **Bericht öffnen**. Both article report shapes are supported, including partial runs, failed URL retrieval and runs with no extractable claims. The current evidence section shows model-level observations and mechanically verified passages from the report. A plain report does not contain a synthesized article summary or verified source-to-source links, so those slots state that the data is unavailable. Model agreement is never rendered as a truth rating.
+Open `report.json` with **Bericht öffnen**. Both article report shapes are supported, including partial runs, failed URL retrieval and runs with no extractable claims. When the report includes a model-written summary, select a sentence to open its claim and article quote. Older reports still open with their extracted claims and source judgments.
+
+**Quellenvergleich** orders the selected claim's sources by publication day and displays update dates alongside them. Sources with unknown publication dates appear last. Select a source to read each model's reasoning and inspect the capture time and snapshot version. **Nicht behandelt** means a model found no coverage in the supplied text. **Nicht beurteilbar** also covers omissions that could not be assessed from an incomplete excerpt.
+
+Repeated verified quotations link to one excerpt with a link for each source. **Mögliche Textübernahme** shows RapidFuzz matches linked to the selected claim's citations. Expand a match to see the original passages and highlighted wording changes. A match can reflect common wording or a common upstream source. Publication and update dates establish the visible chronology of the sources. The exact origin of the wording requires separate evidence.
+
+## Private editorial review
+
+Open a report containing interests or editorial results to see **Private Redaktionsprüfung**. For each investigated source, the panel shows documented ownership, funding and affiliations, verified evidence passages and unresolved categories. Each editorial claim shows earlier dissent, the assigned findings and the individual reviewers’ outcomes.
+
+To prepare a release, inspect the evidence and open issues, confirm both checklist items, and write the text intended for publication. **Freigabeentwurf speichern** downloads a local JSON draft with the human-written text, the article link and the SHA-256 digest of the reviewed report. The imported notes and interests data stay in the private review. Reopening a report clears the checklist and draft text. Reports without a final assessment that covers its assigned findings remain available for inspection.
+
+The browser does not transmit the report or publish the draft. The saved draft can be reviewed and published through a separate editorial process.
 
 ## Usability test before backend integration
 
 Give unfamiliar readers the Tankrabatt case and ask them to find the passage that qualifies the claim of complete pass-through, identify whether the TU announcement and the Freitas–Syga study are independent, and explain the difference between publication and update dates. Observe where they click and ask them to explain each relationship in their own words. Repeat the first two tasks on a small mobile viewport and using only the keyboard.
 
-The next integration slice is one local run from the composer to this view using the ready-made CLI contract, with durable case and snapshot IDs, a cited article summary, and explicit run states for capture, partial results and failure. Evaluate citation coverage and whether each citation supports its claim separately.
+The next integration slice is one local run from the composer to this view using the ready-made CLI contract, with durable case and snapshot IDs and explicit run states for capture, partial results and failure. Evaluate citation coverage and whether each citation supports its claim separately.

@@ -9,6 +9,9 @@
 # its response. context_length is deliberately capped to control RAM use.
 
 context_length = 8192
+# Set true to investigate documented publisher and author relationships.
+# This runs up to five further local model calls per source with available evidence.
+check_interests = false
 
 [[models]]
 id = "qwen"
