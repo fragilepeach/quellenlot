@@ -97,11 +97,13 @@ class _OllamaReplies:
         bad_extraction: bool = False,
         failed_claim: str | None = None,
         peer_challenge: bool = False,
+        summary: list[_Json] | None = None,
     ) -> None:
         self.claims = claims
         self.bad_extraction = bad_extraction
         self.failed_claim = failed_claim
         self.peer_challenge = peer_challenge
+        self.summary = summary
         self.questions: list[str | None] = []
         self.article_texts: list[str] = []
         self.extraction_sources: list[dict[str, _Json]] = []
@@ -166,6 +168,8 @@ class _OllamaReplies:
                     for claim in self.claims
                 ]
             }
+            if self.summary is not None:
+                document["summary"] = self.summary
         else:
             review_task = cast("_ReviewTask", task)
             claim = review_task["claim"]
@@ -424,6 +428,35 @@ class ArticleCliTests(unittest.TestCase):
         self.assertEqual(replies.editorial_tasks, [])
         if report.editorial is not None:
             self.assertEqual(report.editorial.status, "no_comparison_evidence")
+        self.assertEqual(report.article_summary, [])
+
+    def test_summary_links_to_verified_article_claims(self) -> None:
+        """Store exact claim IDs without making a separate summary request."""
+        text = "Laut Artikel ist der Eintritt kostenlos."
+        replies = _OllamaReplies(summary=[{"text": text, "claim_index": 2}])
+        case: dict[str, _Json] = {"case_id": "library", "article": _ARTICLE}
+        report = ArticleReport.model_validate_json(self._run(case, replies))
+        self.assertEqual([sentence.text for sentence in report.article_summary], [text])
+        self.assertEqual(report.article_summary[0].claim_id, report.claims[1].claim_id)
+        self.assertTrue(report.claims[1].article_quote.verified)
+        self.assertEqual(replies.questions, [None, None])
+
+    def test_invalid_summary_references_do_not_discard_claims(self) -> None:
+        """Reject unknown or repeated summary references while retaining verified claims."""
+        sentence: _Json = {"text": _FIRST_CLAIM, "claim_index": 1}
+        case: dict[str, _Json] = {"case_id": "library", "article": _ARTICLE}
+        summaries: tuple[list[_Json], ...] = (
+            [{"text": _FIRST_CLAIM, "claim_index": 3}],
+            [sentence, sentence],
+        )
+        for summary in summaries:
+            with self.subTest(summary=summary):
+                report = ArticleReport.model_validate_json(
+                    self._run(case, _OllamaReplies(summary=summary))
+                )
+                self.assertEqual(report.status, "complete")
+                self.assertEqual(len(report.claims), 2)
+                self.assertEqual(report.article_summary, [])
 
     def test_no_claims_and_extraction_failure_are_distinct(self) -> None:
         """An empty valid response skips review, while bad anchors exhaust the model pool."""

@@ -188,10 +188,20 @@ class DraftArticleClaim(ContractModel):
     quote: DraftQuote
 
 
+class DraftArticleSummarySentence(ContractModel):
+    """One summary sentence and the one-based index of its extracted claim."""
+
+    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+    claim_index: int = Field(ge=1, le=5)
+
+
 class DraftArticleExtraction(ContractModel):
-    """The checkable claims found in the original article."""
+    """The article's checkable claims and optional model-drafted summary."""
 
     claims: list[DraftArticleClaim] = Field(max_length=5)
+    summary: list[DraftArticleSummarySentence] = Field(
+        default_factory=list[DraftArticleSummarySentence], max_length=3
+    )
 
 
 class DraftFinding(ContractModel):
@@ -591,6 +601,13 @@ class EditorialReport(ContractModel):
     )
 
 
+class ArticleSummarySentence(ContractModel):
+    """One model-written summary sentence linked to a verified article claim."""
+
+    text: str
+    claim_id: str
+
+
 class ArticleReport(ContractModel):
     """The claim-by-claim comparison of an original article and supplied sources."""
 
@@ -600,6 +617,9 @@ class ArticleReport(ContractModel):
     sources: list[SourceSnapshot]
     status: RecordStatus | Literal["no_claims"]
     extraction_attempts: list[ExtractionAttempt]
+    article_summary: list[ArticleSummarySentence] = Field(
+        default_factory=list[ArticleSummarySentence]
+    )
     claims: list[ClaimComparison]
     shared_wording: SharedWordingReport = Field(default_factory=SharedWordingReport)
     interests: InterestReport | None = None
