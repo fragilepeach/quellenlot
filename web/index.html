@@ -8,6 +8,7 @@
   <script src="theme.js"></script>
   <link rel="stylesheet" href="styles.css">
   <script src="graph.js" defer></script>
+  <script src="trends.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -56,6 +57,50 @@
       </details>
       <p id="file-feedback" class="file-feedback" role="status"></p>
     </section>
+
+    <details class="card topic-trends" id="topic-trends">
+      <summary>Thementrends und Ereignisse</summary>
+      <div class="trend-controls">
+        <form id="news-trend-form" hidden>
+          <h3>Medienberichterstattung</h3>
+          <div class="field">
+            <label for="trend-topic">Suchbegriff</label>
+            <input id="trend-topic" type="text" minlength="3" maxlength="120" required placeholder="Tankrabatt">
+          </div>
+          <div class="trend-filters">
+            <div class="field"><label for="trend-days">Zeitraum</label>
+              <select id="trend-days"><option value="30">30 Tage</option><option value="90">90 Tage</option></select>
+            </div>
+            <div class="field"><label for="trend-language">Sprache</label>
+              <select id="trend-language"><option value="german">Deutsch</option><option value="all">Alle Sprachen</option></select>
+            </div>
+          </div>
+          <button id="load-trends" class="primary-button" type="submit">GDELT abfragen</button>
+          <p class="trend-note">Suchbegriff und Filter werden an GDELT gesendet.</p>
+          <p class="trend-note" id="news-trend-status" role="status"></p>
+        </form>
+        <div class="field">
+          <h3>Suchinteresse</h3>
+          <label for="search-trend-file">Google-Trends-CSV</label>
+          <input id="search-trend-file" type="file" accept=".csv,text/csv">
+          <p class="trend-note">„Interesse im zeitlichen Verlauf“ für einen Suchbegriff, mit Tages-, Wochen- oder Monatswerten.</p>
+          <p class="trend-note" id="search-trend-status" role="status"></p>
+        </div>
+      </div>
+      <div id="trend-series"></div>
+      <section class="trend-events" aria-labelledby="trend-events-heading">
+        <h3 id="trend-events-heading">Ereignisse und Quellenveröffentlichungen</h3>
+        <p class="trend-note">Zeitliche Nähe zeigt, was zusammenfiel. Für einen ursächlichen Zusammenhang braucht es weitere Belege.</p>
+        <form id="trend-event-form" class="trend-controls">
+          <div class="field"><label for="trend-event-date">Ereignisdatum</label><input id="trend-event-date" type="date" min="0001-01-01" max="9999-12-31" required></div>
+          <div class="field"><label for="trend-event-title">Ereignis</label><input id="trend-event-title" type="text" maxlength="180" required></div>
+          <div class="field"><label for="trend-event-url">Beleglink</label><input id="trend-event-url" type="url" maxlength="2000" required></div>
+          <button class="outline-button" type="submit">Ereignis hinzufügen</button>
+        </form>
+        <p class="trend-note" id="trend-event-status" role="status"></p>
+        <ol id="trend-events"></ol>
+      </section>
+    </details>
 
     <section class="review" id="review" aria-labelledby="case-title">
       <div class="case-heading">

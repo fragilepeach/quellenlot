@@ -154,6 +154,7 @@ function updateSelection(root, key, selected) {
 
 function renderReport(report) {
   state.report = report;
+  window.quellenlotTrends.setPublications(report.timelineSources || []);
   state.claimIndex = 0;
   $("selection-status").textContent = "";
   $("case-meta").textContent = report.meta;
@@ -913,6 +914,7 @@ function readReport(data) {
       summary: [],
       claims: [],
       retrievalIssues,
+      timelineSources: data.retrievals.flatMap((item) => item.snapshot ? [item.snapshot] : []),
       provenance: readSourceProvenance(data),
       empty: failed
         ? "Der Bericht enthält keinen auswertbaren Artikel."
@@ -963,6 +965,8 @@ function readReport(data) {
     generatedSummary: summary.length > 0,
     claims,
     retrievalIssues,
+    timelineSources: [...report.sources, ...(retrievalReport
+      ? data.retrievals.flatMap((item) => item.snapshot ? [item.snapshot] : []) : [])],
     provenance: retrievalReport ? readSourceProvenance(data) : null,
     empty: claims.length ? "" : empty,
   };
@@ -1361,6 +1365,7 @@ async function initializeLocalRuns() {
     const runs = await (await localRequest("/api/runs")).json();
     if (!Array.isArray(runs)) return;
     localRuns = true;
+    window.quellenlotTrends.enableNews();
     $("submit-case").textContent = "Analyse starten";
     localRunFeedback("");
     listLocalRuns(runs);
