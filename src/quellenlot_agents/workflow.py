@@ -70,13 +70,21 @@ def verify_quote(quote: DraftQuote, sources: list[SourceInput]) -> VerifiedQuote
         The quote and whether its exact text occurs in the claimed snapshot.
     """
     source = next((item for item in sources if item.source_id == quote.source_id), None)
-    verified = source is not None and quote.text in source.text
+    index = source.text.find(quote.text) if source is not None else -1
+    verified = index >= 0
+    start = (
+        index
+        if source is not None and verified and source.text.find(quote.text, index + 1) < 0
+        else None
+    )
     return VerifiedQuote(
         source_id=quote.source_id,
         version_id=source.version_id if source is not None else None,
         locator=quote.locator,
         text=quote.text,
         verified=verified,
+        start=start,
+        end=start + len(quote.text) if start is not None else None,
     )
 
 

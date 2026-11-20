@@ -67,6 +67,13 @@ class ArticleText:
     updated_at: SourceDate | None = None
     publisher: str | None = None
     authors: tuple[str, ...] = ()
+    links: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass
+class _Region:
+    parts: list[str]
+    links: list[tuple[str, str]]
 
 
 def _normalize(parts: list[str]) -> str:
@@ -165,7 +172,8 @@ class _ArticleParser(HTMLParser):
         self._page: list[str] = []
         self._skipped: list[str] = []
         self._depth: dict[str, int] = dict.fromkeys(_REGIONS, 0)
-        self._regions: dict[str, list[list[str]]] = {tag: [] for tag in _REGIONS}
+        self._regions: dict[str, list[_Region]] = {tag: [] for tag in _REGIONS}
+        self._anchor: tuple[str, list[str], list[_Region]] | None = None
         self._dates: dict[_DateKind, dict[DateProvenance, set[date | datetime]]] = {
             "published": {},
             "updated": {},
@@ -195,7 +203,9 @@ class _ArticleParser(HTMLParser):
         self._page.append(text)
         for tag in _REGIONS:
             if self._depth[tag]:
-                self._regions[tag][-1].append(text)
+                self._regions[tag][-1].parts.append(text)
+        if self._anchor is not None:
+            self._anchor[1].append(text)
 
     @override
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -230,8 +240,14 @@ class _ArticleParser(HTMLParser):
             self._in_title = True
         if tag in self._depth:
             if self._depth[tag] == 0:
-                self._regions[tag].append([])
+                self._regions[tag].append(_Region([], []))
             self._depth[tag] += 1
+        if tag == "a":
+            self._anchor = None
+            href = values.get("href") or ""
+            active = [self._regions[region][-1] for region in _REGIONS if self._depth[region]]
+            if href and active:
+                self._anchor = (href, [], active)
         if tag in _BLOCKS:
             self._append("\n")
 
@@ -248,6 +264,13 @@ class _ArticleParser(HTMLParser):
             self._in_head = False
         if tag == "title":
             self._in_title = False
+        if tag == "a" and self._anchor is not None:
+            href, parts, active = self._anchor
+            anchor = _normalize(parts)
+            if anchor:
+                for region in active:
+                    region.links.append((href, anchor))
+            self._anchor = None
         if tag in _BLOCKS:
             self._append("\n")
         if self._depth.get(tag, 0):
@@ -281,8 +304,13 @@ class _ArticleParser(HTMLParser):
         publishers = self._publishers["json_ld"] or self._publishers["open_graph"]
         publisher = next(iter(publishers)) if len(publishers) == 1 else None
         authors = tuple(sorted(self._authors["json_ld"] or self._authors["meta"]))
+        empty: tuple[str, list[tuple[str, str]]] = ("", [])
         for tag in _REGIONS:
-            text = max((_normalize(parts) for parts in self._regions[tag]), key=len, default="")
+            text, links = max(
+                ((_normalize(region.parts), region.links) for region in self._regions[tag]),
+                key=lambda item: len(item[0]),
+                default=empty,
+            )
             if text:
                 return ArticleText(
                     title,
@@ -293,6 +321,7 @@ class _ArticleParser(HTMLParser):
                     updated_at,
                     publisher,
                     authors,
+                    tuple(links),
                 )
         return ArticleText(
             title,

@@ -8,7 +8,7 @@ layers =
     quellenlot_agents.cli
     quellenlot_agents.article
     quellenlot_agents.interests | quellenlot_agents.editorial
-    quellenlot_agents.workflow | quellenlot_agents.discovery
+    quellenlot_agents.workflow | quellenlot_agents.discovery | quellenlot_agents.provenance
     quellenlot_agents.source_capture
     quellenlot_agents.article_html | quellenlot_agents.provider | quellenlot_agents.config | quellenlot_agents.review_rules | quellenlot_agents.shared_wording | quellenlot_agents.source_diff
     quellenlot_agents.models

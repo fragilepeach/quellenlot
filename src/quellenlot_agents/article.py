@@ -27,10 +27,12 @@ from quellenlot_agents.models import (
     SourceDiscovery,
     SourceInput,
     SourceJudgment,
+    SourceProvenance,
     SourceRetrieval,
     SourceSnapshot,
     VerifiedQuote,
 )
+from quellenlot_agents.provenance import trace_sources
 from quellenlot_agents.provider import ProviderError, complete_json
 from quellenlot_agents.shared_wording import find_shared_wording
 from quellenlot_agents.source_capture import capture_source
@@ -227,6 +229,7 @@ async def run_article_url_comparison(
     retrievals = [original]
     review: ArticleReport | None = None
     discovery: SourceDiscovery | None = None
+    provenance: SourceProvenance | None = None
     if article is not None:
         sources: list[SourceInput] = []
         for index, url in enumerate(case.comparison_urls, 1):
@@ -249,6 +252,8 @@ async def run_article_url_comparison(
                 config=config.search,
             )
             retrievals.extend(discovered_retrievals)
+        upstream, provenance = await trace_sources(retrievals)
+        retrievals.extend(upstream)
         review, interest_retrievals = await _compare_extracted(
             ArticleCaseInput(
                 case_id=case.case_id,
@@ -280,4 +285,5 @@ async def run_article_url_comparison(
         retrievals=retrievals,
         review=review,
         discovery=discovery,
+        provenance=provenance,
     )

@@ -221,6 +221,40 @@ async function checkImportOutcomes(browser) {
       },
     });
     await panel.locator("#release-form").waitFor({ state: "hidden" });
+
+    const snapshot = (source_id, title, text) => ({
+      source_id, version_id: "v1", title, text, url: "https://example.org/" + source_id,
+      captured_at: "2026-11-20T12:00:00Z",
+    });
+    const provenanceArticle = snapshot("article", "Artikel A", "Erste Studie");
+    const comparison = snapshot("comparison", "Artikel B", "Zweite Studie");
+    const study = snapshot("study", "Gemeinsame Studie", "Methodik der Studie");
+    const retrievals = [provenanceArticle, comparison, study].map((source) => ({
+      source_id: source.source_id, status: "captured", snapshot: source,
+    }));
+    retrievals.push({ source_id: "appendix", requested_url: "https://example.org/appendix", status: "failed", detail: "HTTP 403" });
+    const link = (source, cited_source_id, anchor) => ({
+      citing_source_id: source.source_id, citing_version_id: source.version_id,
+      cited_source_id, link: { anchor },
+    });
+    await importReport({
+      retrievals, status: "partial",
+      review: {
+        ...report, sources: [provenanceArticle, comparison], claims: [{
+          review: { claim: "Die Studie hat ein Ergebnis.", status: "complete" },
+          source_comparison: [],
+        }],
+      },
+      provenance: { limited: true, citations: [
+        link(provenanceArticle, "study", "Erste Studie"), link(comparison, "study", "Zweite Studie"),
+        link(study, "appendix", "Methodik"), link(study, "appendix", "Erfundener Link"),
+      ] },
+    });
+    const graph = page.locator(".source-provenance");
+    await graph.getByText("2 Quellen verlinken dieses Ziel.", { exact: true }).waitFor();
+    assert.equal(await graph.getByRole("link", { name: "Gemeinsame Studie", exact: true }).count(), 1);
+    assert.equal(await graph.getByText("Nicht abrufbar · HTTP 403").count(), 1);
+    assert.equal(await graph.getByText("Erfundener Link", { exact: false }).count(), 0);
     assert.deepEqual(errors, []);
   } finally {
     await page.close();

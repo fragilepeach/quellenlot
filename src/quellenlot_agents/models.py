@@ -229,6 +229,8 @@ class VerifiedQuote(ContractModel):
     locator: str
     text: str
     verified: bool
+    start: int | None = None
+    end: int | None = None
 
 
 class Finding(ContractModel):
@@ -510,6 +512,13 @@ class InterestSearch(ContractModel):
     detail: str | None = None
 
 
+class SourceLink(ContractModel):
+    """An explicit hyperlink whose visible anchor occurs in a captured snapshot."""
+
+    url: AnyHttpUrl
+    anchor: str
+
+
 class SourceRetrieval(ContractModel):
     """The result of retrieving a URL and extracting article text."""
 
@@ -518,6 +527,26 @@ class SourceRetrieval(ContractModel):
     final_url: AnyHttpUrl | None = None
     status: Literal["captured", "partial", "failed"]
     detail: str
+    retrieved_at: datetime | None = None
+    snapshot: SourceInput | None = None
+    links: list[SourceLink] = Field(default_factory=list[SourceLink])
+    links_limited: bool = False
+
+
+class SourceCitation(ContractModel):
+    """Connect a captured snapshot's hyperlink to its target retrieval record."""
+
+    citing_source_id: str
+    citing_version_id: str
+    cited_source_id: str
+    link: SourceLink
+
+
+class SourceProvenance(ContractModel):
+    """An article-level graph of explicit links between retrieved sources."""
+
+    citations: list[SourceCitation]
+    limited: bool
 
 
 class InterestSourceReview(ContractModel):
@@ -690,3 +719,4 @@ class ArticleUrlReport(ContractModel):
     retrievals: list[SourceRetrieval]
     review: ArticleReport | None
     discovery: SourceDiscovery | None = None
+    provenance: SourceProvenance | None = None
