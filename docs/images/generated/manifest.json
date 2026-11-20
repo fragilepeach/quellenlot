@@ -1,32 +1,32 @@
 {
-  "source_commit": "8c5beb5883b3e7770a960f716030bf75b6c1398d",
-  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44739316294",
+  "source_commit": "b035bbf796c4c79cc1863e62dd9598d262929247",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/44756126198",
   "scenario": "Tankrabatt demo, fixture-backed analyses and trends, and curated Bundestag records",
   "playwright": "1.58.2",
   "media": [
     {
       "file": "desktop.png",
       "width": 1280,
-      "height": 1985,
+      "height": 2176,
       "frames": 1,
-      "bytes": 240184,
-      "sha256": "e64825aaee8d55dddf6148ef65f393e4507886e02ab2845f3cb7ebf53511da23"
+      "bytes": 263401,
+      "sha256": "499bc765e69832249ae31ba7fb9874a228c5ee4fe488ac1f39ae6218b2d541c5"
     },
     {
       "file": "mobile.png",
       "width": 390,
-      "height": 3060,
+      "height": 3616,
       "frames": 1,
-      "bytes": 212375,
-      "sha256": "044260cd93550061164629b8119a5074d66a3012235152293fee0ecdc802b0de"
+      "bytes": 251816,
+      "sha256": "9cc3a1de8ce292731ed4d8a2eda0b3ff48391ad0156cbeb65db8d572cc102e24"
     },
     {
       "file": "light-mobile.png",
       "width": 320,
       "height": 800,
       "frames": 1,
-      "bytes": 46442,
-      "sha256": "3fedd8657e8599b557f086ca18701b60ffbb8eece46344db7df74ee2b077b543"
+      "bytes": 49869,
+      "sha256": "e640d21a97764cfbe7c60b0394d49ae23d77570a6cad16421674d7ab3753a0ab"
     },
     {
       "file": "mobile-workflow.gif",
@@ -34,8 +34,8 @@
       "height": 844,
       "frames": 174,
       "fps": 25,
-      "bytes": 555879,
-      "sha256": "81cb2ae901c915ecd5f5c806f591962081266ddeb0ca0dbb5d52ba3d717fc95c"
+      "bytes": 502759,
+      "sha256": "3819002f86b5fce267a9746c632241d5ebd0e541eefe561e35aaff0e47d7e28d"
     },
     {
       "file": "usage.gif",
@@ -43,16 +43,16 @@
       "height": 585,
       "frames": 233,
       "fps": 25,
-      "bytes": 762917,
-      "sha256": "2a86e1b9fd5ba74c3cddcca7ec866bbaadd3dd29be6f1f700b60b3b2a1527185"
+      "bytes": 719402,
+      "sha256": "d95469ecf983fcd6b8d2fdd80d3aafca96fb467b526b29cf15f2d26d4920ff6e"
     },
     {
       "file": "local-analysis.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 94308,
-      "sha256": "0d36357714b9bbc6dbd5f4fe4bb47a548512d0552592f460be0f5365032a6d79"
+      "bytes": 94220,
+      "sha256": "598da05331bc0214c5f952b8a937121aaf4b89385f34ad31c229171325921e24"
     },
     {
       "file": "local-analysis.gif",
@@ -60,16 +60,41 @@
       "height": 630,
       "frames": 178,
       "fps": 25,
-      "bytes": 905787,
-      "sha256": "c694dd23988333c10bd7c3e2b953c8e4c623ba14f6b6edd0b0fb0967dba94bb9"
+      "bytes": 904827,
+      "sha256": "788aa25e185bfae66210e1819c85ebe9b2bde32c3979e8fc75e2af564ce847ce"
+    },
+    {
+      "file": "agent-workflow.png",
+      "width": 1280,
+      "height": 960,
+      "frames": 1,
+      "bytes": 158917,
+      "sha256": "0067f0c887bdd40913afdacd842e58bad329250f6c6b60dcc4d8b543b24197d1"
+    },
+    {
+      "file": "agent-workflow-mobile.png",
+      "width": 390,
+      "height": 960,
+      "frames": 1,
+      "bytes": 60504,
+      "sha256": "7b6e69983dfc99ba5d35fc5a835502a43a74cdf5e958b6a0609c7c806fdf1182"
+    },
+    {
+      "file": "agent-workflow.gif",
+      "width": 840,
+      "height": 630,
+      "frames": 234,
+      "fps": 25,
+      "bytes": 223778,
+      "sha256": "0d4ab8166c62a10c9cbb9f1baed007d7a67ca042fda5815c279cd29f83307809"
     },
     {
       "file": "claim-diff.png",
       "width": 1280,
       "height": 900,
       "frames": 1,
-      "bytes": 89856,
-      "sha256": "413b84be23ce53f226f5d81ccb09ed5d103de0f9092a3471098d231e49d6be8b"
+      "bytes": 89820,
+      "sha256": "3446f532bada69326b34de042b4af99b2c17975389f25fa48152f7eff7f60870"
     },
     {
       "file": "claim-diff.gif",
@@ -77,32 +102,32 @@
       "height": 591,
       "frames": 138,
       "fps": 25,
-      "bytes": 684908,
-      "sha256": "7ea902193bca24de5e3fc20acb1e8653eb83aa05d9ccf79dbf0b09a9c7814e91"
+      "bytes": 682750,
+      "sha256": "52025d9b4aacd8a0a084a8cb4c933b163cbe121da824a618f5d80a0691c05c6f"
     },
     {
       "file": "source-similarity.png",
       "width": 1280,
       "height": 900,
       "frames": 1,
-      "bytes": 99891,
-      "sha256": "5e04276d76b1d55e95849d9b8be22394a7e1dd54cd66076e9d967db041176bf0"
+      "bytes": 99965,
+      "sha256": "755b42bbf3a1ffdc1a658e5965d507064d5ead1946f311f16b5d9a142882b82b"
     },
     {
       "file": "source-similarity-mobile.png",
       "width": 390,
       "height": 900,
       "frames": 1,
-      "bytes": 76846,
-      "sha256": "4ca21a5db77356c8643b5e2cbedd9e0b183ed9da26f0842d2d9b9a24e735e71c"
+      "bytes": 76849,
+      "sha256": "0f740106abbd7d707a1509efef5d0121a58e0402cd01bd49c3c7b30eaf07a7ba"
     },
     {
       "file": "shared-provenance.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 78937,
-      "sha256": "1b6a2738d7b72b0d004080290859876d3fbaca124b5f5a097252ec47f9bad9cd"
+      "bytes": 79267,
+      "sha256": "3d663e3335a9719ff01c4cbe9eeead0e2dc3cc0ac6ef325f8bc5ef4d75cd5a71"
     },
     {
       "file": "report-import.gif",
@@ -110,16 +135,16 @@
       "height": 630,
       "frames": 162,
       "fps": 25,
-      "bytes": 247113,
-      "sha256": "a1c021383f803b2b72dd535067f6c5e2beef6949c13ce36aa1503f75aa26ac23"
+      "bytes": 270588,
+      "sha256": "e4b7d9693b3639ebd0983b5b6316b8046244af7cf6fcd9d9028e81a1182a0d5a"
     },
     {
       "file": "plenum.png",
       "width": 1280,
       "height": 900,
       "frames": 1,
-      "bytes": 71096,
-      "sha256": "94e3ad992fac27a32298f0e59118c4e6ce8e73d05a8b663d4cbf05fa86e0e91f"
+      "bytes": 71099,
+      "sha256": "bcb7dd28767430011fb110676e297f955f70d00248f04e9a1e1a7d1b27f90505"
     },
     {
       "file": "plenum.gif",
@@ -127,24 +152,24 @@
       "height": 591,
       "frames": 127,
       "fps": 25,
-      "bytes": 1038780,
-      "sha256": "ea13d36736f3a56a9fedd228c4b151a7dc320ddc7775419d01a1cefdc80308fa"
+      "bytes": 1038945,
+      "sha256": "fcd45a841cf825d2d66b280f6f4ba353b98fa330fe6e63869063cb9e63a1283c"
     },
     {
       "file": "studies.png",
       "width": 1280,
       "height": 1120,
       "frames": 1,
-      "bytes": 115659,
-      "sha256": "7f21feaf3b78c64448601e9e13d1007351ab938f009bcb0a93adc7a53f280963"
+      "bytes": 115665,
+      "sha256": "3f41da2c93af8c54b100f9f8477a7287a316c86d37edfbc60b3778865769fd4e"
     },
     {
       "file": "studies-mobile.png",
       "width": 390,
       "height": 1120,
       "frames": 1,
-      "bytes": 105225,
-      "sha256": "b14d3396fc2b50b18b3c5898de0108bedf307779b717a15cd4583ce9766dbb6b"
+      "bytes": 105298,
+      "sha256": "f0dd95b6db588f874acb8fdcc84a260770adca8168583ea0c44cffce2b37746e"
     },
     {
       "file": "studies.gif",
@@ -152,32 +177,32 @@
       "height": 630,
       "frames": 131,
       "fps": 25,
-      "bytes": 1029289,
-      "sha256": "e11625791f36e9a6a50a367a97bf572923813a9460509f83261a5ca698059ebf"
+      "bytes": 730035,
+      "sha256": "b8a10d270222521ced8f458685021326776c08a5c4104cff3bebefd0fa5e67dd"
     },
     {
       "file": "trends-desktop.png",
       "width": 1152,
       "height": 1638,
       "frames": 1,
-      "bytes": 171297,
-      "sha256": "a165933b6131b84415e5475299ca388454429ea147e249bab53ee89d0aa87c0f"
+      "bytes": 170981,
+      "sha256": "2d651d7af338c8e1c2c835c3b9e125e69250248e2dd80da276146dfd03b4a8dc"
     },
     {
       "file": "trends-mobile.png",
       "width": 358,
-      "height": 2261,
+      "height": 2262,
       "frames": 1,
-      "bytes": 160137,
-      "sha256": "043d17809b4ced34ea4b27ef83c29319326a82acbe6949b08b8c5f0221c74341"
+      "bytes": 160231,
+      "sha256": "72aeb7f1304fad998ebfacc712d6a9bb5c134166835e5f86e3ccfed55afde425"
     },
     {
       "file": "trend-events.png",
       "width": 1280,
       "height": 900,
       "frames": 1,
-      "bytes": 90200,
-      "sha256": "dd5159d2a6eba92e7f5740a3b8c012366ab858fb6886faa01cad7b7468d45da4"
+      "bytes": 90221,
+      "sha256": "9e25f9ce45f75789bd044aafa3f645425cc843ab83835a12b70f578a4670b8bd"
     },
     {
       "file": "topic-trends.gif",
@@ -185,32 +210,32 @@
       "height": 591,
       "frames": 176,
       "fps": 25,
-      "bytes": 1756782,
-      "sha256": "3d2ac5f3bcc458c82bfcc01670e0a4484b1accfb4a4639ff8d2ad248da05b20f"
+      "bytes": 1763936,
+      "sha256": "9b7361db231c5669b65867ac2c21d4eff4948b1035a66102afcd84f12ebfa4de"
     },
     {
       "file": "source-interests.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 91996,
-      "sha256": "c4a9016970f3451ad12abc678ca0cdf29f542c940d374c5e1a2d6654065360ba"
+      "bytes": 91788,
+      "sha256": "6f5f3482ea77fafa1b5de5e53f5665c72fe142a1fc12ec61a8eebd02b5dd729f"
     },
     {
       "file": "editorial-draft.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 99630,
-      "sha256": "6f859b6abda456b1a28bbd7b8975801be056e4dba23089edfe1e01b00f586026"
+      "bytes": 99629,
+      "sha256": "cc5b9aa0f87629868bc4c4dfc38b70694c7875c7115800f36adae46b477afb3f"
     },
     {
       "file": "reader-preview.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 93187,
-      "sha256": "70e43dfeb30ff1579bc0e722c4a645d48814600a515e3d42f7ed8330b8e4614b"
+      "bytes": 93397,
+      "sha256": "e6463f25e91de9553e578913857f86e488ded102cdf86ed7f1bc39de5aa61ad3"
     },
     {
       "file": "editorial-review.gif",
@@ -218,8 +243,8 @@
       "height": 630,
       "frames": 138,
       "fps": 25,
-      "bytes": 173090,
-      "sha256": "e7abafd00d7f3229a2b2111d8a47340625bbd77ac31947849425de36bd06d499"
+      "bytes": 176359,
+      "sha256": "3fbe0c4f69d09d212b6de8df84057eb86feabc8306aee36cbd6d0bd13ba29e6e"
     },
     {
       "file": "parliament.png",
