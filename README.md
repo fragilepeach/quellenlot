@@ -209,3 +209,21 @@ GitHub Actions runs the full suite on pushes, pull request updates, merge-queue 
 ## Scope boundary
 
 Quellenlot includes a local agent library, a CLI, and a loopback browser interface with saved runs, private editorial drafts, and report-specific approval. Run `quellenlot-ui --config models.toml` from the checkout to start an analysis from the browser. See the [GUI guide](web/README.md#using-the-local-agent) for setup and storage paths. Hosted access control and public publication remain separate work. Local model quality for German political research still needs evaluation against a held-out set before relying on the results.
+
+## CPU benchmark on a self-hosted Docker runner
+
+Run **Quellenlot Ollama CPU benchmark** in GitHub Actions. The job requires a
+repository runner with the `self-hosted`, `linux`, `docker`, and `x64` labels.
+Allow roughly 75 GB of temporary Docker disk space for the five local model downloads.
+The isolated container caps RAM at the smaller of 26 GiB and 85% of Docker's
+available system memory. It runs one model request at a time with CPU inference,
+8,192 context tokens and the production provider's per-request model unload.
+
+The fixed German Tankrabatt fixture uses attributed summaries and short quotes
+from Motor1, ADAC and ifo. Three repetitions run the production claim analysis
+and peer review. The artifact contains PNG and PDF plots, raw request timings,
+model digests and quantizations, and the per-repetition review reports. Request
+latency includes Ollama load, prompt evaluation and generation. Peak RAM is the
+maximum sampled combined Ollama process RSS, which may include shared pages.
+Usable-response counts include Quellenlot's schema, finding and review-coverage
+checks. The fixture and plots characterize one claim task on one runner.

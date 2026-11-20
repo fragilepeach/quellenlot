@@ -1,0 +1,35 @@
+{
+  "case_id": "tankrabatt-diesel-2022",
+  "claim": "Der Tankrabatt senkte den deutschen Dieselpreis von Juni bis August 2022 im Durchschnitt um rund 17 Cent je Liter.",
+  "sources": [
+    {
+      "source_id": "motor1",
+      "version_id": "benchmark-v1",
+      "title": "ADAC: Tankrabatt kommt nicht komplett an",
+      "url": "https://de.motor1.com/news/590829/adac-tankrabatt-kommt-nicht-an/",
+      "captured_at": "2026-11-20T12:00:00Z",
+      "published_at": {"value": "2022-06-08"},
+      "text": "Motor1 berichtet am 8. Juni 2022 über den ADAC-Wochenvergleich nach dem Start der Energiesteuersenkung. Für Diesel schreibt der Autor: „Auch Diesel ist im Vergleich zur Vorwoche zwar um 5,2 Cent zurückgegangen“. Der bundesweite Mittelwert beträgt 1,992 Euro pro Liter. Der Artikel stellt den beobachteten Rückgang der erwarteten steuerlichen Entlastung von 17 Cent gegenüber.",
+      "text_is_complete": false
+    },
+    {
+      "source_id": "adac",
+      "version_id": "benchmark-v1",
+      "title": "Tankrabatt kommt nicht komplett an",
+      "url": "https://presse.adac.de/meldungen/adac-ev/verkehr/tankrabatt-kommt-nicht-komplett-an.html",
+      "captured_at": "2026-11-20T12:00:00Z",
+      "published_at": {"value": "2022-06-08"},
+      "text": "Der ADAC veröffentlicht einen Wochenvergleich für Anfang Juni 2022. Er hält fest: „Auch Diesel ist im Vergleich zur Vorwoche zwar um 5,2 Cent zurückgegangen“. Die Pressemitteilung nennt außerdem einen Anstieg des Rohölpreises. Die gegenübergestellten Zapfsäulenpreise beziehen sich auf die aktuelle und die vorangegangene Woche.",
+      "text_is_complete": false
+    },
+    {
+      "source_id": "ifo",
+      "version_id": "benchmark-v1",
+      "title": "35 Cent weniger für Benzin und 17 Cent weniger für Diesel – Der Tankrabatt ist angekommen",
+      "url": "https://www.ifo.de/publikationen/2022/aufsatz-zeitschrift/35-cent-weniger-fuer-benzin-und-17-cent-weniger-fuer-diesel",
+      "captured_at": "2026-11-20T12:00:00Z",
+      "text": "Freitas und Syga vergleichen die Entwicklung deutscher Kraftstoffpreise mit europäischen Nachbarländern. Der Untersuchungszeitraum umfasst Juni bis August 2022. Die Zusammenfassung nennt eine durchschnittliche Entlastung von „17 Cent weniger pro Liter Diesel“. Die Untersuchung schätzt die Wirkung im Vergleich zur Preisentwicklung ohne den deutschen Tankrabatt. Die Weitergabe war im August nur noch teilweise gegeben.",
+      "text_is_complete": false
+    }
+  ]
+}

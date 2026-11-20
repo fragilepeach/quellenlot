@@ -1,0 +1,95 @@
+name: Quellenlot Ollama CPU benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/self-hosted-ollama-benchmark]
+    paths:
+      - '.github/workflows/ollama-benchmark.yml'
+      - 'tools/ci/ollama-benchmark/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quellenlot-ollama-cpu-benchmark
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: [self-hosted, linux, docker, x64]
+    timeout-minutes: 480
+    env:
+      BENCHMARK_REPETITIONS: "3"
+      BENCHMARK_COMMIT: ${{ github.sha }}
+    steps:
+      - name: Verify the repository's Docker runner
+        run: |
+          set -euo pipefail
+          docker info --format 'Docker Engine {{.ServerVersion}}'
+      - name: Check out the benchmark revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run on the local Docker Engine
+        run: |
+          set -euo pipefail
+          container="quellenlot-benchmark-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          image="$container:local"
+          output="$RUNNER_TEMP/quellenlot-benchmark"
+          mkdir -p "$output"
+          cleanup() {
+            if docker inspect "$container" >/dev/null 2>&1; then
+              docker cp "$container:/results/." "$output/" || true
+              docker rm -f -v "$container" >/dev/null
+            fi
+            docker image rm "$image" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker build --tag "$image" --file tools/ci/ollama-benchmark/Dockerfile .
+          host_memory=$(docker info --format '{{.MemTotal}}')
+          cap=$((host_memory * 85 / 100))
+          limit=$((26 * 1024 * 1024 * 1024))
+          if ((cap < limit)); then
+            limit=$cap
+          fi
+          docker run -d --init --name "$container" --memory "$limit" --memory-swap "$limit" \
+            -e BENCHMARK_REPETITIONS -e BENCHMARK_COMMIT -e BENCHMARK_MEMORY_BYTES="$limit" \
+            "$image" sleep infinity
+          docker exec -i "$container" bash -seu <<'BENCHMARK'
+          mkdir /results
+          cp benchmark/tankrabatt.json /results/fixture.json
+          ollama serve > /results/ollama.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if ollama list >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          ollama list
+          mapfile -t models < <(python -c "import tomllib; print('\n'.join(m['model'] for m in tomllib.load(open('config.example.toml', 'rb'))['models']))")
+          for model in "${models[@]}"; do
+            if ! ollama pull "$model" > /tmp/ollama-pull.log 2>&1; then
+              tail -c 2000 /tmp/ollama-pull.log
+              echo "::warning::Could not pull $model. Its requests will be recorded as failed."
+            fi
+          done
+          status=0
+          python benchmark/run.py "$BENCHMARK_REPETITIONS" || status=$?
+          if [[ -s /results/requests.json ]]; then
+            python benchmark/plot.py
+            /usr/bin/python3 -m cairosvg /results/quellenlot-benchmark.svg \
+              --scale 1.5 --output /results/quellenlot-benchmark.png
+            /usr/bin/python3 -m cairosvg /results/quellenlot-benchmark.svg \
+              --output /results/quellenlot-benchmark.pdf
+          fi
+          exit "$status"
+          BENCHMARK
+      - name: Upload benchmark plots, request data and run reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: quellenlot-ollama-benchmark
+          path: ${{ runner.temp }}/quellenlot-benchmark/
+          if-no-files-found: error
+          retention-days: 14
