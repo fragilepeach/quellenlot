@@ -856,15 +856,28 @@ function renderPrivateReview(report) {
   panel.hidden = !review;
   form.hidden = true;
   $("save-release").disabled = true;
-  $("release-status").textContent = "";
+  setReleaseStatus("");
+  const managed = Boolean(review?.runId);
+  $("save-release").textContent = managed ? "Entwurf speichern" : "Freigabeentwurf speichern";
+  $("release-check-title").textContent = managed ? "Vor der Freigabe prüfen" : "Vor dem Export prüfen";
+  $("approve-release").hidden = !managed;
+  $("export-release").hidden = !managed;
   const content = $("private-review-content");
   content.replaceChildren();
   if (!review) return;
   content.append(renderInterests(review.interests), renderEditorial(review.editorial, report.claims));
-  form.hidden = !canPrepareRelease(review.editorial) || !review.digest;
+  form.hidden = !canPrepareRelease(review.editorial) || !review.digest || review.readOnly;
   if (form.hidden) {
-    content.append(element("p", "", "Für einen Freigabeentwurf ist ein auswertbarer Schlussbericht erforderlich."));
+    content.append(element("p", "", "Für einen Freigabeentwurf ist ein abgeschlossener, auswertbarer Prüfbericht erforderlich."));
+    return;
   }
+  $("release-text").value = review.draft?.text || "";
+  if (review.draft?.approved_at) {
+    $("release-sources-checked").checked = true;
+    $("release-findings-checked").checked = true;
+  }
+  setReleaseStatus(review.draftError || draftLabel(review.draft), Boolean(review.draftError));
+  updateReleaseControls();
 }
 
 function normalizedSummary(items, claims) {
@@ -1006,7 +1019,7 @@ $("back-to-claim").addEventListener("click", () => {
 
 let latestImport = 0;
 
-async function showReportBytes(bytes, importId) {
+async function showReportBytes(bytes, importId, run) {
   if (bytes.byteLength > 50_000_000) throw new Error("Die Datei ist größer als 50 MB.");
   let data;
   try {
@@ -1017,9 +1030,24 @@ async function showReportBytes(bytes, importId) {
   const report = readReport(data);
   if (report.privateReview && globalThis.crypto?.subtle) {
     const digest = await crypto.subtle.digest("SHA-256", bytes);
-    report.privateReview.digest = Array.from(new Uint8Array(digest), (value) =>
+    const review = report.privateReview;
+    review.digest = Array.from(new Uint8Array(digest), (value) =>
       value.toString(16).padStart(2, "0")
     ).join("");
+    review.readOnly = run && !["complete", "partial"].includes(run.status);
+    if (run && !review.readOnly && canPrepareRelease(review.editorial)) {
+      review.runId = run.run_id;
+      try {
+        const response = await localRequest(draftPath(review));
+        const draft = await response.json();
+        if (draft && draft.review_sha256 !== review.digest) {
+          throw new Error("Der Prüfbericht hat sich geändert. Öffne ihn erneut.");
+        }
+        review.draft = draft;
+      } catch (error) {
+        review.draftError = error.message;
+      }
+    }
   }
   if (importId !== latestImport) return;
   renderReport(report);
@@ -1067,25 +1095,130 @@ function downloadJson(payload, filename) {
   setTimeout(() => URL.revokeObjectURL(href), 1000);
 }
 
-$("release-form").addEventListener("input", () => {
-  $("save-release").disabled = !$("release-form").checkValidity() || !$("release-text").value.trim();
+function draftPath(review) {
+  return "/api/runs/" + encodeURIComponent(review.runId) + "/editorial-draft";
+}
+
+function draftLabel(draft) {
+  if (draft?.approved_at) {
+    return "Freigabe erteilt · " + new Date(draft.approved_at).toLocaleString("de-DE");
+  }
+  return draft ? "Entwurf gespeichert." : "";
+}
+
+function setReleaseStatus(message, error = false) {
+  $("release-status").classList.toggle("error", error);
+  $("release-status").textContent = message;
+}
+
+function releaseInput() {
+  return {
+    text: $("release-text").value.trim(),
+    sources_checked: $("release-sources-checked").checked,
+    open_findings_addressed: $("release-findings-checked").checked,
+  };
+}
+
+function updateReleaseControls() {
+  const review = state.report.privateReview;
+  if (!review || $("release-form").hidden) return;
+  const { text, sources_checked, open_findings_addressed } = releaseInput();
+  const unavailable = Boolean(review.pending || review.draftError);
+  const matchingDraft = Boolean(review.draft && text === review.draft.text);
+  $("release-text").readOnly = unavailable;
+  $("release-checks").disabled = unavailable;
+  $("save-release").disabled = unavailable || !text || (review.runId
+    ? matchingDraft
+    : !sources_checked || !open_findings_addressed);
+  $("approve-release").disabled = unavailable || !matchingDraft || Boolean(review.draft?.approved_at)
+    || !sources_checked || !open_findings_addressed;
+  $("export-release").disabled = unavailable || !matchingDraft || !review.draft?.approved_at;
+}
+
+function exportRelease(review, text, reviewedAt) {
+  const articleUrl = safeUrl(state.report.article?.url)?.href;
+  downloadJson({
+    format: "quellenlot-public-draft-v1",
+    review_sha256: review.digest,
+    reviewed_at: reviewedAt,
+    article_url: articleUrl || null,
+    text,
+  }, "quellenlot-freigabeentwurf.json");
+}
+
+async function changeDraft(review, action) {
+  const input = releaseInput();
+  review.pending = true;
+  updateReleaseControls();
+  setReleaseStatus(action === "approve" ? "Freigabe wird gespeichert …" : "Entwurf wird gespeichert …");
+  try {
+    const response = await localRequest(draftPath(review), {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...input, action, review_sha256: review.digest,
+        revision: review.draft?.revision || 0 }),
+    });
+    review.draft = await response.json();
+    if (state.report.privateReview !== review) return;
+    setReleaseStatus(draftLabel(review.draft));
+  } catch (error) {
+    if (state.report.privateReview === review) setReleaseStatus(error.message, true);
+  } finally {
+    review.pending = false;
+    if (state.report.privateReview === review) updateReleaseControls();
+  }
+}
+
+$("release-form").addEventListener("input", (event) => {
+  const review = state.report.privateReview;
+  if (review?.draft?.approved_at && event.target === $("release-text")) {
+    const before = $("export-release").disabled;
+    $("release-sources-checked").checked = false;
+    $("release-findings-checked").checked = false;
+    if (!before) setReleaseStatus("Speichere die Änderung als Entwurf und prüfe ihn erneut.");
+  }
+  updateReleaseControls();
 });
 
 $("release-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const { privateReview } = state.report;
-  const statement = $("release-text").value.trim();
-  if ($("release-form").hidden || !privateReview?.digest || !statement ||
-      !$("release-form").checkValidity()) return;
-  const articleUrl = safeUrl(state.report.article?.url)?.href;
-  downloadJson({
-    format: "quellenlot-public-draft-v1",
-    review_sha256: privateReview.digest,
-    reviewed_at: new Date().toISOString(),
-    article_url: articleUrl || null,
-    text: statement,
-  }, "quellenlot-freigabeentwurf.json");
-  $("release-status").textContent = "Freigabeentwurf gespeichert. Die Veröffentlichung erfolgt separat.";
+  const { text } = releaseInput();
+  if ($("release-form").hidden || !privateReview?.digest || $("save-release").disabled) return;
+  if (privateReview.runId) {
+    changeDraft(privateReview, "save");
+    return;
+  }
+  exportRelease(privateReview, text, new Date().toISOString());
+  setReleaseStatus("Freigabeentwurf gespeichert. Die Veröffentlichung erfolgt separat.");
+});
+
+$("approve-release").addEventListener("click", () => {
+  const review = state.report.privateReview;
+  if (review?.runId && !$("release-form").hidden && !$("approve-release").disabled) {
+    changeDraft(review, "approve");
+  }
+});
+
+$("export-release").addEventListener("click", async () => {
+  const review = state.report.privateReview;
+  if (!review?.draft?.approved_at || $("release-form").hidden || $("export-release").disabled) return;
+  review.pending = true;
+  updateReleaseControls();
+  try {
+    const response = await localRequest(draftPath(review));
+    const current = await response.json();
+    if (state.report.privateReview !== review || $("release-form").hidden) return;
+    if (current?.review_sha256 !== review.digest || current?.revision !== review.draft.revision || !current?.approved_at) {
+      throw new Error("Die Freigabe hat sich geändert. Öffne den Bericht erneut.");
+    }
+    exportRelease(review, current.text, current.approved_at);
+    setReleaseStatus("Freigegebener Text exportiert.");
+  } catch (error) {
+    if (state.report.privateReview === review) setReleaseStatus(error.message, true);
+  } finally {
+    review.pending = false;
+    if (state.report.privateReview === review) updateReleaseControls();
+  }
 });
 
 $("urls").addEventListener("input", () => {
@@ -1210,7 +1343,7 @@ async function followLocalRun(run) {
   try {
     if (run.has_report) {
       const response = await localRequest("/api/runs/" + encodeURIComponent(run.run_id) + "/report");
-      await showReportBytes(await response.arrayBuffer(), importId);
+      await showReportBytes(await response.arrayBuffer(), importId, run);
     }
   } catch (error) {
     localRunFeedback(error.message, true);

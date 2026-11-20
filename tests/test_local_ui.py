@@ -6,6 +6,7 @@ import json
 import tempfile
 import time
 import unittest
+from hashlib import sha256
 from pathlib import Path
 from threading import Event, Thread
 from unittest.mock import patch
@@ -139,3 +140,156 @@ class LocalUiTests(unittest.TestCase):
                 self.assertEqual(run.status, "interrupted")
                 self.assertEqual(run.stage, "editorial")
                 self.assertTrue(run.has_report)
+
+    def test_editorial_draft_requires_current_report_and_saved_text(self) -> None:
+        """Persist and reopen private edits, rejecting stale versions and incomplete reviews."""
+        run_id = "ac" * 16
+        draft_url = f"/api/runs/{run_id}/editorial-draft"
+        run_data = {
+            "run_id": run_id,
+            "article_url": _CASE["article_url"],
+            "started_at": "2026-11-20T08:00:00Z",
+            "status": "partial",
+        }
+        finding = {
+            "finding_id": "finding-1",
+            "source_id": "comparison-1",
+            "agent_id": "model-1",
+            "relation": "qualifies",
+            "evidence_ids": ["quote-1"],
+            "reasoning": "Earlier estimate.",
+        }
+        coverage = {
+            "claim_id": "claim-1",
+            "review_status": "complete",
+            "comparison_evidence_ids": ["quote-1"],
+            "evidence_shown_to_models": ["quote-1"],
+            "comparison_sources_without_quotes": [],
+            "unresolved_dissent_count": 1,
+            "unresolved_finding_ids": ["finding-1"],
+            "assigned_findings": [finding],
+        }
+        note = {
+            "claim_id": "claim-1",
+            "evidence_ids": ["quote-1"],
+            "assessment": "Offen.",
+            "next_check": None,
+            "findings": [
+                {"finding_id": "finding-1", "outcome": "unclear", "reasoning": "Zeitpunkt offen."}
+            ],
+        }
+        report = ArticleUrlReport.model_validate_json(
+            json.dumps(
+                {
+                    "case_id": run_id,
+                    "question": None,
+                    "status": "partial",
+                    "retrievals": [],
+                    "review": {
+                        "case_id": run_id,
+                        "question": None,
+                        "article_source_id": "article",
+                        "sources": [],
+                        "status": "partial",
+                        "extraction_attempts": [],
+                        "claims": [],
+                        "editorial": {
+                            "status": "partial",
+                            "claims": [coverage],
+                            "incomplete_source_ids": [],
+                            "retrieval_gaps": [],
+                            "discovery_incomplete": False,
+                            "interest_status": None,
+                            "interest_sources_with_findings": [],
+                            "assessments": [
+                                {
+                                    "agent_id": "model-2",
+                                    "model": "second",
+                                    "status": "succeeded",
+                                    "claims": [note],
+                                },
+                            ],
+                        },
+                    },
+                }
+            )
+        )
+        original = report.model_dump_json().encode()
+        digest = sha256(original).hexdigest()
+        change = {
+            "review_sha256": digest,
+            "revision": 0,
+            "text": "Eine Angabe bleibt offen.",
+            "action": "save",
+        }
+        approve = {
+            **change,
+            "revision": 1,
+            "action": "approve",
+            "sources_checked": True,
+            "open_findings_addressed": True,
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            folder = directory / run_id
+            folder.mkdir()
+            (folder / "status.json").write_text(json.dumps(run_data), encoding="utf-8")
+            report_path = folder / "report.json"
+            report_path.write_bytes(original)
+            with (
+                LocalServer(0, Path("web"), directory, _CONFIG) as server,
+                httpx.Client(base_url=server.origin, trust_env=False, timeout=4) as client,
+            ):
+                worker = Thread(target=server.serve_forever, daemon=True)
+                worker.start()
+                headers = {"Origin": server.origin}
+                try:
+                    self.assertIsNone(client.get(draft_url).json())
+                    self.assertEqual(client.post(draft_url, json=change).status_code, 403)
+                    saved = client.post(draft_url, json=change, headers=headers)
+                    self.assertEqual(saved.status_code, 200)
+                    self.assertEqual(saved.json()["revision"], 1)
+                    self.assertIsNone(saved.json()["approved_at"])
+                    self.assertEqual(client.get(draft_url).json(), saved.json())
+                    with LocalServer(0, Path("web"), directory, _CONFIG) as reopened:
+                        self.assertIsNotNone(reopened.runs.editorial_draft(run_id))
+                    stale = client.post(draft_url, json=change, headers=headers)
+                    self.assertEqual(stale.status_code, 409)
+                    for override in (
+                        {"open_findings_addressed": False},
+                        {"text": "Ungespeichert."},
+                    ):
+                        denied = client.post(draft_url, json=approve | override, headers=headers)
+                        self.assertEqual(denied.status_code, 409)
+
+                    approved = client.post(draft_url, json=approve, headers=headers)
+                    self.assertEqual(approved.status_code, 200)
+                    self.assertEqual(approved.json()["review_sha256"], digest)
+                    self.assertIsNotNone(approved.json()["approved_at"])
+                    self.assertEqual(approved.json()["revision"], 2)
+
+                    # A replacement report cannot inherit the previous version's approval.
+                    report_path.write_bytes(original + b"\n")
+                    self.assertIsNone(client.get(draft_url).json())
+                    self.assertEqual(
+                        client.post(draft_url, json=approve, headers=headers).status_code, 409
+                    )
+                    report_path.write_bytes(original)
+                    self.assertEqual(client.get(draft_url).json(), approved.json())
+                    revised = client.post(
+                        draft_url,
+                        json=change | {"revision": 2, "text": "Neue Korrektur."},
+                        headers=headers,
+                    )
+                    self.assertEqual(revised.status_code, 200)
+                    self.assertIsNone(revised.json()["approved_at"])
+                    self.assertEqual(revised.json()["revision"], 3)
+
+                    if report.review is None or report.review.editorial is None:
+                        self.fail("Expected a final assessment.")
+                    report.review.editorial.assessments[0].claims[0].findings.clear()
+                    report_path.write_bytes(report.model_dump_json().encode())
+                    self.assertEqual(client.get(draft_url).status_code, 409)
+                finally:
+                    server.shutdown()
+                    worker.join(timeout=4)
