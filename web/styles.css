@@ -97,9 +97,9 @@ button:focus-visible, a:focus-visible, summary:focus-visible, textarea:focus-vis
   padding: 12px;
   color: var(--purple);
   background: var(--panel);
-  transform: translateY(-200%);
+  clip-path: inset(50%);
 }
-.skip-link:focus { transform: none; }
+.skip-link:focus { clip-path: none; }
 .visually-hidden {
   position: absolute;
   width: 1px;
