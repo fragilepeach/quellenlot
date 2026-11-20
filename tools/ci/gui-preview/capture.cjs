@@ -535,6 +535,75 @@ async function checkClaimDiff(browser) {
   }
 }
 
+async function checkLocalRun(browser) {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 960 } });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const origin = "http://127.0.0.1:8765";
+  const runId = "ab".repeat(16);
+  const runPath = "/api/runs/" + runId;
+  const articleUrl = "https://example.org/lokal";
+  const question = "Was sagt der Artikel?";
+  const record = {
+    run_id: runId, article_url: articleUrl, started_at: "2026-11-20T08:00:00Z",
+    status: "running", stage: "capture", has_report: false,
+  };
+  let polls = 0;
+  let payload;
+  const report = {
+    status: "partial",
+    retrievals: [{ status: "failed", requested_url: "https://example.org/missing", detail: "HTTP 403" }],
+    review: {
+      article_source_id: "article", sources: [{ source_id: "article", title: "Lokaler Prüfbericht" }],
+      question, claims: [], status: "no_claims",
+    },
+  };
+  await page.route(origin + "/**", async (route) => {
+    const { pathname } = new URL(route.request().url());
+    if (pathname === "/api/runs" && route.request().method() === "POST") {
+      payload = route.request().postDataJSON();
+      return route.fulfill({ status: 202, json: record });
+    }
+    if (pathname === "/api/runs") {
+      return route.fulfill({ json: payload ? [record] : [] });
+    }
+    if (pathname === runPath) {
+      polls += 1;
+      record.stage = "comparison";
+      if (polls > 1) {
+        record.status = "partial";
+        record.has_report = true;
+      }
+      return route.fulfill({ json: record });
+    }
+    if (pathname === runPath + "/report") return route.fulfill({ json: report });
+    if (pathname === "/") return route.fulfill({ path: join(repo, "web/index.html") });
+    return route.fulfill({ path: join(repo, "web", pathname.slice(1)) });
+  });
+  try {
+    await page.goto(origin);
+    const start = page.getByRole("button", { name: "Analyse starten", exact: true });
+    await start.waitFor();
+    await page.locator("#urls").fill(articleUrl + "\nhttps://example.org/missing");
+    await page.locator("#question").fill(question);
+    await start.click();
+    await page.getByText("Aussagen werden mit den Belegen verglichen …", { exact: true }).waitFor();
+    assert.equal(await start.isDisabled(), true);
+    await page.getByRole("heading", { name: "Lokaler Prüfbericht", exact: true }).waitFor();
+    assert.equal(payload.article_url, articleUrl);
+    assert.equal(payload.question, question);
+    assert.deepEqual(payload.comparison_urls, ["https://example.org/missing"]);
+    await page.getByText("HTTP 403", { exact: false }).waitFor();
+    assert.equal(await start.isEnabled(), true);
+    await page.getByText("Gespeicherte Analysen", { exact: true }).click();
+    await page.getByRole("link", { name: /Teilbericht.*example\.org\/lokal/ }).click();
+    await page.getByRole("heading", { name: "Lokaler Prüfbericht", exact: true }).waitFor();
+    assert.deepEqual(errors, []);
+  } finally {
+    await page.close();
+  }
+}
+
 function encodeGif(frames) {
   execFileSync(commands.ffmpeg, [
     "-hide_banner", "-loglevel", "error", "-y", "-filter_complex_threads", "1",
@@ -581,6 +650,7 @@ async function main() {
       await captureOverview(browser, 390, 844, "mobile.png");
       count = await captureWalkthrough(browser, frames);
       await checkImportOutcomes(browser);
+      await checkLocalRun(browser);
       await checkTheme(browser);
       await checkClaimDiff(browser);
     } finally {

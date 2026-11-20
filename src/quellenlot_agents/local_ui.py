@@ -1,0 +1,300 @@
+"""Serve a private browser interface for one local Quellenlot run at a time."""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import logging
+import os
+import re
+from contextlib import suppress
+from datetime import UTC, datetime
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from threading import Lock, Thread
+from typing import Final, Literal, cast
+from uuid import uuid4
+
+from pydantic import ValidationError
+
+from quellenlot_agents.article import ArticleStage, run_article_url_comparison
+from quellenlot_agents.config import WorkflowConfig, load_config
+from quellenlot_agents.models import ArticleUrlInput, ArticleUrlReport, ContractModel
+
+_LOG = logging.getLogger(__name__)
+_LOOPBACK: Final = "127.0.0.1"
+_JSON: Final = "application/json; charset=utf-8"
+_MAX_CASE_BYTES: Final = 256 * 1024
+_RUN_PATH: Final = re.compile(r"/api/runs/([0-9a-f]{32})(/report)?")
+_ASSETS: Final = {
+    "/": ("index.html", "text/html; charset=utf-8"),
+    "/index.html": ("index.html", "text/html; charset=utf-8"),
+    "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+    "/graph.js": ("graph.js", "text/javascript; charset=utf-8"),
+    "/theme.js": ("theme.js", "text/javascript; charset=utf-8"),
+    "/styles.css": ("styles.css", "text/css; charset=utf-8"),
+    "/fonts/IBMPlexMono-Regular.woff2": ("fonts/IBMPlexMono-Regular.woff2", "font/woff2"),
+    "/fonts/IBMPlexMono-SemiBold.woff2": ("fonts/IBMPlexMono-SemiBold.woff2", "font/woff2"),
+}
+
+
+class _RunStatus(ContractModel):
+    run_id: str
+    article_url: str
+    started_at: datetime
+    status: Literal["running", "complete", "partial", "failed", "no_claims", "interrupted"]
+    stage: ArticleStage = "capture"
+    has_report: bool = False
+    error: str | None = None
+
+
+def _save(path: Path, model: ContractModel) -> None:
+    """Replace the previous JSON only after writing the new document."""
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(model.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
+class _LocalRuns:
+    """Keep private result files and enforce one active run in this server."""
+
+    def __init__(self, directory: Path, config: WorkflowConfig) -> None:
+        self.directory = directory
+        self.config = config
+        self._lock = Lock()
+        self._active: str | None = None
+
+    def start(self, case: ArticleUrlInput) -> _RunStatus | None:
+        """Save a new case and start its background analysis."""
+        with self._lock:
+            if self._active is not None:
+                return None
+            run_id = uuid4().hex
+            folder = self.directory / run_id
+            folder.mkdir(mode=0o700)
+            case = case.model_copy(update={"case_id": run_id})
+            status = _RunStatus(
+                run_id=run_id,
+                article_url=str(case.article_url),
+                started_at=datetime.now(UTC),
+                status="running",
+            )
+            _save(folder / "case.json", case)
+            _save(folder / "status.json", status)
+            self._active = run_id
+            try:
+                Thread(target=self._run, args=(case, status.model_copy()), daemon=True).start()
+            except RuntimeError:
+                self._active = None
+                raise
+            return status
+
+    def _run(self, case: ArticleUrlInput, status: _RunStatus) -> None:
+        folder = self.directory / status.run_id
+
+        def progress(stage: ArticleStage, report: ArticleUrlReport | None) -> None:
+            if report is not None:
+                _save(folder / "report.json", report)
+                status.has_report = True
+            status.stage = stage
+            _save(folder / "status.json", status)
+
+        try:
+            report = asyncio.run(
+                run_article_url_comparison(case, self.config, on_progress=progress)
+            )
+            _save(folder / "report.json", report)
+            status.has_report = True
+            status.status = report.status
+            if (
+                report.status == "complete"
+                and report.review is not None
+                and report.review.editorial is not None
+                and report.review.editorial.status
+                in {"partial", "failed", "no_comparison_evidence"}
+            ):
+                status.status = "partial"
+        except Exception:
+            status.status = "failed"
+            status.error = "Die Analyse wurde abgebrochen. Details stehen im Serverprotokoll."
+            raise
+        finally:
+            with self._lock:
+                self._active = None
+                _save(folder / "status.json", status)
+
+    def read(self, folder: Path) -> _RunStatus:
+        """Recover a persisted run, including any checkpoint left after shutdown."""
+        with self._lock:
+            status = _RunStatus.model_validate_json((folder / "status.json").read_bytes())
+            if status.status == "running" and status.run_id != self._active:
+                status.status = "interrupted"
+            status.has_report = (folder / "report.json").is_file()
+            return status
+
+    def history(self) -> list[_RunStatus]:
+        """List persisted local runs, skipping records without valid metadata."""
+        runs: list[_RunStatus] = []
+        for folder in self.directory.iterdir():
+            if _RUN_PATH.fullmatch(f"/api/runs/{folder.name}") is None or not folder.is_dir():
+                continue
+            try:
+                runs.append(self.read(folder))
+            except (OSError, ValidationError):
+                continue
+        return sorted(runs, key=lambda run: run.started_at, reverse=True)
+
+
+class LocalServer(ThreadingHTTPServer):
+    """Serve the browser client and its local review data over loopback."""
+
+    def __init__(self, port: int, assets: Path, directory: Path, config: WorkflowConfig) -> None:
+        """Bind a local server to the selected port.
+
+        Args:
+            port: Loopback TCP port, or zero to request an available port.
+            assets: Directory holding the browser interface files.
+            directory: Existing directory for private run records.
+            config: Model and search settings used by the article workflow.
+        """
+        self.assets = assets
+        self.runs = _LocalRuns(directory, config)
+        super().__init__((_LOOPBACK, port), _LocalHandler)
+
+    @property
+    def origin(self) -> str:
+        """Return the only host and port that can reach the local browser API.
+
+        Returns:
+            The browser origin of this loopback server.
+        """
+        return f"http://{_LOOPBACK}:{self.server_port}"
+
+
+class _LocalHandler(BaseHTTPRequestHandler):
+    def _send(self, status: HTTPStatus, body: bytes, content_type: str = _JSON) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _error(self, status: HTTPStatus, message: str) -> None:
+        self._send(status, json.dumps({"error": message}).encode("utf-8"))
+
+    def _authorized(self, *, mutation: bool = False) -> bool:
+        origin = cast("LocalServer", self.server).origin
+        request_origin = self.headers.get("Origin")
+        if (
+            self.headers.get("Host") == origin.removeprefix("http://")
+            and (request_origin == origin or (not mutation and request_origin is None))
+            and self.headers.get("Sec-Fetch-Site") != "cross-site"
+        ):
+            return True
+        self._error(HTTPStatus.FORBIDDEN, "Diese Anfrage muss von der lokalen Oberfläche kommen.")
+        return False
+
+    def do_GET(self) -> None:
+        """Serve the interface or a local run resource."""
+        if not self._authorized():
+            return
+        server = cast("LocalServer", self.server)
+        path = self.path.split("?", 1)[0]
+        asset = _ASSETS.get(path)
+        run_path = _RUN_PATH.fullmatch(path)
+        try:
+            if asset is not None:
+                filename, content_type = asset
+                self._send(HTTPStatus.OK, (server.assets / filename).read_bytes(), content_type)
+            elif path == "/api/runs":
+                body = [status.model_dump(mode="json") for status in server.runs.history()]
+                self._send(HTTPStatus.OK, json.dumps(body).encode("utf-8"))
+            elif run_path is not None:
+                run_id, report = run_path.groups()
+                folder = server.runs.directory / run_id
+                body_bytes = (
+                    (folder / "report.json").read_bytes()
+                    if report is not None
+                    else server.runs.read(folder).model_dump_json().encode("utf-8")
+                )
+                self._send(HTTPStatus.OK, body_bytes)
+            else:
+                self._error(HTTPStatus.NOT_FOUND, "Eintrag nicht gefunden.")
+        except FileNotFoundError:
+            self._error(HTTPStatus.NOT_FOUND, "Eintrag nicht gefunden.")
+        except (OSError, ValidationError):
+            _LOG.exception("Could not read local resource")
+            self._error(
+                HTTPStatus.INTERNAL_SERVER_ERROR, "Der lokale Eintrag konnte nicht gelesen werden."
+            )
+
+    def do_POST(self) -> None:
+        """Validate one browser submission and start the local pipeline."""
+        if not self._authorized(mutation=True):
+            return
+        if self.path != "/api/runs":
+            self._error(HTTPStatus.NOT_FOUND, "Eintrag nicht gefunden.")
+            return
+        if self.headers.get_content_type() != "application/json":
+            self._error(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Die Anfrage muss JSON enthalten.")
+            return
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            size = 0
+        if not 0 < size <= _MAX_CASE_BYTES:
+            self._error(HTTPStatus.BAD_REQUEST, "Die Anfrage ist leer oder zu groß.")
+            return
+        try:
+            case = ArticleUrlInput.model_validate_json(self.rfile.read(size))
+        except ValidationError:
+            self._error(HTTPStatus.BAD_REQUEST, "Die Anfrage enthält ungültige Eingaben.")
+            return
+        try:
+            status = cast("LocalServer", self.server).runs.start(case)
+        except (OSError, RuntimeError):
+            _LOG.exception("Could not start local run")
+            self._error(
+                HTTPStatus.INTERNAL_SERVER_ERROR, "Die Analyse konnte nicht gestartet werden."
+            )
+            return
+        if status is None:
+            self._error(HTTPStatus.CONFLICT, "Es läuft bereits eine Analyse.")
+            return
+        self._send(HTTPStatus.ACCEPTED, status.model_dump_json().encode("utf-8"))
+
+
+def main() -> None:
+    """Start the local browser server with a model configuration and run directory."""
+    parser = argparse.ArgumentParser(description="Serve Quellenlot on the local machine.")
+    parser.add_argument("--config", type=Path, required=True, help="TOML file with five models.")
+    parser.add_argument(
+        "--web-dir", type=Path, default=Path("web"), help="Checkout's web directory."
+    )
+    parser.add_argument("--port", type=int, default=8765, help="Local browser port.")
+    data_home = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local/share"))
+    parser.add_argument("--runs-dir", type=Path, default=data_home / "quellenlot/runs")
+    args = parser.parse_args()
+    try:
+        config = load_config(args.config)
+        assets = cast("Path", args.web_dir).resolve()
+        directory = cast("Path", args.runs_dir).resolve()
+        if not (assets / "index.html").is_file():
+            parser.error("Pass --web-dir or start from the Quellenlot checkout.")
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        server = LocalServer(args.port, assets, directory, config)
+    except (OSError, ValueError, OverflowError) as exc:
+        parser.error(str(exc))
+    with server:
+        _LOG.warning("Open %s in your browser. Runs are saved under %s.", server.origin, directory)
+        with suppress(KeyboardInterrupt):
+            server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

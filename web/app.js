@@ -161,6 +161,11 @@ function renderReport(report) {
   $("case-question").textContent = report.question || "";
   $("empty-report").textContent = report.empty || "";
   $("empty-report").hidden = !report.empty;
+  $("retrieval-issues-list").replaceChildren(...(report.retrievalIssues || []).map((record) =>
+    element("li", "", [record.requested_url, record.detail].filter(Boolean).join(" · "))
+  ));
+  $("retrieval-issues").hidden = !report.retrievalIssues?.length;
+  $("retrieval-issues").open = Boolean(report.empty && report.retrievalIssues?.length);
   $("workspace").hidden = Boolean(report.empty);
   $("summary-text").replaceChildren(...report.summary.map((part) => {
     if (typeof part === "string") return document.createTextNode(part);
@@ -882,17 +887,23 @@ function normalizedSummary(items, claims) {
 function readReport(data) {
   const retrievalReport = Array.isArray(data?.retrievals);
   const report = retrievalReport ? data.review : data;
-  if (retrievalReport && data.status === "failed" && !report) {
-    const failure = data.retrievals.find((item) => item.status === "failed");
+  const retrievalIssues = retrievalReport
+    ? data.retrievals.filter((item) => item.status === "failed" || item.status === "partial")
+    : [];
+  if (retrievalReport && !report && ["failed", "partial"].includes(data.status)) {
+    const failed = data.status === "failed";
+    const original = data.retrievals.find((item) => item.source_id === "article");
     return {
-      meta: "Importierter Bericht · Abruf fehlgeschlagen",
-      title: "Artikel konnte nicht gelesen werden",
+      meta: failed ? "Importierter Bericht · Abruf fehlgeschlagen" : "Importierter Bericht · Teilbericht",
+      title: original?.snapshot?.title || "Artikel konnte nicht gelesen werden",
       question: data.question,
       summary: [],
       claims: [],
-      empty: failure?.requested_url
-        ? "Der angegebene Artikel konnte nicht abgerufen werden: " + failure.requested_url
-        : "Der Bericht enthält keinen auswertbaren Artikel.",
+      retrievalIssues,
+      provenance: readSourceProvenance(data),
+      empty: failed
+        ? "Der Bericht enthält keinen auswertbaren Artikel."
+        : "Die Quellen wurden erfasst. Für diesen Lauf liegt noch kein Aussagenvergleich vor.",
     };
   }
   if (typeof report?.article_source_id !== "string" || !Array.isArray(report?.sources) || !Array.isArray(report?.claims)) {
@@ -938,6 +949,7 @@ function readReport(data) {
       : ["Dieser Agentenbericht enthält keine ausformulierte Artikelzusammenfassung."],
     generatedSummary: summary.length > 0,
     claims,
+    retrievalIssues,
     provenance: retrievalReport ? readSourceProvenance(data) : null,
     empty: claims.length ? "" : empty,
   };
@@ -994,6 +1006,26 @@ $("back-to-claim").addEventListener("click", () => {
 
 let latestImport = 0;
 
+async function showReportBytes(bytes, importId) {
+  if (bytes.byteLength > 50_000_000) throw new Error("Die Datei ist größer als 50 MB.");
+  let data;
+  try {
+    data = JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    throw new Error("Die Datei enthält kein lesbares JSON.");
+  }
+  const report = readReport(data);
+  if (report.privateReview && globalThis.crypto?.subtle) {
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    report.privateReview.digest = Array.from(new Uint8Array(digest), (value) =>
+      value.toString(16).padStart(2, "0")
+    ).join("");
+  }
+  if (importId !== latestImport) return;
+  renderReport(report);
+  $("case-title").focus();
+}
+
 $("demo").addEventListener("click", () => {
   latestImport += 1;
   $("file-feedback").textContent = "";
@@ -1012,24 +1044,9 @@ $("report-file").addEventListener("change", async (event) => {
   feedback.classList.remove("error");
   try {
     if (file.size > 50_000_000) throw new Error("Die Datei ist größer als 50 MB.");
-    const bytes = await file.arrayBuffer();
-    let data;
-    try {
-      data = JSON.parse(new TextDecoder().decode(bytes));
-    } catch {
-      throw new Error("Die Datei enthält kein lesbares JSON.");
-    }
-    const report = readReport(data);
-    if (report.privateReview && globalThis.crypto?.subtle) {
-      const digest = await crypto.subtle.digest("SHA-256", bytes);
-      report.privateReview.digest = Array.from(new Uint8Array(digest), (value) =>
-        value.toString(16).padStart(2, "0")
-      ).join("");
-    }
+    await showReportBytes(await file.arrayBuffer(), importId);
     if (importId !== latestImport) return;
-    renderReport(report);
     feedback.textContent = "Bericht geöffnet.";
-    $("case-title").focus();
   } catch (error) {
     if (importId !== latestImport) return;
     feedback.classList.add("error");
@@ -1073,12 +1090,14 @@ $("release-form").addEventListener("submit", (event) => {
 
 $("urls").addEventListener("input", () => {
   $("urls").removeAttribute("aria-invalid");
+  if ($("submit-case").disabled) return;
   $("form-feedback").classList.remove("error");
   $("form-feedback").textContent = "";
 });
 
-$("composer").addEventListener("submit", (event) => {
+$("composer").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if ($("submit-case").disabled) return;
   const lines = $("urls").value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const urls = lines.map(safeUrl);
   const feedback = $("form-feedback");
@@ -1097,9 +1116,128 @@ $("composer").addEventListener("submit", (event) => {
   const question = $("question").value.trim();
   const payload = { case_id: "artikel-" + Date.now(), article_url, comparison_urls };
   if (question) payload.question = question;
+  if (localRuns) {
+    $("submit-case").disabled = true;
+    try {
+      const run = await startLocalRun(payload);
+      followLocalRun(run);
+    } catch (error) {
+      $("submit-case").disabled = false;
+      localRunFeedback(error.message, true);
+    }
+    return;
+  }
   downloadJson(payload, "case.json");
   feedback.classList.remove("error");
   feedback.textContent = "case.json gespeichert. Lade hier anschließend den Bericht des lokalen Agenten.";
 });
 
+let localRuns = false;
+const runStages = {
+  capture: "Quellen werden abgerufen …",
+  extraction: "Aussagen werden aus dem Artikel ermittelt …",
+  provenance: "Vergleichsquellen und Verweise werden ermittelt …",
+  comparison: "Aussagen werden mit den Belegen verglichen …",
+  editorial: "Die redaktionelle Prüfung wird erstellt …",
+};
+const runLabels = {
+  running: "Läuft",
+  complete: "Abgeschlossen",
+  partial: "Teilbericht",
+  no_claims: "Keine prüfbaren Aussagen",
+  failed: "Fehlgeschlagen",
+  interrupted: "Unterbrochen",
+};
+
+function localRunFeedback(message, isError = false) {
+  const feedback = $("form-feedback");
+  feedback.classList.toggle("error", isError);
+  if (feedback.textContent !== message) feedback.textContent = message;
+}
+
+async function localRequest(path, options) {
+  const response = await fetch(path, options);
+  if (!response.ok) {
+    const body = await response.json();
+    throw new Error(body.error || "Der lokale Lauf konnte nicht geladen werden.");
+  }
+  return response;
+}
+
+async function startLocalRun(payload) {
+  localRunFeedback("Analyse wird gestartet …");
+  const response = await localRequest("/api/runs", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+  });
+  const run = await response.json();
+  const address = new URL(location.href);
+  address.searchParams.set("run", run.run_id);
+  history.replaceState(null, "", address);
+  return run;
+}
+
+function listLocalRuns(runs) {
+  $("run-list").replaceChildren(...runs.map((run) => {
+    const item = element("li");
+    const date = new Date(run.started_at).toLocaleString("de-DE");
+    const link = element("a", "source-link", [date, runLabels[run.status], run.article_url].join(" · "));
+    link.href = "?run=" + encodeURIComponent(run.run_id);
+    item.append(link);
+    return item;
+  }));
+  $("run-history").hidden = !runs.length;
+}
+
+async function followLocalRun(run) {
+  if (run.status === "running") {
+    $("submit-case").disabled = true;
+    localRunFeedback(runStages[run.stage] || "Analyse läuft …");
+    setTimeout(async () => {
+      try {
+        const response = await localRequest("/api/runs/" + encodeURIComponent(run.run_id));
+        followLocalRun(await response.json());
+      } catch {
+        setTimeout(() => followLocalRun(run), 2000);
+      }
+    }, 1000);
+    return;
+  }
+
+  $("submit-case").disabled = false;
+  const outcome = run.error || `Analyse: ${runLabels[run.status] || run.status}.`;
+  localRunFeedback(outcome, run.status === "failed" || run.status === "interrupted");
+  const importId = ++latestImport;
+  try {
+    if (run.has_report) {
+      const response = await localRequest("/api/runs/" + encodeURIComponent(run.run_id) + "/report");
+      await showReportBytes(await response.arrayBuffer(), importId);
+    }
+  } catch (error) {
+    localRunFeedback(error.message, true);
+  }
+  try {
+    listLocalRuns(await (await localRequest("/api/runs")).json());
+  } catch {
+    // The loaded report stays open if the history cannot be refreshed.
+  }
+}
+
+async function initializeLocalRuns() {
+  if (location.protocol !== "http:" || location.hostname !== "127.0.0.1") return;
+  try {
+    const runs = await (await localRequest("/api/runs")).json();
+    if (!Array.isArray(runs)) return;
+    localRuns = true;
+    $("submit-case").textContent = "Analyse starten";
+    localRunFeedback("");
+    listLocalRuns(runs);
+    const requestedId = new URLSearchParams(location.search).get("run");
+    const run = runs.find((item) => item.run_id === requestedId) || runs.find((item) => item.status === "running");
+    if (run) followLocalRun(run);
+  } catch {
+    // Plain static hosting continues to offer the JSON download and import workflow.
+  }
+}
+
 renderReport(demo);
+initializeLocalRuns();
