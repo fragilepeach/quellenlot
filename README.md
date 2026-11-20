@@ -214,14 +214,21 @@ Quellenlot includes a local agent library, a CLI, and a loopback browser interfa
 
 Run **Quellenlot Ollama CPU benchmark** in GitHub Actions. The job requires a
 repository runner with the `self-hosted`, `linux`, `docker`, and `x64` labels.
-Allow roughly 75 GB of temporary Docker disk space for the five local model downloads.
-The isolated container caps RAM at the smaller of 26 GiB and 85% of Docker's
+The benchmark branch can also start the job with an explicit
+`[run-quellenlot-benchmark]` commit message marker.
+
+Allow roughly 75 GB of Docker disk space when populating the
+`quellenlot-ollama-models` volume for the first time on each Docker host. Later runs
+use the weights already in that host's volume and download only missing model tags.
+The model volume survives temporary benchmark containers and runner restarts.
+A Docker volume prune that removes unused named volumes will clear the cache.
+Downloads are outside the timed benchmark. The isolated container caps RAM at the smaller of 26 GiB and 85% of Docker's
 available system memory. It runs one model request at a time with CPU inference,
 8,192 context tokens and the production provider's per-request model unload.
 
 The fixed German Tankrabatt fixture uses attributed summaries and short quotes
 from Motor1, ADAC and ifo. Three repetitions run the production claim analysis
-and peer review. The artifact contains PNG and PDF plots, raw request timings,
+and peer review. The artifact contains SVG, PNG and PDF plots, raw request timings,
 model digests and quantizations, and the per-repetition review reports. Request
 latency includes Ollama load, prompt evaluation and generation. Peak RAM is the
 maximum sampled combined Ollama process RSS, which may include shared pages.

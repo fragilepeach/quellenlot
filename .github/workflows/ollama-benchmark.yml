@@ -4,9 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [codex/self-hosted-ollama-benchmark]
-    paths:
-      - '.github/workflows/ollama-benchmark.yml'
-      - 'tools/ci/ollama-benchmark/**'
 
 permissions:
   contents: read
@@ -17,6 +14,9 @@ concurrency:
 
 jobs:
   benchmark:
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          contains(github.event.head_commit.message, '[run-quellenlot-benchmark]') }}
     runs-on: [self-hosted, linux, docker, x64]
     timeout-minutes: 480
     env:
@@ -41,7 +41,7 @@ jobs:
           cleanup() {
             if docker inspect "$container" >/dev/null 2>&1; then
               docker cp "$container:/results/." "$output/" || true
-              docker rm -f -v "$container" >/dev/null
+              docker rm -f "$container" >/dev/null
             fi
             docker image rm "$image" >/dev/null 2>&1 || true
           }
@@ -54,6 +54,8 @@ jobs:
             limit=$cap
           fi
           docker run -d --init --name "$container" --memory "$limit" --memory-swap "$limit" \
+            --mount type=volume,source=quellenlot-ollama-models,target=/ollama-models \
+            -e OLLAMA_MODELS=/ollama-models \
             -e BENCHMARK_REPETITIONS -e BENCHMARK_COMMIT -e BENCHMARK_MEMORY_BYTES="$limit" \
             "$image" sleep infinity
           docker exec -i "$container" bash -seu <<'BENCHMARK'
@@ -69,6 +71,11 @@ jobs:
           ollama list
           mapfile -t models < <(python -c "import tomllib; print('\n'.join(m['model'] for m in tomllib.load(open('config.example.toml', 'rb'))['models']))")
           for model in "${models[@]}"; do
+            if ollama show "$model" >/dev/null 2>&1; then
+              echo "Using cached Ollama model $model"
+              continue
+            fi
+            echo "Downloading missing Ollama model $model"
             if ! ollama pull "$model" > /tmp/ollama-pull.log 2>&1; then
               tail -c 2000 /tmp/ollama-pull.log
               echo "::warning::Could not pull $model. Its requests will be recorded as failed."
