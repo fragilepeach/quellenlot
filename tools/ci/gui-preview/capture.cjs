@@ -357,15 +357,48 @@ async function checkClaimDiff(browser) {
       ],
     },
   };
+  const finding = { finding_id: "claim-1-finding-1", source_id: news.source_id, relation: "qualifies" };
+  report.editorial = {
+    status: "partial",
+    claims: [{ claim_id: first.claim_id, assigned_findings: [finding], unresolved_finding_ids: [finding.finding_id] }],
+    assessments: [{
+      agent_id: "eins", status: "succeeded",
+      claims: [{
+        claim_id: first.claim_id, assessment: "Die Angaben weichen voneinander ab.",
+        findings: [{ finding_id: finding.finding_id, outcome: "unclear", reasoning: "Öffnungszeiten unbekannt." }],
+      }],
+    }],
+  };
+  const study = snapshot("study", "Offizielle Studie", "2025-01-31");
+  const anchor = "Link zur Studie";
+  const bundle = {
+    status: "partial",
+    review: report,
+    retrievals: [original, news, study].map((source) => ({
+      source_id: source.source_id, status: "captured", snapshot: { ...source, text: anchor },
+    })),
+    provenance: {
+      citations: [original, news].map((source) => ({
+        citing_source_id: source.source_id, citing_version_id: source.version_id,
+        cited_source_id: study.source_id, link: { anchor },
+      })),
+    },
+  };
   for (const width of [1280, 390]) {
     const { page, errors } = await openDemo(browser, { width, height: 900 });
     try {
       await page.locator("#report-file").setInputFiles({
-        name: "claim-diff.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(report)),
+        name: "claim-diff.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(bundle)),
       });
       const rows = page.locator("#diff-sources > li");
       const names = rows.locator("button");
       await names.first().waitFor();
+      await page.locator(".source-provenance").getByText("2 Quellen verlinken dieses Ziel.").waitFor();
+      const privateReview = page.locator("#private-review");
+      await privateReview.getByText(first.review.claim, { exact: true }).click();
+      await privateReview.getByText("In der Schlussprüfung umstritten oder unklar.").waitFor();
+      assert.ok(await privateReview.locator("#release-form").isVisible());
+      assert.ok(await privateReview.getByRole("button", { name: "Freigabeentwurf speichern" }).isDisabled());
       assert.deepEqual(await names.allTextContents(), ["Stadtmitteilung", "Bibliothek aktuell", "Stadtteilbrief", "Lokalzeitung", "Unvollständiger Archivtext", "Archiv"]);
       assert.match(await rows.nth(1).textContent(), /Veröffentlicht 02\.02\.2025Aktualisiert 03\.02\.2025/);
       assert.match(await rows.nth(2).textContent(), /Nicht behandelt/);
