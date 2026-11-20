@@ -698,9 +698,10 @@ async function checkLocalRun(browser) {
     assert.equal(await studies.getByRole("link", { name: "Studie zur Weitergabe", exact: true }).getAttribute("href"), "https://doi.org/10.1234/fuel");
     for (const [width, filename] of [[1280, "studies.png"], [390, "studies-mobile.png"]]) {
       await page.setViewportSize({ width, height: 1120 });
-      await studies.evaluate((panel) => panel.scrollIntoView({ block: "start" }));
       await page.evaluate(() => document.fonts.ready);
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+      // The source graph repositions its nodes in a ResizeObserver.
+      await page.waitForFunction(() => document.documentElement.scrollWidth === window.innerWidth);
+      await studies.evaluate((panel) => panel.scrollIntoView({ block: "start" }));
       assert.ok(await studies.getByRole("link", { name: "Studie zur Weitergabe" }).isVisible());
       await page.screenshot({ ...screenshotOptions, path: join(output, filename) });
     }

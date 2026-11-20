@@ -62,6 +62,7 @@ if [[ "${GITHUB_REPOSITORY:-}" == fragilepeach/quellenlot && "${GITHUB_REF:-}" =
   db02e49ee001104891d8ab072c4955a916025195 refs/heads/codex/topic-trends
   a056463b029ee0ca2caedcd4aa6ba539e4c6a003 refs/heads/codex/url-source-intake
   cf9bdf9cb7ee67606eb2eaffb13ffa3694c18378 refs/heads/feat/retro-dark-theme
+  39c995c5f827ed46a60e47b88ecb454397629f00 refs/heads/codex/studies-mobile-preview
 VERIFIED_MERGED_REFS
   if (( ${#deletions[@]} )); then
     git push --atomic "${leases[@]}" origin "${deletions[@]}"
