@@ -23,7 +23,7 @@ Open `web/index.html` in a modern browser. The prototype uses local HTML, CSS an
 
 ## How the previews are generated
 
-The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates and mobile focus behavior before uploading the screenshots and GIF. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
+The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks claim selection, source links, document dates, mobile focus and the imported claim diff before uploading the screenshots and GIF. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
 
 Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`.
 
@@ -64,7 +64,11 @@ Save the form as `case.json`, then run the existing CLI from an environment with
 quellenlot-agents --config models.toml --input case.json --output report.json
 ```
 
-Open `report.json` with **Bericht öffnen**. Both article report shapes are supported, including partial runs, failed URL retrieval and runs with no extractable claims. The current evidence section shows model-level observations and mechanically verified passages from the report. New article reports can include a model-written summary linked to the article’s original wording. Select a sentence to open its claim and article quote. Older reports still open with the extracted claims. Automatic source-to-source links require provenance in the report. Model agreement is never rendered as a truth rating.
+Open `report.json` with **Bericht öffnen**. Both article report shapes are supported, including partial runs, failed URL retrieval and runs with no extractable claims. When the report includes a model-written summary, select a sentence to open its claim and article quote. Older reports still open with their extracted claims and source judgments.
+
+**Quellenvergleich** orders the selected claim's sources by publication day and displays update dates alongside them. Sources with unknown publication dates appear last. Select a source to read each model's reasoning and inspect the capture time and snapshot version. **Nicht behandelt** means a model found no coverage in the supplied text. **Nicht beurteilbar** also covers omissions that could not be assessed from an incomplete excerpt.
+
+Repeated verified quotations link to one excerpt with a link for each source. **Mögliche Textübernahme** shows RapidFuzz matches linked to the selected claim's citations. Expand a match to see the original passages and highlighted wording changes. A match can reflect common wording or a common upstream source. Publication and update dates establish the visible chronology of the sources. The exact origin of the wording requires separate evidence.
 
 ## Usability test before backend integration
 
