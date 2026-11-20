@@ -17,6 +17,8 @@ Open `web/index.html` to explore the Tankrabatt case. Select a highlighted claim
 
 [GUI guide and mobile preview](web/README.md) · [Capture provenance](docs/images/generated/manifest.json)
 
+After approving an editorial draft in the local GUI, open **Leservorschau öffnen** to see the reader-facing page. **HTML herunterladen** saves that view as standalone HTML. [Editorial review and export guide](web/README.md#private-editorial-review)
+
 Open **Programme & Abstimmungen** to compare party programme wording with motions, Bundestag roll calls, and later laws. The first case covers Germany's 2025 debt-rule changes and the infrastructure fund.
 
 <details>
@@ -187,7 +189,7 @@ The editorial status describes assessment coverage. Unresolved disagreements rem
 
 ## Development checks
 
-Update the relevant documentation in the same pull request as every new feature. Cover usage, configuration, and limitations that affect users. For GUI changes, refresh the affected screenshots and walkthroughs through the preview workflow.
+Update this README and any relevant feature guides in the same pull request as every new feature. Cover usage, configuration, and limitations that affect users. For GUI changes, refresh the affected screenshots and walkthroughs through the preview workflow.
 
 ```bash
 python -m pip install -e ".[dev]"
