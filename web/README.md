@@ -2,6 +2,8 @@
 
 Open `web/index.html` in a modern browser. The prototype uses local HTML, CSS and JavaScript with no build step. The Tankrabatt case opens by default. Its input article and summary are written for the demo. Its evidence passages and external links come from published sources.
 
+Quellenlot opens in dark mode. Use **Dunkles Design** in the header to switch between dark and light. The browser remembers your selection when local storage is available. Headings and evidence quotations use IBM Plex Mono, bundled under its [Open Font License](fonts/IBM-Plex-Mono-OFL.txt).
+
 ## Screenshots and walkthrough
 
 ![Desktop view showing the Tankrabatt summary and the selected claim's evidence and citation path](../docs/images/generated/desktop.png)
@@ -23,7 +25,7 @@ Open `web/index.html` in a modern browser. The prototype uses local HTML, CSS an
 
 ## How the previews are generated
 
-The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates and mobile focus behavior before uploading the screenshots and GIF. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
+The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates, mobile focus behavior, theme switching and offline font loading before uploading the dark-mode screenshots and GIF. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
 
 Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`.
 
