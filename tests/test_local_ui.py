@@ -74,6 +74,9 @@ class LocalUiTests(unittest.TestCase):
                     response = client.get("/")
                     self.assertEqual(response.status_code, 200)
                     self.assertEqual(response.headers["X-Frame-Options"], "DENY")
+                    for asset in ("parliament.html", "parliament.js", "parliament-data.js"):
+                        self.assertEqual(client.get("/" + asset).status_code, 200)
+                    self.assertEqual(client.get("/parliament.css").status_code, 200)
                     blocked_host = client.get("/api/runs", headers={"Host": "example.org"})
                     self.assertEqual(blocked_host.status_code, 403)
                     for headers in ({}, {"Origin": "https://example.org"}):

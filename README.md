@@ -17,6 +17,15 @@ Open `web/index.html` to explore the Tankrabatt case. Select a highlighted claim
 
 [GUI guide and mobile preview](web/README.md) · [Capture provenance](docs/images/generated/manifest.json)
 
+Open **Programme & Abstimmungen** to compare party programme wording with motions, Bundestag roll calls, and later laws. The first case covers Germany's 2025 debt-rule changes and the infrastructure fund.
+
+<details>
+<summary>Preview the parliamentary comparison</summary>
+
+![Quellenlot comparing programme excerpts, selected caucus votes, and later laws on the 2025 debt-rule changes](docs/images/generated/parliament.png)
+
+</details>
+
 ## Workflow
 
 1. Supply an explicit claim or an original article. In article mode, the first model that returns a valid extraction supplies up to five distinct claims anchored to exact quotes. An optional question guides claim selection.

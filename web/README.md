@@ -24,11 +24,19 @@ Quellenlot opens in dark mode. Use **Dunkles Design** in the header to switch be
 
 ![Animated walkthrough from the highlighted Tankrabatt claim to the TU Dresden passage and its cited Freitas–Syga study](../docs/images/generated/usage.gif)
 
+## Party programmes and parliamentary records
+
+Choose **Programme & Abstimmungen** from the header. In the first case, compare the CDU/CSU and SPD programme excerpts on the debt rule and optionally answer the policy statement yourself. The comparison distinguishes a clear programme position from an open interpretation. Your answer stays in the open page.
+
+Follow the timeline to compare the FDP amendment with the subsequent final vote. Each roll call links its parliamentary text, official voting record, and the available debate context. The tables include the total and the selected caucuses, with non-votes shown separately from abstentions. The last records link the constitutional amendment's publication and the later law establishing the infrastructure fund.
+
+Cases are curated in [parliament-data.js](parliament-data.js). To add a case, supply exact programme and motion excerpts, document locators, dated records, verified vote totals, and later actions with primary-source links. Keep editorial interpretations explicit about whether a programme addresses the precise policy in the statement. The interface supports multiple cases through a case picker.
+
 ## How the previews are generated
 
 The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the built-in demo in headless Chromium. It checks the claim selection, excerpt, source graph, document dates, mobile focus behavior, theme switching, offline font loading and the imported claim diff before uploading the dark-mode screenshots and the 20 fps walkthrough GIF. The walkthrough holds the evidence on screen and animates scrolling and node dragging. It also imports a single report containing the claim diff, an upstream citation shared by two sources, and an unresolved private editorial review at desktop and mobile widths. The [capture manifest](../docs/images/generated/manifest.json) records the tested source revision, output dimensions, and SHA-256 hashes.
 
-Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`. The artifact also includes a screenshot of the private editorial review with fixture data.
+Pull requests that change the prototype or its capture workflow get a **quellenlot-gui-previews** artifact under the Actions run. The workflow refreshes the repository images after a successful capture on `main` when the media bytes change. The same workflow can be run manually for `main`. The artifact also includes a screenshot of the private editorial review with fixture data and a [preview of the parliamentary comparison](../docs/images/generated/parliament.png). Chromium checks the parliamentary view at desktop and small mobile widths.
 
 To generate the files locally from the repository root, install Node.js and FFmpeg (including `ffprobe`), then run:
 

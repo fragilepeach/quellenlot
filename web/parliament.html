@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Quellenlot · Programme &amp; Abstimmungen</title>
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="parliament.css">
+  <script src="parliament-data.js" defer></script>
+  <script src="parliament.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Zum Inhalt</a>
+  <header class="masthead">
+    <div class="shell masthead-inner">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>quellenlot</div>
+      <button id="theme-toggle" class="outline-button theme-toggle" type="button" aria-pressed="true" hidden>Dunkles Design</button>
+      <nav class="masthead-actions" aria-label="Ansichten">
+        <a class="parliament-nav" href="index.html">Artikel prüfen</a>
+      </nav>
+    </div>
+  </header>
+  <main id="main" class="shell parliament">
+    <h1>Programme &amp; Abstimmungen</h1>
+    <label id="parliament-case-picker" hidden>Fall <select id="parliament-case"></select></label>
+    <p id="parliament-scope" class="case-meta"></p>
+    <h2 id="parliament-title"></h2>
+    <fieldset class="card position-card" id="parliament-stance">
+      <legend id="parliament-proposition"></legend>
+      <div class="position-options">
+        <label><input type="radio" name="parliament-position" value="agree"> Stimme zu</label>
+        <label><input type="radio" name="parliament-position" value="neutral"> Unentschieden</label>
+        <label><input type="radio" name="parliament-position" value="disagree"> Stimme nicht zu</label>
+      </div>
+    </fieldset>
+    <section aria-labelledby="programmes-title">
+      <h2 id="programmes-title">Wahlprogramme im Vergleich</h2>
+      <div class="programme-grid" id="programme-comparisons"></div>
+    </section>
+    <section aria-labelledby="records-title">
+      <h2 id="records-title">Parlamentarischer Verlauf</h2>
+      <p id="parliament-context"></p>
+      <ol id="parliament-records"></ol>
+    </section>
+  </main>
+</body>
+</html>
