@@ -17,6 +17,8 @@ Open `web/index.html` to explore the Tankrabatt case. Select a highlighted claim
 
 [GUI guide and mobile preview](web/README.md) · [Capture provenance](docs/images/generated/manifest.json)
 
+In the local GUI, **Thementrends und Ereignisse** can find the strongest recent daily spike in news coverage or imported search interest and suggest nearby articles from GDELT. The timeline keeps the GDELT index date separate from the event date you confirm. [Topic trends and event suggestions](web/README.md#topic-trends-and-events)
+
 After approving an editorial draft in the local GUI, open **Leservorschau öffnen** to see the reader-facing page. **HTML herunterladen** saves that view as standalone HTML. [Editorial review and export guide](web/README.md#private-editorial-review)
 
 In a saved local analysis, select a claim and choose **Studien suchen** to find candidate papers and see which source text was available. [Claim study guide](web/README.md#studies-for-a-claim)

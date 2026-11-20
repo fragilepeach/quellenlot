@@ -136,6 +136,10 @@ Open **Thementrends und Ereignisse** above the article review. When using the lo
 
 Import a single-series **Interesse im zeitlichen Verlauf** CSV exported by Google Trends for search interest, including older periods. English and German daily, weekly, and monthly exports are accepted. Data remain in the browser tab. The search index and GDELT share retain separate scales. The charts leave gaps for unavailable values and dates.
 
+After loading daily data in the local GUI, select **Medienausschlag untersuchen** or **Suchausschlag untersuchen**. Quellenlot ranks peaks from the last 90 UTC days by their rise above the mean of both neighboring days. A peak must exceed both neighbors and reach at least 125% of their mean. Weekly and monthly exports remain available for viewing and manual annotation.
+
+When you start a search, Quellenlot sends the topic, language and a window of up to two days on either side of the strongest eligible peak to GDELT. For a CSV, set the topic and language in the news form first. Up to five results display the date GDELT indexed each article. Choose **Beleg übernehmen** to copy the article title and link into the event form, then check the source and enter the actual event date before saving. Temporal proximity alone does not establish causation. The preview workflow includes desktop and mobile screenshots with fixture suggestions.
+
 Add an event with its documented date, title, and evidence URL. Publication dates from the open report appear as **Veröffentlichung**. Select a date in the list to highlight it on each applicable chart. Events and imported series stay in the current browser tab until reload.
 
 - [GDELT DOC 2.0 timeline documentation](https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/)

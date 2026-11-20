@@ -901,25 +901,30 @@ async function checkParliament(browser) {
 
 async function checkTopicTrends(browser) {
   const origin = "http://127.0.0.1:8765";
+  const date = (daysAgo) => new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
+  const [start, gap, neighbor, peak, after, end] = [16, 15, 14, 13, 12, 11].map(date);
+  const lead = { title: "Bericht aus dem Suchfenster", url: "https://example.org/zeitung", indexed_date: after };
   const news = {
     label: "Tankrabatt",
     source_url: "https://api.gdeltproject.org/api/v2/doc/doc?query=Tankrabatt",
     points: [
-      { date: "2026-11-04", value: 0 },
-      { date: "2026-11-06", value: 0.12 },
-      { date: "2026-11-07", value: 0.04 },
+      { date: start, value: 0 },
+      { date: neighbor, value: 0.02 },
+      { date: peak, value: 0.12 },
+      { date: after, value: 0.04 },
     ],
   };
   const publication = {
     source_id: "article", title: "Beispielbericht", url: "https://example.org/artikel",
-    published_at: { value: "2026-11-04" },
+    published_at: { value: start },
   };
-  const csv = "Kategorie: Alle Kategorien\n\nTag,Tankrabatt: (Deutschland)\n2026-11-04,10\n2026-11-05,<1\n2026-11-06,100\n2026-11-07,25\n";
+  const csv = `Kategorie: Alle Kategorien\n\nTag,Tankrabatt: (Deutschland)\n${start},10\n${gap},<1\n${neighbor},20\n${peak},100\n${after},25\n`;
   for (const [width, name] of [[1280, "desktop"], [390, "mobile"]]) {
     const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     let attempts = 0;
+    let suggestions = 0;
     await page.route(origin + "/**", async (route) => {
       const { pathname } = new URL(route.request().url());
       if (pathname === "/api/news-trend") {
@@ -927,6 +932,14 @@ async function checkTopicTrends(browser) {
         assert.deepEqual(route.request().postDataJSON(), { topic: "Tankrabatt", days: 30, language: "german" });
         if (attempts++ > 0) return route.fulfill({ status: 502, json: { error: "GDELT ist nicht verfügbar." } });
         return route.fulfill({ json: news });
+      }
+      if (pathname === "/api/trend-events") {
+        assert.equal(route.request().method(), "POST");
+        const topic = suggestions++ === 0 ? "Tankrabatt" : "Tankrabatt Suche";
+        assert.deepEqual(route.request().postDataJSON(), { topic, language: "german", peak_date: peak });
+        return route.fulfill({ json: {
+          peak_date: peak, window_start: gap, window_end: end, articles: [lead],
+        } });
       }
       if (pathname === "/api/runs") return route.fulfill({ json: [] });
       if (pathname === "/") return route.fulfill({ path: join(repo, "web/index.html") });
@@ -947,7 +960,7 @@ async function checkTopicTrends(browser) {
       await page.getByText("CSV geladen.", { exact: true }).waitFor();
       const search = page.locator('[data-kind="search"].trend-series-panel');
       assert.equal((await search.locator(".trend-line").getAttribute("d")).split("M").length - 1, 2);
-      assert.equal(await search.locator("tbody tr").count(), 4);
+      assert.equal(await search.locator("tbody tr").count(), 5);
       assert.equal(await search.locator("tbody tr").nth(1).locator("td").last().textContent(), "<1");
 
       await page.locator("#report-file").setInputFiles({
@@ -960,7 +973,23 @@ async function checkTopicTrends(browser) {
       await markers.getByText("Veröffentlichung", { exact: true }).waitFor();
       assert.equal(await markers.getByRole("link", { name: "Beispielbericht" }).getAttribute("href"), publication.url);
 
-      await page.getByLabel("Ereignisdatum", { exact: true }).fill("2026-11-05");
+      await page.getByRole("button", { name: "Medienausschlag untersuchen" }).click();
+      const suggestion = page.locator("#trend-suggestion-panel");
+      const reference = suggestion.getByRole("link", { name: lead.title });
+      assert.equal(await reference.getAttribute("href"), lead.url);
+      await suggestion.getByText(/GDELT erfasst am/).waitFor();
+      assert.equal(await markers.getByRole("link", { name: lead.title }).count(), 0);
+      await suggestion.getByRole("button", { name: "Beleg übernehmen: " + lead.title }).click();
+      assert.equal(await page.getByLabel("Ereignis", { exact: true }).inputValue(), lead.title);
+      assert.equal(await page.getByLabel("Beleglink", { exact: true }).inputValue(), lead.url);
+      assert.equal(await page.getByLabel("Ereignisdatum", { exact: true }).inputValue(), "");
+      await page.getByLabel("Suchbegriff", { exact: true }).fill("Tankrabatt Suche");
+      await page.getByRole("button", { name: "Suchausschlag untersuchen" }).click();
+      await reference.waitFor();
+      assert.equal(suggestions, 2);
+      await page.getByLabel("Suchbegriff", { exact: true }).fill("Tankrabatt");
+
+      await page.getByLabel("Ereignisdatum", { exact: true }).fill(gap);
       await page.getByLabel("Ereignis", { exact: true }).fill("Beispielbeschluss");
       await page.getByLabel("Beleglink", { exact: true }).fill("https://example.org/beschluss");
       await page.getByRole("button", { name: "Ereignis hinzufügen" }).click();

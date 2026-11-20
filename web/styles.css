@@ -546,6 +546,13 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .trend-data { margin-top: 9px; font-size: 0.87rem; }
 .trend-data table { margin-top: 8px; border-collapse: collapse; }
 .trend-data td, .trend-data th { padding: 4px 12px; border: 1px solid var(--border); text-align: left; }
+.trend-suggestions { margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 4px; }
+.trend-suggestions h4 { margin: 0 0 7px; }
+.trend-suggestion-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+#trend-suggestion-list { margin: 8px 0 0; padding: 0; list-style: none; }
+#trend-suggestion-list:empty { display: none; }
+#trend-suggestion-list li { padding: 8px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+#trend-suggestion-list .quiet-button { margin-top: 4px; }
 #trend-event-form { align-items: end; }
 #trend-events { margin: 10px 0 0; padding-inline-start: 20px; }
 #trend-events li { margin-top: 6px; }
