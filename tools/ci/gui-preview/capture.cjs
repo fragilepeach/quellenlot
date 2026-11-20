@@ -543,6 +543,13 @@ async function checkLocalRun(browser) {
   const runId = "ab".repeat(16);
   const runPath = "/api/runs/" + runId;
   const articleUrl = "https://example.org/lokal";
+  const nextId = "cd".repeat(16);
+  const nextPath = "/api/runs/" + nextId;
+  const comparison = {
+    source_id: "comparison-1", version_id: "v1",
+    title: "Vergleichsbericht", url: "https://example.org/vergleich",
+  };
+  const passage = "Die Erhebung erfasst die erste Woche des Monats.";
   const question = "Was sagt der Artikel?";
   const record = {
     run_id: runId, article_url: articleUrl, started_at: "2026-11-20T08:00:00Z",
@@ -552,23 +559,44 @@ async function checkLocalRun(browser) {
   let payload;
   let draft;
   const report = {
+    case_id: runId,
     status: "partial",
     retrievals: [{ status: "failed", requested_url: "https://example.org/missing", detail: "HTTP 403" }],
     review: {
-      article_source_id: "article", sources: [{ source_id: "article", title: "Lokaler Prüfbericht" }],
+      article_source_id: "article",
+      sources: [{ source_id: "article", title: "Lokaler Prüfbericht", url: articleUrl }, comparison],
       question, status: "partial",
-      claims: [{ claim_id: "claim-1", review: { claim: "Eine Angabe bleibt offen.", status: "partial" },
-        source_comparison: [] }],
+      claims: [{
+        claim_id: "claim-1",
+        review: {
+          claim: "Eine Angabe bleibt offen.", status: "partial",
+          source_diff: {
+            sources: [{ source: comparison, judgments: [{ relation: "qualifies", evidence_ids: ["quote"] }] }],
+            evidence: [{
+              evidence_id: "quote", text: passage,
+              citations: [{ source_id: comparison.source_id, version_id: comparison.version_id }],
+            }],
+          },
+        },
+        source_comparison: [],
+      }],
       editorial: {
         status: "partial",
         claims: [{ claim_id: "claim-1", assigned_findings: [
-          { finding_id: "finding-1", source_id: "comparison-1", relation: "qualifies" },
+          { finding_id: "finding-1", source_id: comparison.source_id, relation: "qualifies", evidence_ids: ["quote"] },
         ], unresolved_finding_ids: ["finding-1"] }],
         assessments: [{ agent_id: "model-1", status: "succeeded", claims: [
           { claim_id: "claim-1", assessment: "Die Quellen sind unvollständig.",
             findings: [{ finding_id: "finding-1", outcome: "unclear", reasoning: "Zeitpunkt offen." }] },
         ] }],
       },
+    },
+  };
+  const nextReport = {
+    ...report, case_id: nextId,
+    review: {
+      ...report.review,
+      sources: [{ ...report.review.sources[0], title: "Neue lokale Prüfung" }, comparison],
     },
   };
   const digest = createHash("sha256").update(JSON.stringify(report)).digest("hex");
@@ -580,7 +608,8 @@ async function checkLocalRun(browser) {
       return route.fulfill({ status: 202, json: record });
     }
     if (pathname === "/api/runs") {
-      return route.fulfill({ json: payload ? [record] : [] });
+      const next = { ...record, run_id: nextId, status: "partial", has_report: true };
+      return route.fulfill({ json: payload ? [record, next] : [] });
     }
     if (pathname === runPath) {
       polls += 1;
@@ -594,6 +623,8 @@ async function checkLocalRun(browser) {
     if (pathname === runPath + "/report") {
       return route.fulfill({ contentType: "application/json", body: JSON.stringify(report) });
     }
+    if (pathname === nextPath + "/report") return route.fulfill({ json: nextReport });
+    if (pathname === nextPath + "/editorial-draft") return route.fulfill({ json: null });
     if (pathname === runPath + "/editorial-draft") {
       if (route.request().method() === "GET") {
         return route.fulfill({ contentType: "application/json", body: JSON.stringify(draft ?? null) });
@@ -643,7 +674,7 @@ async function checkLocalRun(browser) {
     assert.ok(await approve.isDisabled());
 
     await page.getByText("Gespeicherte Analysen", { exact: true }).click();
-    await page.getByRole("link", { name: /Teilbericht.*example\.org\/lokal/ }).click();
+    await page.locator('#run-list a[href="?run=' + runId + '"]').click();
     await page.getByText("Entwurf gespeichert.", { exact: true }).waitFor();
     assert.equal(await text.inputValue(), statement);
     assert.ok(await approve.isDisabled());
@@ -657,8 +688,32 @@ async function checkLocalRun(browser) {
     assert.equal(exported.text, statement);
     assert.equal(exported.review_sha256, digest);
     assert.equal(exported.reviewed_at, approvedAt);
+    assert.equal(exported.article_url, articleUrl);
     assert.equal(exported.editorial, undefined);
 
+    const review = page.locator("#private-review");
+    await review.getByText("Eine Angabe bleibt offen.", { exact: true }).click();
+    const evidence = review.locator(".editorial-evidence");
+    await evidence.getByText("Belege zum Befund", { exact: true }).click();
+    const source = evidence.getByRole("link", { name: comparison.title, exact: true });
+    assert.match(await source.getAttribute("href"), /^https:\/\/example\.org\/vergleich#:~:text=/);
+    await evidence.getByText(passage, { exact: true }).waitFor();
+    await review.getByText("In der Schlussprüfung umstritten oder unklar.").waitFor();
+    await review.screenshot({ ...screenshotOptions, path: join(output, "editorial-draft.png") });
+
+    await page.goto(origin + "?run=" + nextId);
+    await page.getByRole("heading", { name: "Neue lokale Prüfung", exact: true }).waitFor();
+    assert.equal(await text.inputValue(), "");
+    assert.ok(await approve.isDisabled());
+    assert.ok(await exportText.isDisabled());
+    for (const checkbox of await page.locator("#release-checks").getByRole("checkbox").all()) {
+      assert.equal(await checkbox.isChecked(), false);
+    }
+
+    await page.goto(origin + "?run=" + runId);
+    await page.getByText(/Freigabe erteilt ·/).waitFor();
+    assert.equal(await text.inputValue(), statement);
+    assert.ok(await exportText.isEnabled());
     await text.fill("Eine korrigierte Einordnung.");
     assert.ok(await exportText.isDisabled());
     await save.click();
