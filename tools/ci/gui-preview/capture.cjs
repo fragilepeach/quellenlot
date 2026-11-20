@@ -550,14 +550,29 @@ async function checkLocalRun(browser) {
   };
   let polls = 0;
   let payload;
+  let draft;
   const report = {
     status: "partial",
     retrievals: [{ status: "failed", requested_url: "https://example.org/missing", detail: "HTTP 403" }],
     review: {
       article_source_id: "article", sources: [{ source_id: "article", title: "Lokaler Prüfbericht" }],
-      question, claims: [], status: "no_claims",
+      question, status: "partial",
+      claims: [{ claim_id: "claim-1", review: { claim: "Eine Angabe bleibt offen.", status: "partial" },
+        source_comparison: [] }],
+      editorial: {
+        status: "partial",
+        claims: [{ claim_id: "claim-1", assigned_findings: [
+          { finding_id: "finding-1", source_id: "comparison-1", relation: "qualifies" },
+        ], unresolved_finding_ids: ["finding-1"] }],
+        assessments: [{ agent_id: "model-1", status: "succeeded", claims: [
+          { claim_id: "claim-1", assessment: "Die Quellen sind unvollständig.",
+            findings: [{ finding_id: "finding-1", outcome: "unclear", reasoning: "Zeitpunkt offen." }] },
+        ] }],
+      },
     },
   };
+  const digest = createHash("sha256").update(JSON.stringify(report)).digest("hex");
+  const approvedAt = "2026-11-20T08:30:00Z";
   await page.route(origin + "/**", async (route) => {
     const { pathname } = new URL(route.request().url());
     if (pathname === "/api/runs" && route.request().method() === "POST") {
@@ -576,7 +591,26 @@ async function checkLocalRun(browser) {
       }
       return route.fulfill({ json: record });
     }
-    if (pathname === runPath + "/report") return route.fulfill({ json: report });
+    if (pathname === runPath + "/report") {
+      return route.fulfill({ contentType: "application/json", body: JSON.stringify(report) });
+    }
+    if (pathname === runPath + "/editorial-draft") {
+      if (route.request().method() === "GET") {
+        return route.fulfill({ contentType: "application/json", body: JSON.stringify(draft ?? null) });
+      }
+      const update = route.request().postDataJSON();
+      assert.equal(update.review_sha256, digest);
+      assert.equal(update.revision, draft?.revision || 0);
+      const approved = update.action === "approve";
+      if (approved) {
+        assert.equal(update.text, draft.text);
+        assert.equal(update.sources_checked, true);
+        assert.equal(update.open_findings_addressed, true);
+      }
+      draft = { review_sha256: digest, revision: update.revision + 1, text: update.text,
+        approved_at: approved ? approvedAt : null };
+      return route.fulfill({ json: draft });
+    }
     if (pathname === "/") return route.fulfill({ path: join(repo, "web/index.html") });
     return route.fulfill({ path: join(repo, "web", pathname.slice(1)) });
   });
@@ -595,9 +629,41 @@ async function checkLocalRun(browser) {
     assert.deepEqual(payload.comparison_urls, ["https://example.org/missing"]);
     await page.getByText("HTTP 403", { exact: false }).waitFor();
     assert.equal(await start.isEnabled(), true);
+    const text = page.getByLabel("Redaktioneller Text für die Veröffentlichung");
+    const save = page.getByRole("button", { name: "Entwurf speichern", exact: true });
+    const approve = page.getByRole("button", { name: "Freigabe erteilen", exact: true });
+    const exportText = page.getByRole("button", { name: "Freigegebenen Text exportieren", exact: true });
+    const statement = "Die Quelle nennt einen unklaren Zeitpunkt.";
+    await text.fill(statement);
+    assert.ok(await save.isEnabled());
+    assert.ok(await approve.isDisabled());
+    await save.click();
+    await page.getByText("Entwurf gespeichert.", { exact: true }).waitFor();
+    assert.ok(await approve.isDisabled());
+
     await page.getByText("Gespeicherte Analysen", { exact: true }).click();
     await page.getByRole("link", { name: /Teilbericht.*example\.org\/lokal/ }).click();
-    await page.getByRole("heading", { name: "Lokaler Prüfbericht", exact: true }).waitFor();
+    await page.getByText("Entwurf gespeichert.", { exact: true }).waitFor();
+    assert.equal(await text.inputValue(), statement);
+    assert.ok(await approve.isDisabled());
+    for (const checkbox of await page.locator("#release-checks").getByRole("checkbox").all()) {
+      await checkbox.check();
+    }
+    await approve.click();
+    await page.getByText(/Freigabe erteilt ·/).waitFor();
+    const [download] = await Promise.all([page.waitForEvent("download"), exportText.click()]);
+    const exported = JSON.parse(await readFile(await download.path(), "utf8"));
+    assert.equal(exported.text, statement);
+    assert.equal(exported.review_sha256, digest);
+    assert.equal(exported.reviewed_at, approvedAt);
+    assert.equal(exported.editorial, undefined);
+
+    await text.fill("Eine korrigierte Einordnung.");
+    assert.ok(await exportText.isDisabled());
+    await save.click();
+    await page.getByText("Entwurf gespeichert.", { exact: true }).waitFor();
+    assert.ok(await approve.isDisabled());
+    assert.equal(draft.approved_at, null);
     assert.deepEqual(errors, []);
   } finally {
     await page.close();

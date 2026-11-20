@@ -8,26 +8,33 @@ import json
 import logging
 import os
 import re
+from collections import Counter
 from contextlib import suppress
 from datetime import UTC, datetime
+from hashlib import sha256
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Lock, Thread
-from typing import Final, Literal, cast
+from typing import Annotated, Final, Literal, cast
 from uuid import uuid4
 
-from pydantic import ValidationError
+from pydantic import Field, StringConstraints, ValidationError
 
 from quellenlot_agents.article import ArticleStage, run_article_url_comparison
 from quellenlot_agents.config import WorkflowConfig, load_config
-from quellenlot_agents.models import ArticleUrlInput, ArticleUrlReport, ContractModel
+from quellenlot_agents.models import (
+    ArticleUrlInput,
+    ArticleUrlReport,
+    ContractModel,
+    EditorialReport,
+)
 
 _LOG = logging.getLogger(__name__)
 _LOOPBACK: Final = "127.0.0.1"
 _JSON: Final = "application/json; charset=utf-8"
 _MAX_CASE_BYTES: Final = 256 * 1024
-_RUN_PATH: Final = re.compile(r"/api/runs/([0-9a-f]{32})(/report)?")
+_RUN_PATH: Final = re.compile(r"/api/runs/([0-9a-f]{32})(/report|/editorial-draft)?")
 _ASSETS: Final = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/index.html": ("index.html", "text/html; charset=utf-8"),
@@ -48,6 +55,57 @@ class _RunStatus(ContractModel):
     stage: ArticleStage = "capture"
     has_report: bool = False
     error: str | None = None
+
+
+_ReportDigest = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+_EditorialText = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)
+]
+
+
+class _EditorialUpdate(ContractModel):
+    review_sha256: _ReportDigest
+    revision: int = Field(ge=0)
+    text: _EditorialText
+    action: Literal["save", "approve"]
+    sources_checked: bool = False
+    open_findings_addressed: bool = False
+
+
+class _EditorialDraft(ContractModel):
+    review_sha256: _ReportDigest
+    revision: int = Field(ge=1)
+    text: _EditorialText
+    saved_at: datetime
+    approved_at: datetime | None = None
+
+
+class _DraftConflict(ValueError):
+    """Reject changes made against a different draft or report."""
+
+
+def _can_review(editorial: EditorialReport | None) -> bool:
+    if editorial is None or editorial.status not in {"complete", "partial"}:
+        return False
+    coverage = [claim for claim in editorial.claims if claim.assigned_findings]
+    assigned = {
+        claim.claim_id: Counter(finding.finding_id for finding in claim.assigned_findings)
+        for claim in coverage
+    }
+    if not assigned or len(coverage) != len(assigned):
+        return False
+    if any(count != 1 for findings in assigned.values() for count in findings.values()):
+        return False
+    reviewers = [item for item in editorial.assessments if item.status == "succeeded"]
+    claims = Counter(assigned.keys())
+    return bool(reviewers) and all(
+        Counter(note.claim_id for note in reviewer.claims) == claims
+        and all(
+            Counter(finding.finding_id for finding in note.findings) == assigned[note.claim_id]
+            for note in reviewer.claims
+        )
+        for reviewer in reviewers
+    )
 
 
 def _save(path: Path, model: ContractModel) -> None:
@@ -134,6 +192,77 @@ class _LocalRuns:
             status.has_report = (folder / "report.json").is_file()
             return status
 
+    def editorial_draft(
+        self, run_id: str, update: _EditorialUpdate | None = None
+    ) -> _EditorialDraft | None:
+        """Read or change the draft for the finalized report's exact bytes.
+
+        Args:
+            run_id: Identifier of the saved analysis.
+            update: Draft save or approval, or None for a read.
+
+        Returns:
+            The current draft, or None when that report has no saved draft.
+
+        Raises:
+            _DraftConflict: The report or draft changed, or approval conditions are unmet.
+        """
+        folder = self.directory / run_id
+        with self._lock:
+            status = _RunStatus.model_validate_json((folder / "status.json").read_bytes())
+            if status.status not in {"complete", "partial"}:
+                msg = "Für diesen Lauf liegt noch kein abgeschlossener Prüfbericht vor."
+                raise _DraftConflict(msg)
+            report_bytes = (folder / "report.json").read_bytes()
+            digest = sha256(report_bytes).hexdigest()
+            if update is not None and digest != update.review_sha256:
+                msg = "Der Prüfbericht hat sich geändert. Öffne ihn erneut."
+                raise _DraftConflict(msg)
+            report = ArticleUrlReport.model_validate_json(report_bytes)
+            if (
+                report.case_id != run_id
+                or report.review is None
+                or not _can_review(report.review.editorial)
+            ):
+                msg = "Der Bericht enthält keine auswertbare Schlussprüfung."
+                raise _DraftConflict(msg)
+            path = folder / f"editorial-{digest}.json"
+            draft = (
+                _EditorialDraft.model_validate_json(path.read_bytes()) if path.exists() else None
+            )
+            if update is None:
+                return draft
+            if update.revision != (draft.revision if draft else 0):
+                msg = (
+                    "Der Entwurf wurde in einem anderen Fenster geändert. Öffne den Bericht erneut."
+                )
+                raise _DraftConflict(msg)
+            approval = update.action == "approve"
+            if approval and (
+                draft is None
+                or update.text != draft.text
+                or not update.sources_checked
+                or not update.open_findings_addressed
+            ):
+                msg = "Speichere den Entwurf und bestätige beide Prüfpunkte."
+                raise _DraftConflict(msg)
+            if (
+                draft is not None
+                and update.text == draft.text
+                and (not approval or draft.approved_at)
+            ):
+                return draft
+            now = datetime.now(UTC)
+            saved = _EditorialDraft(
+                review_sha256=digest,
+                revision=update.revision + 1,
+                text=update.text,
+                saved_at=draft.saved_at if approval and draft is not None else now,
+                approved_at=now if approval else None,
+            )
+            _save(path, saved)
+            return saved
+
     def history(self) -> list[_RunStatus]:
         """List persisted local runs, skipping records without valid metadata."""
         runs: list[_RunStatus] = []
@@ -215,16 +344,18 @@ class _LocalHandler(BaseHTTPRequestHandler):
                 body = [status.model_dump(mode="json") for status in server.runs.history()]
                 self._send(HTTPStatus.OK, json.dumps(body).encode("utf-8"))
             elif run_path is not None:
-                run_id, report = run_path.groups()
+                run_id, resource = run_path.groups()
                 folder = server.runs.directory / run_id
-                body_bytes = (
-                    (folder / "report.json").read_bytes()
-                    if report is not None
-                    else server.runs.read(folder).model_dump_json().encode("utf-8")
-                )
-                self._send(HTTPStatus.OK, body_bytes)
+                if resource == "/editorial-draft":
+                    self._send_draft(server.runs.editorial_draft(run_id))
+                elif resource == "/report":
+                    self._send(HTTPStatus.OK, (folder / "report.json").read_bytes())
+                else:
+                    self._send(HTTPStatus.OK, server.runs.read(folder).model_dump_json().encode())
             else:
                 self._error(HTTPStatus.NOT_FOUND, "Eintrag nicht gefunden.")
+        except _DraftConflict as exc:
+            self._error(HTTPStatus.CONFLICT, str(exc))
         except FileNotFoundError:
             self._error(HTTPStatus.NOT_FOUND, "Eintrag nicht gefunden.")
         except (OSError, ValidationError):
@@ -233,11 +364,21 @@ class _LocalHandler(BaseHTTPRequestHandler):
                 HTTPStatus.INTERNAL_SERVER_ERROR, "Der lokale Eintrag konnte nicht gelesen werden."
             )
 
+    def _send_draft(self, draft: _EditorialDraft | None) -> None:
+        body = draft.model_dump_json().encode("utf-8") if draft is not None else b"null"
+        self._send(HTTPStatus.OK, body)
+
     def do_POST(self) -> None:
-        """Validate one browser submission and start the local pipeline."""
+        """Start a run or change a private editorial draft from the local browser."""
         if not self._authorized(mutation=True):
             return
-        if self.path != "/api/runs":
+        run_path = _RUN_PATH.fullmatch(self.path)
+        draft_run_id = (
+            run_path.group(1)
+            if run_path is not None and run_path.group(2) == "/editorial-draft"
+            else None
+        )
+        if self.path != "/api/runs" and draft_run_id is None:
             self._error(HTTPStatus.NOT_FOUND, "Eintrag nicht gefunden.")
             return
         if self.headers.get_content_type() != "application/json":
@@ -250,8 +391,33 @@ class _LocalHandler(BaseHTTPRequestHandler):
         if not 0 < size <= _MAX_CASE_BYTES:
             self._error(HTTPStatus.BAD_REQUEST, "Die Anfrage ist leer oder zu groß.")
             return
+        body = self.rfile.read(size)
+        if draft_run_id is not None:
+            self._update_editorial_draft(draft_run_id, body)
+        else:
+            self._start_run(body)
+
+    def _update_editorial_draft(self, run_id: str, body: bytes) -> None:
         try:
-            case = ArticleUrlInput.model_validate_json(self.rfile.read(size))
+            update = _EditorialUpdate.model_validate_json(body)
+        except ValidationError:
+            self._error(HTTPStatus.BAD_REQUEST, "Der Entwurf enthält ungültige Eingaben.")
+            return
+        try:
+            self._send_draft(cast("LocalServer", self.server).runs.editorial_draft(run_id, update))
+        except _DraftConflict as exc:
+            self._error(HTTPStatus.CONFLICT, str(exc))
+        except FileNotFoundError:
+            self._error(HTTPStatus.NOT_FOUND, "Eintrag nicht gefunden.")
+        except (OSError, ValidationError):
+            _LOG.exception("Could not save editorial draft")
+            self._error(
+                HTTPStatus.INTERNAL_SERVER_ERROR, "Der Entwurf konnte nicht gespeichert werden."
+            )
+
+    def _start_run(self, body: bytes) -> None:
+        try:
+            case = ArticleUrlInput.model_validate_json(body)
         except ValidationError:
             self._error(HTTPStatus.BAD_REQUEST, "Die Anfrage enthält ungültige Eingaben.")
             return

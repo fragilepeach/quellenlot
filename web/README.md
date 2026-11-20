@@ -89,9 +89,9 @@ Open a report containing interests or editorial results to see **Private Redakti
 
 Expand **Belege zum Befund** to read the exact excerpts assigned to a finding and open the source at the cited passage. The panel flags any assigned excerpt that cannot be matched to the finding’s source and snapshot version.
 
-To prepare a release, inspect the evidence and open issues, confirm both checklist items, and write the text intended for publication. **Freigabeentwurf speichern** downloads a local JSON draft with the human-written text, the article link and the SHA-256 digest of the reviewed report. The imported notes and interests data stay in the private review. Reopening a report clears the checklist and draft text. Reports without a final assessment that covers its assigned findings remain available for inspection.
+For a completed local analysis, **Entwurf speichern** keeps the text with that saved run. Reopen the run from **Gespeicherte Analysen** to resume editing. Review the sources and documented relationships, account for unresolved findings and missing evidence, then confirm both checklist items and choose **Freigabe erteilen**. Approval applies to the saved text and the exact SHA-256 digest of the report, including its citations and unresolved findings. Saving an edit clears approval. A new run or a changed report requires a fresh review.
 
-The browser does not transmit the report or publish the draft. The saved draft can be reviewed and published through a separate editorial process.
+**Freigegebenen Text exportieren** downloads the human-written text, approval time, article link, and report digest. The assessment and interests data remain in the private run. With a manually imported report, **Freigabeentwurf speichern** continues to download a JSON draft after the checklist. Reports without a final assessment covering its assigned findings remain available for inspection. The interface keeps editorial material local, and publishing the exported text is a separate editorial action.
 
 ## Usability test before backend integration
 
