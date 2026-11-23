@@ -16,7 +16,7 @@ Paste a German-language news article, optionally ask a question, and trace the r
 | Political records | Curated programme statements, parliamentary votes, motions and subsequent laws |
 | Editorial release | Private drafts, report-version-bound approval, reader preview and offline HTML export |
 
-**Try without Ollama:** open [\`web/index.html\`](web/index.html) for the built-in Tankrabatt demonstration. **Run locally:** see [Quick start](#quick-start) for the Ollama-backed browser server. The source-linked demo and the controlled CI fixtures are demonstrations, **not a live fact-check or evaluation of model accuracy**.
+**Try without Ollama:** open [`web/index.html`](web/index.html) for the built-in Tankrabatt demonstration. **Run locally:** see [Quick start](#quick-start) for the Ollama-backed browser server. The source-linked demo and the controlled CI fixtures are demonstrations, **not a live fact-check or evaluation of model accuracy**.
 
 ## Interface walkthroughs
 
@@ -85,9 +85,9 @@ During a local analysis the GUI highlights the active stage. After a completed o
 
 ### Local model execution
 
-Models run sequentially. Each Ollama request sets \`keep_alive=0\` to unload the model after responding, so the whole pool need not fit in memory simultaneously. The default context limit is 8,192 tokens (configurable up to 16,384); long reports and model generation can still be CPU- and RAM-intensive.
+Models run sequentially. Each Ollama request sets `keep_alive=0` to unload the model after responding, so the whole pool need not fit in memory simultaneously. The default context limit is 8,192 tokens (configurable up to 16,384); long reports and model generation can still be CPU- and RAM-intensive.
 
-The example pool in [\`config.example.toml\`](config.example.toml) is **not** a validated ranking: Qwen3.8 27B, gpt-oss 20B, Mistral Small 3.2 24B, Gemma 4 12B, and Ministral 3 14B. Model weights must be downloaded once. The largest example download is approximately 18 GB; model context and the OS consume additional memory. Inspect the individual model licenses before redistribution or commercial use.
+The example pool in [`config.example.toml`](config.example.toml) is **not** a validated ranking: Qwen3.8 27B, gpt-oss 20B, Mistral Small 3.2 24B, Gemma 4 12B, and Ministral 3 14B. Model weights must be downloaded once. The largest example download is approximately 18 GB; model context and the OS consume additional memory. Inspect the individual model licenses before redistribution or commercial use.
 
 ## Quick start
 
@@ -257,11 +257,11 @@ The editorial status describes assessment coverage. Unresolved disagreements rem
 
 **What the labels mean.** A claim can be marked as supported, qualified, contradicted, not covered, or not assessable from an incomplete capture. They are *model judgments about the saved evidence*, not certified true/false labels. Read the underlying passage, compare its subject, population and time period with the claim, and inspect unresolved objections in **KI-Plenum**.
 
-**Where the evidence came from.** A URL result contains versioned capture text and a timestamp. \`published_at\`, \`updated_at\` and \`captured_at\` are separate; provenance links document explicit hyperlinks, not inferred first publication. When a page requires JavaScript, authentication or an unsupported format, retrieval can fail or return incomplete text. An apparent omission in such a source is not proof the original article omitted the fact.
+**Where the evidence came from.** A URL result contains versioned capture text and a timestamp. `published_at`, `updated_at` and `captured_at` are separate; provenance links document explicit hyperlinks, not inferred first publication. When a page requires JavaScript, authentication or an unsupported format, retrieval can fail or return incomplete text. An apparent omission in such a source is not proof the original article omitted the fact.
 
-**How to use the extras.** \`Studien suchen\` queries Crossref and Europe PMC for candidate DOIs; a candidate may be metadata-only, abstract-only or full text. \`Thementrends und Ereignisse\` uses GDELT for the *share of monitored articles matching a search*, and accepts one Google Trends CSV as an independently scaled relative-search series. The server's automatic source discovery requires a separately configured SearXNG instance. External lookup services receive the query terms described in the [browser guide](web/README.md), while local Ollama inference does not require a cloud model API.
+**How to use the extras.** `Studien suchen` queries Crossref and Europe PMC for candidate DOIs; a candidate may be metadata-only, abstract-only or full text. `Thementrends und Ereignisse` uses GDELT for the *share of monitored articles matching a search*, and accepts one Google Trends CSV as an independently scaled relative-search series. The server's automatic source discovery requires a separately configured SearXNG instance. External lookup services receive the query terms described in the [browser guide](web/README.md), while local Ollama inference does not require a cloud model API.
 
-**What becomes public.** The current server binds to \`127.0.0.1\`. Analysis reports, saved drafts, evidence, and approvals remain local unless you deliberately export or share them. Approval is bound to the exact report digest and draft revision; editing either invalidates the approval. There is currently **no hosted authentication or public publishing service**.
+**What becomes public.** The current server binds to `127.0.0.1`. Analysis reports, saved drafts, evidence, and approvals remain local unless you deliberately export or share them. Approval is bound to the exact report digest and draft revision; editing either invalidates the approval. There is currently **no hosted authentication or public publishing service**.
 
 **Reproducibility and validation.** The [Python CI](.github/workflows/python-quality.yml) checks types, formatting, security, contracts and deterministic tests. [GUI preview CI](.github/workflows/gui-previews.yml) uses headless Chromium with demo and controlled fixtures to publish screenshots/GIFs. These tests verify software behavior but do not establish real-world fact-checking accuracy or German-language model reliability. A separate held-out evaluation and real-source audit are still required.
 
@@ -269,7 +269,7 @@ The editorial status describes assessment coverage. Unresolved disagreements rem
 
 | Symptom | Check |
 | --- | --- |
-| Only the static demo appears | Launch \`quellenlot-ui --config models.toml\` and open \`http://127.0.0.1:8765\` rather than the HTML file |
+| Only the static demo appears | Launch `quellenlot-ui --config models.toml` and open `http://127.0.0.1:8765` rather than the HTML file |
 | Models fail or are very slow | Confirm Ollama is running and that each configured weight is installed; check available RAM and context settings |
 | No comparison sources are discovered | Supply comparison URLs explicitly or enable a reachable SearXNG endpoint with JSON search enabled |
 | A page is missing evidence | Inspect **Abrufprobleme**; the HTML-only URL intake cannot handle every website or paywall |
