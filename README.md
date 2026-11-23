@@ -2,50 +2,92 @@
 
 Quellenlot runs an evidence-first, multi-model review over supplied source snapshots or public article URLs. Inference runs locally through Ollama and requires no cloud model API, account, or API key.
 
-## GUI preview
+## What you can do
 
-Open `web/index.html` to explore the Tankrabatt case. Select a highlighted claim to inspect its source passage and follow the citation from a report to the study it uses.
+Paste a German-language news article, optionally ask a question, and trace the review from the article's *actual words* through versioned comparison sources, independent local-model judgments, peer review, and a private editorial assessment. The reader chooses what to inspect; Quellenlot does **not** output a model-vote-based truth score.
 
-![Quellenlot desktop preview with the Tankrabatt summary, claim list, evidence passage and source graph](docs/images/generated/desktop.png)
+| Capability | What to inspect |
+| --- | --- |
+| Article analysis | Up to five checkable claims, original quotations and a linked article summary |
+| Sources & provenance | Explicit citations, separate publication/update/capture dates, missing and incomplete retrievals |
+| Claim-by-claim comparison | Supporting, qualifying and conflicting assessments, exact quotations, RapidFuzz wording reuse and source-pair similarity |
+| Multi-model review | Independent model findings, directed peer review, unresolved objections and recorded failures |
+| Further research | Studies per claim, ownership/funding/affiliation checks and topic/event timelines |
+| Political records | Curated programme statements, parliamentary votes, motions and subsequent laws |
+| Editorial release | Private drafts, report-version-bound approval, reader preview and offline HTML export |
+
+**Try without Ollama:** open [\`web/index.html\`](web/index.html) for the built-in Tankrabatt demonstration. **Run locally:** see [Quick start](#quick-start) for the Ollama-backed browser server. The source-linked demo and the controlled CI fixtures are demonstrations, **not a live fact-check or evaluation of model accuracy**.
+
+## Interface walkthroughs
+
+The repository tracks reproducible **25 fps browser GIFs** and desktop/mobile screenshots. These clips show GUI interactions with demo or fixture-backed data; they do not indicate that the models ran at 25 fps. The [complete feature gallery](web/README.md#feature-gallery) has all screenshots and walkthroughs, and the [capture manifest](docs/images/generated/manifest.json) identifies each tested commit and file hash.
+
+### 1. Follow a claim to its cited evidence
+
+![Select the Tankrabatt claim, inspect an exact passage and follow its citation to the original study](docs/images/generated/usage.gif)
+
+Select a highlighted claim, inspect source judgments and direct quotations, then follow the provenance graph to see which reports refer to a shared upstream source. Publication, modification and retrieval timestamps are **different fields**. A link or similar wording does not, by itself, establish copying or independent corroboration.
+
+### 2. Watch the five agent roles
+
+![Five-stage agent workflow showing stage progression and navigation into the saved results](docs/images/generated/agent-workflow.gif)
+
+**Agenten im Prüfverlauf** shows the currently active stage when a local analysis runs. Each of the five cards links to its available results. The interests stage is optional, and missing evidence is shown rather than silently treated as a successful check. [Role descriptions and status labels](web/README.md#agent-roles).
+
+### 3. Examine model disagreement in the KI-Plenum
+
+![Open the KI-Plenum to inspect independent model assessments, peer review and unresolved objections](docs/images/generated/plenum.gif)
+
+Instead of collapsing disagreement into a single verdict, the Plenum preserves each model's independent findings and the outcome of the directed review. Check both whether a quotation occurs in a snapshot and whether the quoted passage actually justifies its interpretation. [Plenum guide](web/README.md#ki-plenum).
 
 <details>
-<summary>Watch the claim-to-source walkthrough</summary>
+<summary><strong>More walkthroughs: comparisons, research, topic trends and parliamentary records</strong></summary>
 
-![Quellenlot walkthrough selecting a claim, inspecting the TU Dresden report and following its citation to the original study](docs/images/generated/usage.gif)
+**Claim comparisons and potential text reuse:** inspect a source-by-source diff, dated versions, changed wording and article-pair similarity. A high similarity score is a *text-overlap measurement*, not proof of copying.
+
+![Inspect claim comparisons, wording reuse and article similarity](docs/images/generated/claim-diff.gif)
+
+**Studies for one claim:** compare paper metadata, available abstract/full text, measured populations and periods, and the quotation on which a model's assessment rests.
+
+![Find papers for a selected claim and open source-backed study excerpts](docs/images/generated/studies.gif)
+
+**Topic trends and events:** compare separately scaled media coverage and search-interest series and place independently sourced events onto the timeline. Coincidence is not causation.
+
+![View news and search trends and add a documented event](docs/images/generated/topic-trends.gif)
+
+**Party programmes and parliamentary records:** follow dated programme excerpts, official vote tallies, parliamentary context and later legislative action.
+
+![Compare party programmes with parliamentary votes and later laws](docs/images/generated/parliament.gif)
 
 </details>
 
-[Feature gallery with screenshots and 25 fps walkthroughs](web/README.md#feature-gallery) · [Browser guide](web/README.md) · [Capture provenance](docs/images/generated/manifest.json)
+### Desktop and mobile
 
-In the local GUI, **Thementrends und Ereignisse** can find the strongest recent daily spike in news coverage or imported search interest and suggest nearby articles from GDELT. The timeline keeps the GDELT index date separate from the event date you confirm. [Topic trends and event suggestions](web/README.md#topic-trends-and-events)
+![Desktop GUI showing an article summary, highlighted claims, evidence and the provenance graph](docs/images/generated/desktop.png)
 
-After approving an editorial draft in the local GUI, open **Leservorschau öffnen** to see the reader-facing page. **HTML herunterladen** saves that view as standalone HTML. [Editorial review and export guide](web/README.md#private-editorial-review)
+[Mobile screenshot](docs/images/generated/mobile.png) · [320 px light-theme preview](docs/images/generated/light-mobile.png) · [Full feature gallery](web/README.md#feature-gallery)
 
-In a saved local analysis, select a claim and choose **Studien suchen** to find candidate papers and see which source text was available. [Claim study guide](web/README.md#studies-for-a-claim)
+## How the five-stage review works
 
-Open **Programme & Abstimmungen** to compare party programme wording with motions, Bundestag roll calls, and later laws. The first case covers Germany's 2025 debt-rule changes and the infrastructure fund.
+Each stage has a distinct responsibility. **A stage is a workflow role, not necessarily a separate model process.** Five configured Ollama models are reused sequentially across model-driven tasks; deterministic code handles retrieval, quotation matching and textual similarity.
 
-<details>
-<summary>Preview the parliamentary comparison</summary>
+| Role shown in the GUI | Mechanism | Evidence retained |
+| --- | --- | --- |
+| **1. Behauptungsanalyse** | Try models in order until one supplies a valid extraction; optionally prioritise the reader's question | Up to five claims anchored to verbatim article quotations, summary links and failed extraction attempts |
+| **2. Quellenrecherche** | Capture supplied URLs or use configured SearXNG to discover comparisons; traverse explicit links | Versioned text snapshots, retrieval failures, publication and update metadata, citation links, search provenance |
+| **3. Quellenvergleich** | Ask each of five models to assess each claim independently, then cross-review successful findings | Per-source relations, original reasons and exact quotes, model disagreements, peer-review outcomes and RapidFuzz overlap |
+| **4. Interessenprüfung** *(optional)* | Investigate documented publisher/author ownership, funding and affiliations when enabled | Captured evidence, per-model findings, unresolved categories and retrieval gaps |
+| **5. Redaktionelle Schlussprüfung** | Five models independently assess assigned evidence findings; editorial release remains a human decision | Finding coverage, supported notes, prior dissent, missing evidence and a private draft/approval record |
 
-![Quellenlot comparing programme excerpts, selected caucus votes, and later laws on the 2025 debt-rule changes](docs/images/generated/parliament.png)
+Model-generated responses are not trusted merely because several models agree. Exact quote matching establishes only that specified words appear in the saved text. **It does not validate their factual accuracy, context, independence or relevance to the claim.** The public reader edition requires explicit human approval of an unchanged saved report and the drafted text.
 
-</details>
+During a local analysis the GUI highlights the active stage. After a completed or partial analysis, a stage card leads to the relevant saved evidence. The optional interests check may not run; older imported reports may lack newer fields. [Detailed stage and GUI behavior](web/README.md#agent-roles).
 
-For topic context, open **Thementrends und Ereignisse** to fetch news coverage from GDELT, import search interest from a Google Trends CSV, and annotate dates with sources. [Topic trends guide](web/README.md#topic-trends-and-events)
+### Local model execution
 
-## Workflow
+Models run sequentially. Each Ollama request sets \`keep_alive=0\` to unload the model after responding, so the whole pool need not fit in memory simultaneously. The default context limit is 8,192 tokens (configurable up to 16,384); long reports and model generation can still be CPU- and RAM-intensive.
 
-1. Supply an explicit claim or an original article. In article mode, the first model that returns a valid extraction supplies up to five distinct claims anchored to exact quotes. An optional question guides claim selection.
-2. Five distinct configured local models independently assess each claim against the supplied source snapshots. Successful models cross-review another model's assessment.
-3. A deterministic report preserves disagreements, missing model responses, source versions, and quote-verification results. It does not turn model votes into a truth score.
-4. In article mode, five local models independently prepare editorial notes for claims that have verified comparison excerpts. The report also lists claims the notes could not cover.
-
-The browser shows these roles in a five-card **Agenten im Prüfverlauf** panel. It highlights the active stage in a local run and links saved or imported outcomes to their evidence. [Agent roles and walkthrough](web/README.md#agent-roles)
-
-Models run sequentially. Each Ollama request sets `keep_alive=0` so Ollama unloads that model after the response; only one model needs to be resident at a time. The context is capped at 8,192 tokens by default and can be raised to 16,384. CPU inference is supported, but generation on a laptop CPU can be slow. The largest example model download is about 18 GB; its context cache and the OS also use RAM, so actual peak memory depends on the machine and request length.
-
-The example pool is a starting point, not a validated ranking. It lists Qwen3.8 27B, gpt-oss 20B, Mistral Small 3.2 24B, Gemma 4 12B, and Ministral 3 14B. All run as local weights through Ollama. Model weights are downloaded once; after that, inference can run offline. The license differs by model; check each model card before redistribution or commercial deployment.
+The example pool in [\`config.example.toml\`](config.example.toml) is **not** a validated ranking: Qwen3.8 27B, gpt-oss 20B, Mistral Small 3.2 24B, Gemma 4 12B, and Ministral 3 14B. Model weights must be downloaded once. The largest example download is approximately 18 GB; model context and the OS consume additional memory. Inspect the individual model licenses before redistribution or commercial use.
 
 ## Quick start
 
@@ -210,6 +252,28 @@ Article cases include an `editorial` section. For each claim it lists the verifi
 When at least one claim has verified comparison excerpts, each of the five models receives up to three passages per eligible claim, with preference for covering conflicting, qualifying, and supporting judgments. The input marks shared wording, clipped excerpts, dates, and examples of unresolved dissent. Each model returns one note per eligible claim with evidence references and a follow-up check where warranted. The selected source findings have stable IDs. The model must return one outcome and explanation for each assigned finding. Missing, repeated, and foreign IDs or citations invalidate the response. The report records how many comparison findings stayed outside the editorial selection, carries the original dissent into the editorial coverage, and flags findings challenged or left unclear by any final reviewer. The source diff retains all model findings and verified excerpts.
 
 The editorial status describes assessment coverage. Unresolved disagreements remain visible even when every assigned finding was reviewed. It is `complete` when every claim has comparison evidence, all five notes are available, and the earlier review, search, and retrieval stages finished without reported failures. An article with no verified comparison excerpt gets `no_comparison_evidence` and skips the additional model calls. The notes ask a human editor to verify interpretations and source independence before making any publication decision.
+
+## Reading a Quellenlot result
+
+**What the labels mean.** A claim can be marked as supported, qualified, contradicted, not covered, or not assessable from an incomplete capture. They are *model judgments about the saved evidence*, not certified true/false labels. Read the underlying passage, compare its subject, population and time period with the claim, and inspect unresolved objections in **KI-Plenum**.
+
+**Where the evidence came from.** A URL result contains versioned capture text and a timestamp. \`published_at\`, \`updated_at\` and \`captured_at\` are separate; provenance links document explicit hyperlinks, not inferred first publication. When a page requires JavaScript, authentication or an unsupported format, retrieval can fail or return incomplete text. An apparent omission in such a source is not proof the original article omitted the fact.
+
+**How to use the extras.** \`Studien suchen\` queries Crossref and Europe PMC for candidate DOIs; a candidate may be metadata-only, abstract-only or full text. \`Thementrends und Ereignisse\` uses GDELT for the *share of monitored articles matching a search*, and accepts one Google Trends CSV as an independently scaled relative-search series. The server's automatic source discovery requires a separately configured SearXNG instance. External lookup services receive the query terms described in the [browser guide](web/README.md), while local Ollama inference does not require a cloud model API.
+
+**What becomes public.** The current server binds to \`127.0.0.1\`. Analysis reports, saved drafts, evidence, and approvals remain local unless you deliberately export or share them. Approval is bound to the exact report digest and draft revision; editing either invalidates the approval. There is currently **no hosted authentication or public publishing service**.
+
+**Reproducibility and validation.** The [Python CI](.github/workflows/python-quality.yml) checks types, formatting, security, contracts and deterministic tests. [GUI preview CI](.github/workflows/gui-previews.yml) uses headless Chromium with demo and controlled fixtures to publish screenshots/GIFs. These tests verify software behavior but do not establish real-world fact-checking accuracy or German-language model reliability. A separate held-out evaluation and real-source audit are still required.
+
+### Common setup issues
+
+| Symptom | Check |
+| --- | --- |
+| Only the static demo appears | Launch \`quellenlot-ui --config models.toml\` and open \`http://127.0.0.1:8765\` rather than the HTML file |
+| Models fail or are very slow | Confirm Ollama is running and that each configured weight is installed; check available RAM and context settings |
+| No comparison sources are discovered | Supply comparison URLs explicitly or enable a reachable SearXNG endpoint with JSON search enabled |
+| A page is missing evidence | Inspect **Abrufprobleme**; the HTML-only URL intake cannot handle every website or paywall |
+| Study or trend results are unavailable | Those features require a network path to Crossref/Europe PMC or GDELT; importing a Google Trends CSV works in the browser |
 
 ## Development checks
 
