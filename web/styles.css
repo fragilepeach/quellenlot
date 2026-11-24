@@ -550,6 +550,15 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .agent-audit-state[data-state="partial"] { color: var(--caution); }
 .agent-audit-empty { padding: 12px 0; color: var(--subtle); }
 
+.model-metrics { margin-top: 16px; overflow-wrap: anywhere; }
+.model-metrics > summary { color: var(--purple); font: 600 .95rem/1.4 var(--mono); }
+.model-metrics p { margin: 10px 0; font-size: .83rem; color: var(--subtle); }
+.model-metrics-scroll { overflow-x: auto; }
+.model-metrics table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.model-metrics th, .model-metrics td { padding: 8px; border-top: 1px solid var(--border); text-align: left; white-space: nowrap; }
+.model-metrics th { color: var(--subtle); font-weight: 600; }
+.model-metrics td:nth-child(n+3) { font-variant-numeric: tabular-nums; }
+
 .agent-workflow { margin-top: 22px; }
 .agent-workflow-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 10px; }
 .agent-workflow-heading h2 { font-size: 1rem; }

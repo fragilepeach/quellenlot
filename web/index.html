@@ -73,6 +73,17 @@
       </details>
     </section>
 
+    <details class="card model-metrics" id="model-metrics" hidden>
+      <summary>Modellleistung · Laufzeit und Token</summary>
+      <p>Werte stammen aus gespeicherten Ollama-Antworten dieses Laufs. Laufzeit ist die gesamte Anfrage; Token/s basiert ausschließlich auf der gemeldeten Ausgabedauer. Spitzenspeicher wird hier nicht gemessen.</p>
+      <div class="model-metrics-scroll">
+        <table>
+          <thead><tr><th>Modell</th><th>Aufgabe</th><th>Aufrufe</th><th>Fehler</th><th>Laufzeit</th><th>Token</th><th>Token/s</th><th>RAM-Spitze</th></tr></thead>
+          <tbody id="model-metrics-rows"></tbody>
+        </table>
+      </div>
+    </details>
+
     <details class="card topic-trends" id="topic-trends">
       <summary>Thementrends und Ereignisse</summary>
       <div class="trend-controls">

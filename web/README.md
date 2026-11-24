@@ -193,6 +193,16 @@ The output is written to `artifacts/gui-preview/`. The captures use the built-in
 
 The reading view keeps the article and the selected claim’s evidence in view side by side. On narrow screens, selecting a claim moves focus to its evidence heading.
 
+## Model performance metrics
+
+Open **Modellleistung · Laufzeit und Token** in a completed local analysis. The table groups saved `model_calls` observations by model name and task type. It displays call count, failed calls, cumulative wall-clock duration, generated tokens and effective generation tokens per second **only when Ollama supplied both the token count and evaluation duration for every call**. If the counters are missing, they remain unreported; a blank memory measurement is displayed as **Nicht erfasst**. Context preparation, prompt processing, loading, response validation and source retrieval can make wall time significantly different from generation duration. A successful fixture-driven browser test is not a real hardware benchmark. No extra Ollama requests are made to draw the table.
+
+![Per-model timing and generation statistics](../docs/images/generated/model-metrics.png)
+
+[Mobile screenshot](../docs/images/generated/model-metrics-mobile.png)
+
+![Inspect per-model statistics in a saved run](../docs/images/generated/model-metrics.gif)
+
 ## Agent roles
 
 Select **Einzelbeiträge** on a role card to open **Modellbeiträge und Prüfpfad**, which lists recorded model IDs and model names, source or claim context, successful and failed attempts, peer-review partners, failure codes, and the count of judgments or unresolved categories. The sources/research role explicitly labels deterministic retrieval and SearXNG search as **Code, kein KI-Modell**, rather than inventing a model identity. It retains the original order, and reports that lack detailed model records say so. During an active run the inspector is unavailable until a saved report exists. Open **KI-Plenum** for full source-linked judgments and review reasons. The built-in static Tankrabatt demo has no real model execution trace.

@@ -23,6 +23,7 @@ from pydantic import Field, StringConstraints, ValidationError
 
 from quellenlot_agents.article import ArticleStage, run_article_url_comparison
 from quellenlot_agents.config import WorkflowConfig, load_config
+from quellenlot_agents.metrics import collect_model_calls
 from quellenlot_agents.models import (
     ArticleUrlInput,
     ArticleUrlReport,
@@ -179,9 +180,11 @@ class _LocalRuns:
             _save(folder / "status.json", status)
 
         try:
-            report = asyncio.run(
-                run_article_url_comparison(case, self.config, on_progress=progress)
-            )
+            with collect_model_calls() as model_calls:
+                report = asyncio.run(
+                    run_article_url_comparison(case, self.config, on_progress=progress)
+                )
+            report.model_calls = model_calls
             _save(folder / "report.json", report)
             status.has_report = True
             status.status = report.status

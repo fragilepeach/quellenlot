@@ -422,6 +422,20 @@ class ClaimSourceDiff(ContractModel):
     evidence: list[DiffEvidence] = Field(default_factory=list[DiffEvidence])
 
 
+
+class ModelCallMetric(ContractModel):
+    """One observed local Ollama call; absent counters were not supplied by the server."""
+
+    model: str
+    task: str
+    status: Literal["succeeded", "failed"]
+    wall_time_ms: float = Field(ge=0)
+    prompt_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    eval_duration_ns: int | None = Field(default=None, ge=0)
+    error_code: str | None = None
+
+
 class RunReport(ContractModel):
     """Auditable output of the independent and peer-review phases."""
 
@@ -434,6 +448,7 @@ class RunReport(ContractModel):
     reviews: list[ReviewRecord]
     relation_counts: list[RelationCount]
     unresolved_dissent: list[str]
+    model_calls: list[ModelCallMetric] = Field(default_factory=list[ModelCallMetric])
     shared_wording: SharedWordingReport | None = None
     source_diff: ClaimSourceDiff = Field(default_factory=ClaimSourceDiff)
 
@@ -697,6 +712,7 @@ class ArticleReport(ContractModel):
     shared_wording: SharedWordingReport = Field(default_factory=SharedWordingReport)
     interests: InterestReport | None = None
     editorial: EditorialReport | None = None
+    model_calls: list[ModelCallMetric] = Field(default_factory=list[ModelCallMetric])
 
 
 class SearchQuery(ContractModel):
@@ -734,3 +750,4 @@ class ArticleUrlReport(ContractModel):
     review: ArticleReport | None
     discovery: SourceDiscovery | None = None
     provenance: SourceProvenance | None = None
+    model_calls: list[ModelCallMetric] = Field(default_factory=list[ModelCallMetric])

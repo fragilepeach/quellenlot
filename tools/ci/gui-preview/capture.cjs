@@ -710,6 +710,12 @@ async function checkLocalRun(browser, recorder) {
     case_id: runId,
     status: "partial",
     retrievals: [{ status: "failed", requested_url: "https://example.org/missing", detail: "HTTP 403" }],
+    model_calls: [
+      { model: "local-model-a", task: "DraftArticleExtraction", status: "succeeded",
+        wall_time_ms: 1450, prompt_tokens: 210, output_tokens: 64, eval_duration_ns: 1200000000 },
+      { model: "local-model-a", task: "DraftReview", status: "failed",
+        wall_time_ms: 480, prompt_tokens: null, output_tokens: null, eval_duration_ns: null },
+    ],
     review: {
       article_source_id: "article",
       sources: [{ source_id: "article", title: "Lokaler Prüfbericht", url: articleUrl }, comparison],
@@ -879,6 +885,20 @@ async function checkLocalRun(browser, recorder) {
     await page.setViewportSize({ width: 390, height: 960 });
     await page.waitForFunction(() => document.documentElement.scrollWidth === window.innerWidth);
     await captureSection(page, workflow, "agent-inspector-mobile.png");
+    await page.setViewportSize({ width: 1280, height: 960 });
+    const metrics = page.locator("#model-metrics");
+    assert.equal(await metrics.isHidden(), false);
+    await metrics.locator("summary").click();
+    assert.equal(await metrics.locator("tbody tr").count(), 2);
+    await metrics.getByText("53,3", { exact: true }).waitFor();
+    await metrics.getByText("Nicht erfasst", { exact: true }).first().waitFor();
+    const metricsClip = await recorder.open("model-metrics.gif", page);
+    await metricsClip.scrollTo(metrics);
+    await metricsClip.hold(1.6);
+    await captureSection(page, metrics, "model-metrics.png");
+    await page.setViewportSize({ width: 390, height: 960 });
+    await page.waitForFunction(() => document.documentElement.scrollWidth === window.innerWidth);
+    await captureSection(page, metrics, "model-metrics-mobile.png");
     await page.setViewportSize({ width: 1280, height: 960 });
     const interests = workflow.getByRole("link", { name: "Interessenprüfung" });
     await interests.focus();
