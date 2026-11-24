@@ -282,7 +282,6 @@ class ReviewFinding(ContractModel):
     quote: VerifiedQuote | None
 
 
-
 class DraftTargetedRecheck(ContractModel):
     """One model's bounded second look at a disputed source relationship."""
 
@@ -457,7 +456,9 @@ class RunReport(ContractModel):
     sources: list[SourceSnapshot]
     analyses: list[AnalysisRecord]
     reviews: list[ReviewRecord]
-    targeted_checks: list[TargetedRecheckRecord] = Field(default_factory=list[TargetedRecheckRecord])
+    targeted_checks: list[TargetedRecheckRecord] = Field(
+        default_factory=list[TargetedRecheckRecord]
+    )
     relation_counts: list[RelationCount]
     unresolved_dissent: list[str]
     shared_wording: SharedWordingReport | None = None
