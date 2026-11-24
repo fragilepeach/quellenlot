@@ -255,7 +255,9 @@ When at least one claim has verified comparison excerpts, each of the five model
 
 The editorial status describes assessment coverage. Unresolved disagreements remain visible even when every assigned finding was reviewed. It is `complete` when every claim has comparison evidence, all five notes are available, and the earlier review, search, and retrieval stages finished without reported failures. An article with no verified comparison excerpt gets `no_comparison_evidence` and skips the additional model calls. The notes ask a human editor to verify interpretations and source independence before making any publication decision.
 
-## Reading a Quellenlot result
+### Per-model performance metrics
+
+A completed local run now stores one observation per Ollama call in `model_calls`: model name, task schema, success/failure, total wall time, and—when Ollama supplies them—prompt tokens, generated tokens, and generation duration. Open **Modellleistung · Laufzeit und Token** in the saved browser report to compare attempts grouped by model and role. The values are observations of this run, not benchmark rankings. Token/s is calculated only if generation counts and durations are available for every call in the row. No peak RAM value is fabricated: it is explicitly **Nicht erfasst**. CLI reports also include the call records; older reports do not.\n\n[GUI metrics screenshots and 25 fps walkthrough](web/README.md#model-performance-metrics)\n\n## Reading a Quellenlot result
 
 **What the labels mean.** A claim can be marked as supported, qualified, contradicted, not covered, or not assessable from an incomplete capture. They are *model judgments about the saved evidence*, not certified true/false labels. Read the underlying passage, compare its subject, population and time period with the claim, and inspect unresolved objections in **KI-Plenum**.
 

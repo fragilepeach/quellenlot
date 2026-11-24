@@ -11,6 +11,7 @@ from pydantic import RootModel, ValidationError
 
 from quellenlot_agents.article import run_article_comparison, run_article_url_comparison
 from quellenlot_agents.config import load_config
+from quellenlot_agents.metrics import collect_model_calls
 from quellenlot_agents.models import (
     ArticleCaseInput,
     ArticleReport,
@@ -44,12 +45,14 @@ def main() -> None:
         config = load_config(args.config)
         case = _CaseInput.model_validate_json(args.input.read_bytes()).root
         report: RunReport | ArticleReport | ArticleUrlReport
-        if isinstance(case, ArticleUrlInput):
-            report = asyncio.run(run_article_url_comparison(case, config))
-        elif isinstance(case, ArticleCaseInput):
-            report = asyncio.run(run_article_comparison(case, config))
-        else:
-            report = asyncio.run(run_review(case, config))
+        with collect_model_calls() as model_calls:
+            if isinstance(case, ArticleUrlInput):
+                report = asyncio.run(run_article_url_comparison(case, config))
+            elif isinstance(case, ArticleCaseInput):
+                report = asyncio.run(run_article_comparison(case, config))
+            else:
+                report = asyncio.run(run_review(case, config))
+        report.model_calls = model_calls
         args.output.parent.mkdir(parents=True, exist_ok=True)
         exclude = (
             {"discovery"}

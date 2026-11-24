@@ -364,6 +364,56 @@ function renderAgentWorkflow(report, run = report?.runProgress) {
   if (running || stopped) $("agent-inspector").hidden = true;
 }
 
+
+const metricTaskLabels = {
+  DraftArticleExtraction: "Behauptungsanalyse", DraftAnalysis: "Quellenvergleich",
+  DraftReview: "Peer-Review", DraftInterestAssessment: "Interessenprüfung",
+  DraftEditorialAssessment: "Schlussprüfung", _Query: "Studien-Suchbegriff",
+  _Draft: "Studienauswertung", _Review: "Studienprüfung",
+};
+
+function renderModelMetrics(records) {
+  const panel = $("model-metrics");
+  const rows = $("model-metrics-rows");
+  const available = Array.isArray(records) ? records : [];
+  panel.hidden = !available.length;
+  panel.open = false;
+  rows.replaceChildren();
+  if (!available.length) return;
+  const grouped = new Map();
+  for (const record of available) {
+    if (typeof record.model !== "string" || typeof record.task !== "string") continue;
+    const key = JSON.stringify([record.model, record.task]);
+    if (!grouped.has(key)) grouped.set(key, {
+      model: record.model, task: record.task, calls: 0, failed: 0, wall: 0, tokens: 0, evalNs: 0, complete: 0,
+    });
+    const item = grouped.get(key);
+    item.calls += 1;
+    item.failed += record.status !== "succeeded" ? 1 : 0;
+    item.wall += Number.isFinite(record.wall_time_ms) ? record.wall_time_ms : 0;
+    if (Number.isSafeInteger(record.output_tokens) && Number.isSafeInteger(record.eval_duration_ns) &&
+      record.eval_duration_ns > 0) {
+      item.tokens += record.output_tokens;
+      item.evalNs += record.eval_duration_ns;
+      item.complete += 1;
+    }
+  }
+  const format = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
+  for (const item of grouped.values()) {
+    const row = element("tr");
+    const rate = item.evalNs > 0 && item.complete === item.calls
+      ? format.format(item.tokens * 1e9 / item.evalNs) : "Nicht erfasst";
+    const values = [
+      item.model, metricTaskLabels[item.task] || item.task,
+      String(item.calls), String(item.failed), format.format(item.wall / 1000) + " s",
+      item.complete === item.calls ? String(item.tokens) : "Teilweise",
+      rate, "Nicht erfasst",
+    ];
+    for (const value of values) row.append(element("td", "", value));
+    rows.append(row);
+  }
+}
+
 function renderReport(report) {
   state.report = report;
   $("agent-inspector").hidden = true;
@@ -414,6 +464,7 @@ function renderReport(report) {
   renderSourceSimilarities(report.sourceSimilarities || []);
   renderPrivateReview(report);
   renderAgentWorkflow(report);
+  renderModelMetrics(report.providerMetrics);
 }
 
 function renderSourceSimilarities(pairs) {
@@ -1259,6 +1310,7 @@ function readReport(data) {
       provenance: readSourceProvenance(data),
       agentResults: agentResults(null, data),
       agentAudit: agentAudit(null, data),
+      providerMetrics: data.model_calls || [],
       empty: failed
         ? "Der Bericht enthält keinen auswertbaren Artikel."
         : "Die Quellen wurden erfasst. Für diesen Lauf liegt noch kein Aussagenvergleich vor.",
@@ -1316,6 +1368,7 @@ function readReport(data) {
     sourceSimilarities: normalizedSourceSimilarities(report),
     agentResults: agentResults(report, retrievalReport ? data : null),
     agentAudit: agentAudit(report, retrievalReport ? data : null),
+    providerMetrics: (retrievalReport ? data.model_calls : report.model_calls) || [],
     retrievalIssues,
     timelineSources: [...report.sources, ...(retrievalReport
       ? data.retrievals.flatMap((item) => item.snapshot ? [item.snapshot] : []) : [])],
