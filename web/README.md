@@ -158,6 +158,15 @@ Follow the timeline to compare the FDP amendment with the subsequent final vote.
 
 Cases are curated in [parliament-data.js](parliament-data.js). To add a case, supply exact programme and motion excerpts, document locators, dated records, verified vote totals, and later actions with primary-source links. Keep editorial interpretations explicit about whether a programme addresses the precise policy in the statement. The interface supports multiple cases through a case picker.
 
+### What to look for in the Tankrabatt demo
+
+1. Open the Tankrabatt example and select the diesel claim in the article.
+2. In the source comparison, check the time window and what each source measures. The ADAC compares pump prices with the previous week. The ifo study estimates the price effect relative to a scenario without the tax cut over June through August 2022.
+3. Open **Herkunft & Belege** and follow a quote to its source. Then open **KI-Plenum** to see the individual assessments, peer reviews and unresolved objections.
+4. For a live analysis, start the local server and provide an article URL and comparison URLs, or configure SearXNG for automatic discovery. Check retrieval status and snapshot completeness before interpreting a missing mention.
+
+The gallery captures the built-in example and controlled browser fixtures. A live run also depends on source availability and the configured Ollama models.
+
 ## How the previews are generated
 
 The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the static demo and local-server fixtures in headless Chromium. It checks the same controls shown in the gallery, plus keyboard navigation, offline fonts, theme persistence, compatibility with earlier reports, and approval invalidation after editing. The GIFs record browser interactions and scrolling, with brief holds for reading. The [capture manifest](../docs/images/generated/manifest.json) records the tested revision, run, dimensions, frame counts, frame rates, file sizes and SHA-256 hashes.
