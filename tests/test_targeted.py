@@ -16,6 +16,8 @@ from quellenlot_agents.models import (
     ReviewRecord,
     SourceInput,
 )
+
+
 def _analysis(agent: str, relation: str) -> AnalysisRecord:
     """Construct a typed successful synthetic agent finding."""
     return AnalysisRecord.model_validate(
@@ -61,9 +63,9 @@ class TargetedChecksTests(unittest.TestCase):
                 )
             ],
         )
-        self.assertEqual(workflow.selectworkflow.select_targeted_sources(analyses, [review], 0), [])
+        self.assertEqual(workflow.select_targeted_sources(analyses, [review], 0), [])
         self.assertEqual(
-            _targeted_sources(analyses, [review], 1), [("source-a", "agent-a", "agent-b")]
+            workflow.select_targeted_sources(analyses, [review], 1), [("source-a", "agent-a", "agent-b")]
         )
 
 
