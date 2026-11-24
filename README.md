@@ -257,7 +257,11 @@ The editorial status describes assessment coverage. Unresolved disagreements rem
 
 ### Per-model performance metrics
 
-A completed local run now stores one observation per Ollama call in `model_calls`: model name, task schema, success/failure, total wall time, and—when Ollama supplies them—prompt tokens, generated tokens, and generation duration. Open **Modellleistung · Laufzeit und Token** in the saved browser report to compare attempts grouped by model and role. The values are observations of this run, not benchmark rankings. Token/s is calculated only if generation counts and durations are available for every call in the row. No peak RAM value is fabricated: it is explicitly **Nicht erfasst**. CLI reports also include the call records; older reports do not.\n\n[GUI metrics screenshots and 25 fps walkthrough](web/README.md#model-performance-metrics)\n\n## Reading a Quellenlot result
+A completed local run now stores one observation per Ollama call in `model_calls`: model name, task schema, success/failure, total wall time, and—when Ollama supplies them—prompt tokens, generated tokens, and generation duration. Open **Modellleistung · Laufzeit und Token** in the saved browser report to compare attempts grouped by model and role. The values are observations of this run, not benchmark rankings. Token/s is calculated only if generation counts and durations are available for every call in the row. No peak RAM value is fabricated: it is explicitly **Nicht erfasst**. CLI reports also include the call records; older reports do not.
+
+[GUI metrics screenshots and 25 fps walkthrough](web/README.md#model-performance-metrics)
+
+## Reading a Quellenlot result
 
 **What the labels mean.** A claim can be marked as supported, qualified, contradicted, not covered, or not assessable from an incomplete capture. They are *model judgments about the saved evidence*, not certified true/false labels. Read the underlying passage, compare its subject, population and time period with the claim, and inspect unresolved objections in **KI-Plenum**.
 
@@ -268,6 +272,12 @@ A completed local run now stores one observation per Ollama call in `model_calls
 **What becomes public.** The current server binds to `127.0.0.1`. Analysis reports, saved drafts, evidence, and approvals remain local unless you deliberately export or share them. Approval is bound to the exact report digest and draft revision; editing either invalidates the approval. There is currently **no hosted authentication or public publishing service**.
 
 **Reproducibility and validation.** The [Python CI](.github/workflows/python-quality.yml) checks types, formatting, security, contracts and deterministic tests. [GUI preview CI](.github/workflows/gui-previews.yml) uses headless Chromium with demo and controlled fixtures to publish screenshots/GIFs. These tests verify software behavior but do not establish real-world fact-checking accuracy or German-language model reliability. A separate held-out evaluation and real-source audit are still required.
+
+### CPU benchmark on the self-hosted Docker runner
+
+The [dedicated benchmark workflow](https://github.com/fragilepeach/quellenlot/blob/codex/self-hosted-ollama-benchmark/.github/workflows/ollama-benchmark.yml) runs only on a self-hosted Linux x64 runner with the `docker` label. The benchmark uses three serial repetitions of a fixed Tankrabatt claim and comparison snapshots. The Docker volume `quellenlot-ollama-models` keeps model weights across runs; only missing models are pulled.
+
+Open the [benchmark workflow runs](https://github.com/fragilepeach/quellenlot/actions/workflows/ollama-benchmark.yml) for execution status and the `quellenlot-ollama-benchmark` artifact. It contains plots, per-request timings and sampled Ollama process RAM, and saved reports when the requests complete. This fixed-claim benchmark measures runtime and response validation. Use the annotated evaluation below for agreement with reference judgments.
 
 ### Common setup issues
 
