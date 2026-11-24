@@ -1,6 +1,6 @@
 {
-  "source_commit": "1f60cad627f9965d313f15c25c6b3fbe0b5a444c",
-  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/45344644826",
+  "source_commit": "794db5f56631d64d34945665009512d732422fbc",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/45374434389",
   "scenario": "Tankrabatt demo, fixture-backed analyses and trends, and curated Bundestag records",
   "playwright": "1.58.2",
   "media": [
@@ -34,8 +34,8 @@
       "height": 844,
       "frames": 174,
       "fps": 25,
-      "bytes": 487252,
-      "sha256": "a1dc934e8c7d8438773b1bc97d8a0ba588c53fd9972ce7e7902516cb5d13f203"
+      "bytes": 487271,
+      "sha256": "e88d4c84108f64d063630cf3057f58a0492d4fd67de1fae8053d23e84d3aa197"
     },
     {
       "file": "usage.gif",
@@ -60,16 +60,16 @@
       "height": 630,
       "frames": 178,
       "fps": 25,
-      "bytes": 981278,
-      "sha256": "4162079b1a94b89afdc3cd746a8225e54218811caec8858c26abed6c27cfe076"
+      "bytes": 981226,
+      "sha256": "0bfd2a0bda2ffdd7175e2841d4dff469cbf37ac2690d84a77045a833a24d6eaf"
     },
     {
       "file": "agent-workflow.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 160078,
-      "sha256": "4e3e734e9cfa50a577062843c28ce1b16a15a31de7bb45301f755ffb59d7f778"
+      "bytes": 160080,
+      "sha256": "b73868a10d4a1792f8b9453f115a3102d4502ee3abf2ea3119acd457611908b6"
     },
     {
       "file": "agent-workflow-mobile.png",
@@ -85,8 +85,8 @@
       "height": 630,
       "frames": 234,
       "fps": 25,
-      "bytes": 234379,
-      "sha256": "051da176f1bf9ebbef1c45dd32cb34a29606f7b7237f8e9df1dee6f4e5c2b99f"
+      "bytes": 234373,
+      "sha256": "354bf69e086b69743df890e0ef3e9ae060e517970f2b545300fb8825021bd1d8"
     },
     {
       "file": "claim-diff.png",
@@ -234,8 +234,8 @@
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 93608,
-      "sha256": "467e0fe0ec1702a3e385ccb5493a85312db461c8f97706234a8c6df764dc8eb2"
+      "bytes": 93635,
+      "sha256": "273a0802c1e554b0a6fad5aa2275c541d2d647652ea08108e025bea1238eb225"
     },
     {
       "file": "editorial-review.gif",
@@ -244,7 +244,7 @@
       "frames": 138,
       "fps": 25,
       "bytes": 176225,
-      "sha256": "62587d17576e7015d25b4d3183045379e327eecebe463fd1a482c04b1b3a603e"
+      "sha256": "7b1d14a163914b5b35a69e7bd62a36623edb178b2c6075ae0baa774a29f05ec0"
     },
     {
       "file": "parliament.png",
