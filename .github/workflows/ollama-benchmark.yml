@@ -60,7 +60,7 @@ jobs:
           fi
           docker run -d --init --name "$container" --memory "$limit" --memory-swap "$limit" \
             --mount type=volume,source=quellenlot-ollama-models,target=/ollama-models \
-            -e OLLAMA_MODELS=/ollama-models \
+            -e OLLAMA_MODELS=/ollama-models -e OLLAMA_NOPRUNE=1 \
             -e BENCHMARK_REPETITIONS -e BENCHMARK_COMMIT -e BENCHMARK_MEMORY_BYTES="$limit" \
             "$image" sleep infinity
           docker exec -i "$container" bash -seu <<'BENCHMARK'
@@ -80,11 +80,20 @@ jobs:
               echo "Using cached Ollama model $model"
               continue
             fi
-            echo "Downloading missing Ollama model $model"
-            if ! ollama pull "$model" > /tmp/ollama-pull.log 2>&1; then
-              tail -c 2000 /tmp/ollama-pull.log
-              echo "::warning::Could not pull $model. Its requests will be recorded as failed."
-            fi
+            log="/results/pull-$(printf '%s' "$model" | tr ':/' '__').log"
+            for pull_attempt in 1 2 3; do
+              echo "Pulling $model (attempt $pull_attempt of 3)"
+              if ollama pull "$model" >> "$log" 2>&1; then
+                echo "Cached $model"
+                break
+              fi
+              tail -c 2000 "$log" | tr '\r' '\n'
+              if ((pull_attempt == 3)); then
+                echo "::warning::Could not pull $model. Its requests will be recorded as failed."
+              else
+                sleep "$((pull_attempt * 20))"
+              fi
+            done
           done
           status=0
           python benchmark/run.py "$BENCHMARK_REPETITIONS" || status=$?
