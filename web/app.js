@@ -1839,7 +1839,8 @@ async function followLocalRun(run) {
 }
 
 async function initializeLocalRuns() {
-  if (location.protocol !== "http:" || location.hostname !== "127.0.0.1") return;
+  if (!(location.protocol === "https:" ||
+    (location.protocol === "http:" && location.hostname === "127.0.0.1"))) return;
   try {
     const runs = await (await localRequest("/api/runs")).json();
     if (!Array.isArray(runs)) return;
