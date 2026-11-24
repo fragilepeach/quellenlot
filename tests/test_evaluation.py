@@ -12,27 +12,63 @@ from quellenlot_agents.evaluation import EvaluationDataset, evaluate_reports
 
 def _labels() -> bytes:
     """Return an independently labelled synthetic source relation."""
-    return json.dumps({"labels": [{
-        "case_id": "library", "claim_id": "claim-1", "source_id": "city",
-        "expected_relation": "contradicts", "rationale": "Tuesday differs from Monday.",
-        "reference_quote": "Dienstag statt Montag.",
-    }]}).encode()
+    return json.dumps(
+        {
+            "labels": [
+                {
+                    "case_id": "library",
+                    "claim_id": "claim-1",
+                    "source_id": "city",
+                    "expected_relation": "contradicts",
+                    "rationale": "Tuesday differs from Monday.",
+                    "reference_quote": "Dienstag statt Montag.",
+                }
+            ]
+        }
+    ).encode()
 
 
 def _report() -> bytes:
     """Return one synthetic report with two disagreements and a model failure."""
-    return json.dumps({
-        "case_id": "library",
-        "claims": [{"claim_id": "claim-1", "review": {"analyses": [
-            {"model": "model-a", "status": "succeeded", "findings": [{
-                "source_id": "city", "relation": "contradicts",
-                "quotes": [{"source_id": "city", "text": "Dienstag statt Montag.", "verified": True}],
-            }]},
-            {"model": "model-b", "status": "succeeded",
-             "findings": [{"source_id": "city", "relation": "supports", "quotes": []}]},
-            {"model": "model-c", "status": "failed", "findings": []},
-        ]}}],
-    }).encode()
+    return json.dumps(
+        {
+            "case_id": "library",
+            "claims": [
+                {
+                    "claim_id": "claim-1",
+                    "review": {
+                        "analyses": [
+                            {
+                                "model": "model-a",
+                                "status": "succeeded",
+                                "findings": [
+                                    {
+                                        "source_id": "city",
+                                        "relation": "contradicts",
+                                        "quotes": [
+                                            {
+                                                "source_id": "city",
+                                                "text": "Dienstag statt Montag.",
+                                                "verified": True,
+                                            }
+                                        ],
+                                    }
+                                ],
+                            },
+                            {
+                                "model": "model-b",
+                                "status": "succeeded",
+                                "findings": [
+                                    {"source_id": "city", "relation": "supports", "quotes": []}
+                                ],
+                            },
+                            {"model": "model-c", "status": "failed", "findings": []},
+                        ]
+                    },
+                }
+            ],
+        }
+    ).encode()
 
 
 class EvaluationTests(unittest.TestCase):
@@ -43,7 +79,9 @@ class EvaluationTests(unittest.TestCase):
         result = evaluate_reports(_labels(), [_report()])
         self.assertEqual(result.label_count, 1)
         self.assertEqual(result.disputed_pairs, 1)
-        self.assertEqual([item.model for item in result.per_model], ["model-a", "model-b", "model-c"])
+        self.assertEqual(
+            [item.model for item in result.per_model], ["model-a", "model-b", "model-c"]
+        )
         a, b, c = result.per_model
         self.assertEqual(a.correct, 1)
         self.assertEqual(a.verified_quotes, 1)
@@ -60,8 +98,9 @@ class EvaluationTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             EvaluationDataset.model_validate({"labels": [label, label]})
         with self.assertRaisesRegex(ValueError, "Missing report"):
-            evaluate_reports(json.dumps({"labels": [{**label, "case_id": "absent"}]}).encode(),
-                             [_report()])
+            evaluate_reports(
+                json.dumps({"labels": [{**label, "case_id": "absent"}]}).encode(), [_report()]
+            )
 
 
 if __name__ == "__main__":

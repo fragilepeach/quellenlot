@@ -160,7 +160,9 @@ def evaluate_reports(dataset_bytes: bytes, report_bytes: list[bytes]) -> Evaluat
         msg = "Duplicate report case IDs."
         raise ValueError(msg)
     model_names = {
-        key: {analysis.model for claim in report.reviewed_claims for analysis in claim.review.analyses}
+        key: {
+            analysis.model for claim in report.reviewed_claims for analysis in claim.review.analyses
+        }
         for key, report in reports.items()
     }
     all_models = {name for names in model_names.values() for name in names}
@@ -188,7 +190,8 @@ def evaluate_reports(dataset_bytes: bytes, report_bytes: list[bytes]) -> Evaluat
             analysis = by_model.get(model)
             findings = (
                 [item for item in analysis.findings if item.source_id == label.source_id]
-                if analysis is not None and analysis.status == "succeeded" else []
+                if analysis is not None and analysis.status == "succeeded"
+                else []
             )
             if len(findings) != 1:
                 row["missing"] += 1
@@ -197,17 +200,22 @@ def evaluate_reports(dataset_bytes: bytes, report_bytes: list[bytes]) -> Evaluat
             relations.add(finding.relation)
             row["assessed"] += 1
             row["correct"] += int(finding.relation == label.expected_relation)
-            row["verified"] += int(any(
-                quote.verified and quote.source_id == label.source_id
-                for quote in finding.quotes
-            ))
+            row["verified"] += int(
+                any(
+                    quote.verified and quote.source_id == label.source_id
+                    for quote in finding.quotes
+                )
+            )
             if label.reference_quote is not None:
                 row["quote_checks"] += 1
-                row["quote_matches"] += int(any(
-                    quote.verified and quote.source_id == label.source_id
-                    and label.reference_quote in quote.text
-                    for quote in finding.quotes
-                ))
+                row["quote_matches"] += int(
+                    any(
+                        quote.verified
+                        and quote.source_id == label.source_id
+                        and label.reference_quote in quote.text
+                        for quote in finding.quotes
+                    )
+                )
             confusion[model].setdefault(label.expected_relation, Counter())[finding.relation] += 1
         if len(relations) > 1:
             disagreement.add((label.case_id, label.claim_id, label.source_id))
@@ -221,21 +229,28 @@ def evaluate_reports(dataset_bytes: bytes, report_bytes: list[bytes]) -> Evaluat
         },
         per_model=[
             ModelEvaluation(
-                model=model, expected=tallies[model]["expected"],
-                assessed=tallies[model]["assessed"], correct=tallies[model]["correct"],
-                missing=tallies[model]["missing"], verified_quotes=tallies[model]["verified"],
+                model=model,
+                expected=tallies[model]["expected"],
+                assessed=tallies[model]["assessed"],
+                correct=tallies[model]["correct"],
+                missing=tallies[model]["missing"],
+                verified_quotes=tallies[model]["verified"],
                 reference_quote_matches=tallies[model]["quote_matches"],
                 reference_quote_checks=tallies[model]["quote_checks"],
                 accuracy_on_assessed=(
                     tallies[model]["correct"] / tallies[model]["assessed"]
-                    if tallies[model]["assessed"] else None
+                    if tallies[model]["assessed"]
+                    else None
                 ),
                 correct_over_expected=(
                     tallies[model]["correct"] / tallies[model]["expected"]
-                    if tallies[model]["expected"] else 0.0
+                    if tallies[model]["expected"]
+                    else 0.0
                 ),
-                confusion={expected: dict(outcomes) for expected, outcomes
-                           in sorted(confusion[model].items())},
+                confusion={
+                    expected: dict(outcomes)
+                    for expected, outcomes in sorted(confusion[model].items())
+                },
             )
             for model in sorted(all_models)
         ],
@@ -270,8 +285,7 @@ def main() -> None:
     sys.stdout.write("Model | Assessed | Correct | Missing | Verified | Label agreement\n")
     for item in results.per_model:
         agreement = (
-            f"{item.accuracy_on_assessed:.1%}"
-            if item.accuracy_on_assessed is not None else "n/a"
+            f"{item.accuracy_on_assessed:.1%}" if item.accuracy_on_assessed is not None else "n/a"
         )
         sys.stdout.write(
             f"{item.model} | {item.assessed}/{item.expected} | {item.correct} | "
