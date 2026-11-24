@@ -525,6 +525,31 @@ h3 { font-size: 1.065rem; line-height: 1.35; font-weight: 600; letter-spacing: -
 .release-actions button:disabled { opacity: .55; cursor: default; }
 #release-status { margin-top: 8px; }
 
+
+.agent-inspect-button {
+  align-self: flex-start; min-height: 30px; margin-top: 4px; padding: 3px 7px;
+  border: 1px solid var(--purple-line); border-radius: 3px; color: var(--purple);
+  background: transparent; font: 600 0.78rem/1.4 var(--mono); cursor: pointer;
+}
+.agent-inspect-button:disabled { opacity: 0.4; cursor: default; }
+.agent-inspect-button:focus-visible { outline: 3px solid var(--purple); outline-offset: 3px; }
+.agent-inspector { margin-top: 12px; padding: 12px; border: 1px solid var(--purple-line); border-radius: 4px; background: var(--panel); }
+.agent-inspector > summary { color: var(--purple); font: 600 .88rem/1.4 var(--mono); cursor: pointer; }
+.agent-inspector h3 { margin-top: 12px; font: 600 .95rem/1.4 var(--mono); }
+#agent-inspector-context { margin: 8px 0; color: var(--subtle); font-size: .82rem; }
+#agent-inspector-records { list-style: none; margin: 10px 0 0; padding: 0; }
+.agent-audit-row { border-top: 1px solid var(--border); padding: 10px 0; overflow-wrap: anywhere; }
+.agent-audit-row-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.agent-audit-row-heading code { color: var(--purple); font: .76rem/1.5 var(--mono); }
+.agent-audit-row p { margin-top: 5px; font-size: .83rem; line-height: 1.5; }
+.agent-audit-row .agent-audit-context { color: var(--subtle); }
+.agent-audit-state { color: var(--subtle); font: 600 .75rem/1.4 var(--mono); }
+.agent-audit-state[data-state="succeeded"], .agent-audit-state[data-state="captured"],
+.agent-audit-state[data-state="completed"] { color: var(--green); }
+.agent-audit-state[data-state="failed"] { color: var(--error); }
+.agent-audit-state[data-state="partial"] { color: var(--caution); }
+.agent-audit-empty { padding: 12px 0; color: var(--subtle); }
+
 .agent-workflow { margin-top: 22px; }
 .agent-workflow-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 10px; }
 .agent-workflow-heading h2 { font-size: 1rem; }
