@@ -237,6 +237,14 @@ function agentAudit(report, retrieval) {
           (item.summary || "") + " · " + (item.findings?.length || 0) + " Einzelbefunde",
       });
     }
+    for (const item of review?.targeted_checks || []) {
+      add("comparison", {
+        name: item.rechecking_agent_id || "Unbekannt", state: item.status,
+        context: claimLabel + " · gezielte Nachprüfung für " + item.source_id,
+        detail: item.error_code ? "Fehlercode: " + item.error_code :
+          (relationLabels[item.relation] || item.relation || "Unklar") + " · " + (item.reasoning || ""),
+      });
+    }
     for (const item of review?.reviews || []) {
       const results = (item.findings || []).reduce((counts, finding) => {
         counts[finding.outcome] = (counts[finding.outcome] || 0) + 1;
@@ -654,7 +662,7 @@ function renderPlenum(claim) {
   content.replaceChildren();
   if (!claim.plenum) return;
 
-  const { analyses, reviews, dissent, sources } = claim.plenum;
+  const { analyses, reviews, targeted, dissent, sources } = claim.plenum;
   const analysisByAgent = new Map(analyses.map((record) => [record.agent_id, record]));
   const sourceByVersion = new Map(sources.map((source) => [
     JSON.stringify([source.source_id, source.version_id]), source,
@@ -719,6 +727,29 @@ function renderPlenum(claim) {
       }
     }
     content.append(entry);
+  }
+  if (targeted.length) {
+    content.append(element("h5", "", "Gezielte Nachprüfungen"));
+    for (const result of targeted) {
+      const entry = element("section", "plenum-entry");
+      entry.append(element("h6", "", result.rechecking_agent_id + " prüft " + result.source_id));
+      entry.append(element("p", "", "Nach Einwand von " + result.challenging_agent_id +
+        " gegen " + result.target_agent_id + ". Originalurteile bleiben unverändert."));
+      if (result.status === "failed") {
+        entry.append(element("p", "", "Nachprüfung fehlgeschlagen: " + (result.error_code || "unbekannt")));
+      } else {
+        entry.append(relationBadge(result.relation));
+        if (result.reasoning) entry.append(element("p", "", result.reasoning));
+        const source = sourceByVersion.get(JSON.stringify([result.source_id, result.source_version_id]));
+        if (result.quote?.verified && source && result.quote.source_id === source.source_id &&
+          result.quote.version_id === source.version_id && result.quote.text) {
+          entry.append(element("blockquote", "diff-quote", result.quote.text));
+          const link = sourceLink(source, result.quote.text, "Nachprüfungsbeleg öffnen");
+          if (link) entry.append(link);
+        }
+      }
+      content.append(entry);
+    }
   }
 }
 
@@ -1281,6 +1312,7 @@ function readReport(data) {
       plenum: Array.isArray(claim.review.analyses) || Array.isArray(claim.review.reviews) ? {
         analyses: Array.isArray(claim.review.analyses) ? claim.review.analyses : [],
         reviews: Array.isArray(claim.review.reviews) ? claim.review.reviews : [],
+        targeted: Array.isArray(claim.review.targeted_checks) ? claim.review.targeted_checks : [],
         dissent: Array.isArray(claim.review.unresolved_dissent) ? claim.review.unresolved_dissent : [],
         sources: Array.isArray(claim.review.sources) ? claim.review.sources : report.sources,
       } : null,
