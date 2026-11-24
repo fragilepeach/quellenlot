@@ -24,11 +24,17 @@ class MetricTests(unittest.TestCase):
 
     def test_success_records_wall_time_and_native_counters(self) -> None:
         """Preserve Ollama-provided token counts and evaluate duration."""
+
         def response(_request: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, json={
-                "message": {"content": '{"answer":"okay"}'},
-                "prompt_eval_count": 32, "eval_count": 10, "eval_duration": 2_000_000_000,
-            })
+            return httpx.Response(
+                200,
+                json={
+                    "message": {"content": '{"answer":"okay"}'},
+                    "prompt_eval_count": 32,
+                    "eval_count": 10,
+                    "eval_duration": 2_000_000_000,
+                },
+            )
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(response))
         with (
@@ -47,6 +53,7 @@ class MetricTests(unittest.TestCase):
 
     def test_http_failure_keeps_missing_metrics_unknown(self) -> None:
         """Never invent token counts when Ollama did not respond."""
+
         def response(_request: httpx.Request) -> httpx.Response:
             return httpx.Response(503, text="service unavailable")
 
@@ -54,9 +61,9 @@ class MetricTests(unittest.TestCase):
         with (
             patch("quellenlot_agents.provider.httpx.AsyncClient", return_value=client),
             collect_model_calls() as calls,
+            self.assertRaises(ProviderError),
         ):
-            with self.assertRaises(ProviderError):
-                asyncio.run(complete_json("local-model", 8192, "system", "user", _Answer))
+            asyncio.run(complete_json("local-model", 8192, "system", "user", _Answer))
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0].status, "failed")
         self.assertEqual(calls[0].error_code, "HTTPStatusError")

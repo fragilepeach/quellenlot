@@ -422,7 +422,6 @@ class ClaimSourceDiff(ContractModel):
     evidence: list[DiffEvidence] = Field(default_factory=list[DiffEvidence])
 
 
-
 class ModelCallMetric(ContractModel):
     """One observed local Ollama call; absent counters were not supplied by the server."""
 

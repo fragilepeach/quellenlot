@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 
@@ -12,7 +12,7 @@ _CURRENT: ContextVar[list[ModelCallMetric] | None] = ContextVar("model_calls", d
 
 
 @contextmanager
-def collect_model_calls() -> Iterator[list[ModelCallMetric]]:
+def collect_model_calls() -> Generator[list[ModelCallMetric], None, None]:
     """Capture provider calls made in the current execution context.
 
     Yields:
