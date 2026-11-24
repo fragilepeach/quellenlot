@@ -22,7 +22,7 @@ Paste a German-language news article, optionally ask a question, and trace the r
 
 The repository tracks reproducible **25 fps browser GIFs** and desktop/mobile screenshots. These clips show GUI interactions with demo or fixture-backed data; they do not indicate that the models ran at 25 fps. The [complete feature gallery](web/README.md#feature-gallery) has all screenshots and walkthroughs, and the [capture manifest](docs/images/generated/manifest.json) identifies each tested commit and file hash.
 
-Start with the [Tankrabatt demo walkthrough](web/README.md#what-to-look-for-in-the-tankrabatt-demo) to follow the diesel claim from the source comparison to the KI-Plenum.
+Start with the [Tankrabatt demo walkthrough](web/README.md#what-to-look-for-in-the-tankrabatt-demo) to follow the claim about full average pass-through from the source comparison to the KI-Plenum.
 
 ### 1. Follow a claim to its cited evidence
 
