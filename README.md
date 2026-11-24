@@ -277,6 +277,10 @@ The editorial status describes assessment coverage. Unresolved disagreements rem
 | A page is missing evidence | Inspect **Abrufprobleme**; the HTML-only URL intake cannot handle every website or paywall |
 | Study or trend results are unavailable | Those features require a network path to Crossref/Europe PMC or GDELT; importing a Google Trends CSV works in the browser |
 
+## Research-quality evaluation
+
+Run `quellenlot-eval` on saved reports and independently annotated claim/source labels to measure per-model coverage, agreement, missing findings, citation verification and relation confusion. Input SHA-256 hashes make repeated evaluations auditable. This is a **measurement harness**, not proof of model reliability; no real-world reference corpus is bundled. [Evaluation guide and label schema](docs/evaluation.md).
+
 ## Development checks
 
 Update this README and any relevant feature guides in the same pull request as every new feature. Cover usage, configuration, and limitations that affect users. For GUI changes, refresh the affected screenshots and walkthroughs through the preview workflow.
