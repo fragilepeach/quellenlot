@@ -101,12 +101,13 @@ async def complete_json[OutputModel: BaseModel](
             error_code = type(exc).__name__
             msg = f"Ollama returned JSON incompatible with {output_model.__name__}."
             raise ProviderError(msg) from exc
-        status = "succeeded"
-        return parsed
     except ProviderError:
         if error_code is None:
             error_code = "ProviderError"
         raise
+    else:
+        status = "succeeded"
+        return parsed
     finally:
         record_model_call(
             ModelCallMetric(
