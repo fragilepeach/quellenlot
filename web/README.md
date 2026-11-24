@@ -162,7 +162,7 @@ Cases are curated in [parliament-data.js](parliament-data.js). To add a case, su
 
 1. Open the Tankrabatt example and select the highlighted claim about full average pass-through.
 2. In the source comparison, check the time window and what each source measures. The ifo study estimates the price effect relative to a scenario without the tax cut over June through August 2022. The later RWI study estimates lower average pass-through, and the TU Dresden article reports on the same study as the ifo source.
-3. Open **Herkunft & Belege** and follow a quote to its source. Then open **KI-Plenum** to see the individual assessments, peer reviews and unresolved objections.
+3. Open **Herkunft & Belege** and follow a quote to its source. For the next stage, open the [KI-Plenum walkthrough](#ki-plenum), which uses a saved example report to show individual assessments, peer reviews and unresolved objections.
 4. For a live analysis, start the local server and provide an article URL and comparison URLs, or configure SearXNG for automatic discovery. Check retrieval status and snapshot completeness before interpreting a missing mention. To test a difference in time windows, compare the ifo study with the ADAC release from 8 June 2022, which compares pump prices with the previous week.
 
 The gallery captures the built-in example and controlled browser fixtures. A live run also depends on source availability and the configured Ollama models.
