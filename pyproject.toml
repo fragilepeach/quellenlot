@@ -32,6 +32,7 @@ dev = [
 [project.scripts]
 quellenlot-agents = "quellenlot_agents.cli:main"
 quellenlot-ui = "quellenlot_agents.local_ui:main"
+quellenlot-eval = "quellenlot_agents.evaluation:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
