@@ -1,6 +1,6 @@
 {
-  "source_commit": "18d0e97c1cfe1306e6effd29fe371ce08ffc8460",
-  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/45376259108",
+  "source_commit": "81de371250249a6fe03f2fa7a1e8356f98e2d506",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/45376813920",
   "scenario": "Tankrabatt demo, fixture-backed analyses and trends, and curated Bundestag records",
   "playwright": "1.58.2",
   "media": [
@@ -60,16 +60,16 @@
       "height": 630,
       "frames": 178,
       "fps": 25,
-      "bytes": 997804,
-      "sha256": "be45b3fe147860decdf63dd2180a8e763e39e3d7590713c6ec3057d9adcb0a88"
+      "bytes": 997792,
+      "sha256": "a7cd21c37aab264d34575710f527111f61e177682e14fd1739ff74503f725158"
     },
     {
       "file": "agent-workflow.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 186796,
-      "sha256": "3b7833f9049548578ef2394538bda1c8e804a3a12a7c6a6eb33462813cf64fd3"
+      "bytes": 186783,
+      "sha256": "af5812c5d1bbdf901e20b93a7cbff115c3f5eee7e1ff0e258ddf567357a7a540"
     },
     {
       "file": "agent-workflow-mobile.png",
@@ -86,7 +86,7 @@
       "frames": 234,
       "fps": 25,
       "bytes": 241134,
-      "sha256": "6d26dc53011b1212a3ad6480c2e3c7c13be49756588bdd236aa6ca9f2e808de3"
+      "sha256": "9ec4c29f75a716d8a0b6de30a563bb6d9b8de9db74ccb3d93a0d1d69de229fbc"
     },
     {
       "file": "claim-diff.png",
