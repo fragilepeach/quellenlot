@@ -603,7 +603,7 @@ async function checkClaimDiff(browser, record) {
       await plenum.getByText("Gezielte Nachprüfungen", { exact: true }).waitFor();
       await plenum.getByText("Die Quelle beschreibt einen abweichenden Zeitraum.", { exact: true }).waitFor();
       assert.deepEqual(await plenum.locator("blockquote").allTextContents(), [revised, revised]);
-      const reviewLink = new URL(await plenum.getByRole("link", { name: "Beleg öffnen" }).getAttribute("href"));
+      const reviewLink = new URL(await plenum.getByRole("link", { name: "Beleg öffnen", exact: true }).getAttribute("href"));
       assert.equal(reviewLink.origin + reviewLink.pathname, news.url);
       assert.equal(decodeURIComponent(reviewLink.hash), "#:~:text=" + revised);
       if (reviews) {
