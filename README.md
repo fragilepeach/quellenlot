@@ -298,6 +298,10 @@ The [Python quality workflow](.github/workflows/python-quality.yml) runs the ful
 - CrossHair checks exact peer-review coverage and how the workflow handles apparent omissions in incomplete sources. The symbolic coverage check uses assignments of up to three findings. Import Linter enforces the package layers, and Vulture checks high-confidence dead code.
 - Actionlint, Zizmor, and Yamllint validate workflow definitions. CI also runs Bandit, the dependency audit, deterministic behavioral tests with fixture HTML and simulated Ollama responses, and the package build checks.
 
+## Private authenticated hosting
+
+Quellenlot can run as a private HTTPS editorial workspace behind a Caddy Basic Authentication reverse proxy. Its Python API stays bound to loopback and validates the public Host/Origin pair; saved analyses, private drafts and approvals remain behind authentication. Public publication is a separate explicit export action. [Linux Docker Compose deployment and security notes](deploy/README.md).
+
 ## Scope boundary
 
 Quellenlot includes a local agent library, a CLI, and a loopback browser interface with saved runs, private editorial drafts, and report-specific approval. Run `quellenlot-ui --config models.toml` from the checkout to start an analysis from the browser. See the [GUI guide](web/README.md#using-the-local-agent) for setup and storage paths. Hosted access control and public publication remain separate work. Local model quality for German political research still needs evaluation against a held-out set before relying on the results.

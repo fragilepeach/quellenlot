@@ -1,0 +1,40 @@
+# Linux host networking lets Caddy reach only the loopback Python API and host Ollama.
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    network_mode: host
+    restart: unless-stopped
+    command:
+      - quellenlot-ui
+      - --config
+      - /config/models.toml
+      - --web-dir
+      - /app/web
+      - --runs-dir
+      - /data/runs
+      - --public-origin
+      - https://${QUELLENLOT_DOMAIN:?Set an HTTPS domain}
+    volumes:
+      - ./models.toml:/config/models.toml:ro
+      - review_data:/data
+    security_opt:
+      - no-new-privileges:true
+  proxy:
+    image: caddy:2.10
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      QUELLENLOT_DOMAIN: ${QUELLENLOT_DOMAIN:?Set an HTTPS domain}
+      QUELLENLOT_PASSWORD_HASH: ${QUELLENLOT_PASSWORD_HASH:?Set a bcrypt password hash}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  review_data:
+  caddy_data:
+  caddy_config:

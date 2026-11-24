@@ -8,3 +8,7 @@ build/
 dist/
 /artifacts/gui-preview/
 /tools/ci/gui-preview/node_modules/
+
+# Private deployment credentials and model configuration
+deploy/.env
+deploy/models.toml
