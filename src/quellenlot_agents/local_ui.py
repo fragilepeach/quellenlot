@@ -375,7 +375,9 @@ class LocalServer(ThreadingHTTPServer):
         """
         self.assets = assets
         self.runs = _LocalRuns(directory, config)
-        self.public_origin = _validate_public_origin(public_origin) if public_origin is not None else None
+        self.public_origin = (
+            _validate_public_origin(public_origin) if public_origin is not None else None
+        )
         super().__init__((_LOOPBACK, port), _LocalHandler)
 
     @property
