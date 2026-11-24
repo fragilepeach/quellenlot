@@ -307,7 +307,7 @@ Do not assume missing text proves omission in a partial capture. Do not infer fa
 from other sources or decide the case by model majority vote. Return valid JSON only."""
 
 
-def _targeted_sources(
+def select_targeted_sources(
     analyses: list[AnalysisRecord],
     reviews: list[ReviewRecord],
     limit: int,
@@ -372,7 +372,7 @@ def _validate_targeted_source(draft: DraftTargetedRecheck, source_id: str) -> No
         raise ProviderError(msg)
 
 
-async def _targeted_recheck(
+async def run_targeted_recheck(
     case: CaseInput,
     config: WorkflowConfig,
     source_id: str,
@@ -380,7 +380,19 @@ async def _targeted_recheck(
     challenger_id: str,
     analyses: list[AnalysisRecord],
 ) -> TargetedRecheckRecord:
-    """Ask one non-involved configured model to review just a disputed source."""
+    """Ask a non-involved model to check one disputed source and record the result.
+
+    Args:
+        case: Original claim and immutable source snapshots.
+        config: Local model pool and context limits.
+        source_id: Source being checked.
+        reviewed_id: Original model whose conclusion was challenged.
+        challenger_id: Model that raised the objection.
+        analyses: Original findings retained for comparison.
+
+    Returns:
+        Versioned follow-up result with verified quote or an explicit failure.
+    """
     source = next(item for item in case.sources if item.source_id == source_id)
     model = next(
         (item for item in config.models if item.id not in {reviewed_id, challenger_id}),
@@ -552,9 +564,9 @@ async def run_review(
         case, analyses, reviews, shared_wording, include_shared_wording=include_shared_wording
     )
     if config.targeted_rechecks:
-        requests = _targeted_sources(analyses, reviews, config.targeted_rechecks)
+        requests = select_targeted_sources(analyses, reviews, config.targeted_rechecks)
         report.targeted_checks = [
-            await _targeted_recheck(case, config, source_id, reviewed_id, challenger_id, analyses)
+            await run_targeted_recheck(case, config, source_id, reviewed_id, challenger_id, analyses)
             for source_id, reviewed_id, challenger_id in requests
         ]
         if any(item.status == "failed" for item in report.targeted_checks):

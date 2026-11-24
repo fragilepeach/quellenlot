@@ -6,6 +6,7 @@ import unittest
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
+from quellenlot_agents import workflow
 from quellenlot_agents.config import ModelConfig, WorkflowConfig
 from quellenlot_agents.models import (
     AnalysisRecord,
@@ -15,9 +16,6 @@ from quellenlot_agents.models import (
     ReviewRecord,
     SourceInput,
 )
-from quellenlot_agents import workflow
-
-
 def _analysis(agent: str, relation: str) -> AnalysisRecord:
     """Construct a typed successful synthetic agent finding."""
     return AnalysisRecord.model_validate(
@@ -63,7 +61,7 @@ class TargetedChecksTests(unittest.TestCase):
                 )
             ],
         )
-        self.assertEqual(workflow._targeted_sources(analyses, [review], 0), [])
+        self.assertEqual(workflow.selectworkflow.select_targeted_sources(analyses, [review], 0), [])
         self.assertEqual(
             _targeted_sources(analyses, [review], 1), [("source-a", "agent-a", "agent-b")]
         )
@@ -101,7 +99,7 @@ class TargetedProviderTests(unittest.IsolatedAsyncioTestCase):
         )
         response = AsyncMock(return_value=draft)
         with patch("quellenlot_agents.workflow.complete_json", new=response):
-            result = await workflow._targeted_recheck(
+            result = await workflow.run_targeted_recheck(
                 case, config, "source-a", "agent-0", "agent-1", [_analysis("agent-0", "supports")]
             )
         self.assertEqual(result.status, "succeeded")
