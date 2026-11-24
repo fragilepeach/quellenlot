@@ -1,6 +1,6 @@
 {
-  "source_commit": "794db5f56631d64d34945665009512d732422fbc",
-  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/45374434389",
+  "source_commit": "18d0e97c1cfe1306e6effd29fe371ce08ffc8460",
+  "workflow_run": "https://github.com/fragilepeach/quellenlot/actions/runs/45376259108",
   "scenario": "Tankrabatt demo, fixture-backed analyses and trends, and curated Bundestag records",
   "playwright": "1.58.2",
   "media": [
@@ -9,24 +9,24 @@
       "width": 1280,
       "height": 2216,
       "frames": 1,
-      "bytes": 265376,
-      "sha256": "ea87e7cd92312f3b4653cbabb8e88fd9690d758eda33d8377b7ff32384e89726"
+      "bytes": 303832,
+      "sha256": "75a907c408f9508cd513c2d9d6e195ac8a937070374f5132c49f64dc2230f949"
     },
     {
       "file": "mobile.png",
       "width": 390,
       "height": 3806,
       "frames": 1,
-      "bytes": 259529,
-      "sha256": "688a0dc8837c8eeb8b59fc2757e6fa7099e4e4e145025397775eedff180da431"
+      "bytes": 292509,
+      "sha256": "4172ae5e408f59bf0cb81f733984e757654924f0ceeca9525ecf587738be3750"
     },
     {
       "file": "light-mobile.png",
       "width": 320,
       "height": 800,
       "frames": 1,
-      "bytes": 50007,
-      "sha256": "800dbf9d7a28c9507065ac74e0e301476e43ae5097c32d890bb715134ee17b2e"
+      "bytes": 58676,
+      "sha256": "30a661e7b50884fdeddabac0c71b6b9400b65215f1a1c02446176401dc0a3c91"
     },
     {
       "file": "mobile-workflow.gif",
@@ -34,8 +34,8 @@
       "height": 844,
       "frames": 174,
       "fps": 25,
-      "bytes": 487271,
-      "sha256": "e88d4c84108f64d063630cf3057f58a0492d4fd67de1fae8053d23e84d3aa197"
+      "bytes": 509635,
+      "sha256": "c05c4460ef8c2bcbaeb043f4863d9440877ffd563983d2cccfe27d7137f8aa5a"
     },
     {
       "file": "usage.gif",
@@ -43,16 +43,16 @@
       "height": 585,
       "frames": 233,
       "fps": 25,
-      "bytes": 719185,
-      "sha256": "3646b6beb4263168153957bc4e52190e867d067850c7aeab7c5b16d24f566e22"
+      "bytes": 733216,
+      "sha256": "220b1ed4de61a0cf7e148a97f343506311e77341cbef5f45990bbcef25c8f683"
     },
     {
       "file": "local-analysis.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 94168,
-      "sha256": "d17d3805a5b703a733126d88f077a9cbf47469e4c112b4423e0ea63859d944be"
+      "bytes": 103216,
+      "sha256": "3d487dccf6a307abd5ec0824a9a108f9f3eb1aad2d19970f7f0b9c8fdfcd080c"
     },
     {
       "file": "local-analysis.gif",
@@ -60,24 +60,24 @@
       "height": 630,
       "frames": 178,
       "fps": 25,
-      "bytes": 981226,
-      "sha256": "0bfd2a0bda2ffdd7175e2841d4dff469cbf37ac2690d84a77045a833a24d6eaf"
+      "bytes": 997804,
+      "sha256": "be45b3fe147860decdf63dd2180a8e763e39e3d7590713c6ec3057d9adcb0a88"
     },
     {
       "file": "agent-workflow.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 160080,
-      "sha256": "b73868a10d4a1792f8b9453f115a3102d4502ee3abf2ea3119acd457611908b6"
+      "bytes": 186796,
+      "sha256": "3b7833f9049548578ef2394538bda1c8e804a3a12a7c6a6eb33462813cf64fd3"
     },
     {
       "file": "agent-workflow-mobile.png",
       "width": 390,
       "height": 960,
       "frames": 1,
-      "bytes": 63417,
-      "sha256": "3419b6d5f9bbe243e7ae3536d6a631af277c6f21a90361c4de8171897bd4bf52"
+      "bytes": 76809,
+      "sha256": "f3539ae5cd4836edc6afd1c84f3a7d418ff757f978fdb6fdef615575b319ee9b"
     },
     {
       "file": "agent-workflow.gif",
@@ -85,16 +85,16 @@
       "height": 630,
       "frames": 234,
       "fps": 25,
-      "bytes": 234373,
-      "sha256": "354bf69e086b69743df890e0ef3e9ae060e517970f2b545300fb8825021bd1d8"
+      "bytes": 241134,
+      "sha256": "6d26dc53011b1212a3ad6480c2e3c7c13be49756588bdd236aa6ca9f2e808de3"
     },
     {
       "file": "claim-diff.png",
       "width": 1280,
       "height": 900,
       "frames": 1,
-      "bytes": 89820,
-      "sha256": "3446f532bada69326b34de042b4af99b2c17975389f25fa48152f7eff7f60870"
+      "bytes": 105830,
+      "sha256": "97b155f869f499f3a7753c59672057c5a60eefd22ed1cfba16400a855b5fc3fc"
     },
     {
       "file": "claim-diff.gif",
@@ -102,32 +102,32 @@
       "height": 591,
       "frames": 138,
       "fps": 25,
-      "bytes": 682750,
-      "sha256": "63b78be46902186af217442962497a5674021ef6f0258761f86b918c27936a23"
+      "bytes": 694931,
+      "sha256": "86b2a8773acf89274d35baa7456319185964f5b98e06c045100cc5032650c73d"
     },
     {
       "file": "source-similarity.png",
       "width": 1280,
       "height": 900,
       "frames": 1,
-      "bytes": 99965,
-      "sha256": "755b42bbf3a1ffdc1a658e5965d507064d5ead1946f311f16b5d9a142882b82b"
+      "bytes": 108456,
+      "sha256": "48432cac8b764798802354227f429da284422daaba8be431741aea2de4486c5b"
     },
     {
       "file": "source-similarity-mobile.png",
       "width": 390,
       "height": 900,
       "frames": 1,
-      "bytes": 76849,
-      "sha256": "0f740106abbd7d707a1509efef5d0121a58e0402cd01bd49c3c7b30eaf07a7ba"
+      "bytes": 82021,
+      "sha256": "2dac15f61cdbe91e9e0c21c7b95fb6c4b837ca58bc7880285170c2c72337bed6"
     },
     {
       "file": "shared-provenance.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 79265,
-      "sha256": "03df19e157d2422befb764c7c758fb31d4596f9584e0898b113731eb9513e5fe"
+      "bytes": 83240,
+      "sha256": "6d9c01a59d142e4803edc2eb1564c8e13ad60be2d25075d5127c917e3ecbbf65"
     },
     {
       "file": "report-import.gif",
@@ -135,41 +135,41 @@
       "height": 630,
       "frames": 162,
       "fps": 25,
-      "bytes": 274330,
-      "sha256": "f8656aa59576f6aa31ec79e74e0755b7be91ad1cbc160744f309c543e47e38b1"
+      "bytes": 275039,
+      "sha256": "b3d3849be9d601e0343b7adc61c9b1958be723f7c08d0a2cfd337bc828df0205"
     },
     {
       "file": "plenum.png",
       "width": 1280,
       "height": 900,
       "frames": 1,
-      "bytes": 71095,
-      "sha256": "205c2edb08bcfeaa77dee38c7ba37f6e11c293ec636086ec5922a145811aa52e"
+      "bytes": 88447,
+      "sha256": "f6f897a76e6c94b63700bf63e256dda894323f7c7437c4602bea7ad7fdc9ba5e"
     },
     {
       "file": "plenum.gif",
       "width": 840,
       "height": 591,
-      "frames": 127,
+      "frames": 179,
       "fps": 25,
-      "bytes": 1038859,
-      "sha256": "60e3a86bbe75040b0209f7dc7fc095a24f74a3b3f1e52d41a593a8997787aff4"
+      "bytes": 1691387,
+      "sha256": "5dba57d9ab3cfa57de0b264b74cfd48341767691eb210cb94953e48654d7d225"
     },
     {
       "file": "studies.png",
       "width": 1280,
       "height": 1120,
       "frames": 1,
-      "bytes": 115612,
-      "sha256": "004dc96a3d2a8733b225fd16770db92bc0515f12e8c325f7016858d1d4b6cf0e"
+      "bytes": 128090,
+      "sha256": "bfe5822f4235e5461172da91fcde74eb49553c99514bef560283779d1c13355a"
     },
     {
       "file": "studies-mobile.png",
       "width": 390,
       "height": 1120,
       "frames": 1,
-      "bytes": 105298,
-      "sha256": "f0dd95b6db588f874acb8fdcc84a260770adca8168583ea0c44cffce2b37746e"
+      "bytes": 114911,
+      "sha256": "cca7757b41f6b6938389684115f64bc3327c9592027b5dd5e4c998395629fefc"
     },
     {
       "file": "studies.gif",
@@ -177,32 +177,32 @@
       "height": 630,
       "frames": 131,
       "fps": 25,
-      "bytes": 727105,
-      "sha256": "e8ae91dbf91b5bc8fafa7a05cc875a3fde77929cbe5acfaf5057f4cc3f01a8ea"
+      "bytes": 732830,
+      "sha256": "2dfcbfc022fbc6c9e6b35c4b8819680d239c2fc4d43106f44a7c493795cc3693"
     },
     {
       "file": "trends-desktop.png",
       "width": 1152,
       "height": 1638,
       "frames": 1,
-      "bytes": 170565,
-      "sha256": "44b57caecb600ecb4f6424cd1922851210d3b77edfb2262244cb36b2aba82771"
+      "bytes": 180211,
+      "sha256": "b14b19556e4109870cbb4f7bfe504a82bf1a3b9ff8573175ddf2a671a619d060"
     },
     {
       "file": "trends-mobile.png",
       "width": 358,
       "height": 2262,
       "frames": 1,
-      "bytes": 160137,
-      "sha256": "716571dc380244e5e88f1fe9cd80194fd0f2245de248a42e87a28be6ebb2e319"
+      "bytes": 169198,
+      "sha256": "4b197104712b03addd774a8f11cc06ff278a604ef632e3cef5f8ab5922b52407"
     },
     {
       "file": "trend-events.png",
       "width": 1280,
       "height": 900,
       "frames": 1,
-      "bytes": 90221,
-      "sha256": "9e25f9ce45f75789bd044aafa3f645425cc843ab83835a12b70f578a4670b8bd"
+      "bytes": 94971,
+      "sha256": "ab0b98434762c2810102896fc63dca91ebbef695650bc170d487fb5895701806"
     },
     {
       "file": "topic-trends.gif",
@@ -210,32 +210,32 @@
       "height": 591,
       "frames": 176,
       "fps": 25,
-      "bytes": 1763995,
-      "sha256": "0925ee0dbcf43e654a0ed5db3d3da3c30fd9ea973953b603b0ebbf9456c48fab"
+      "bytes": 1758473,
+      "sha256": "7b521171dfe48f0c297157d7bd506235b8bc5a25a376eced1ccb87b09bb90e82"
     },
     {
       "file": "source-interests.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 91788,
-      "sha256": "6f5f3482ea77fafa1b5de5e53f5665c72fe142a1fc12ec61a8eebd02b5dd729f"
+      "bytes": 97366,
+      "sha256": "f427f907a5371b54e9a321056e552b454123f0a96803288656641c5a5ac1be8a"
     },
     {
       "file": "editorial-draft.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 99630,
-      "sha256": "6ed4720c4b0db1a34cc278ad5b6887b011a1f112d35290da3506c36865c5c6e9"
+      "bytes": 103936,
+      "sha256": "077466b7532abd09a207816c87da1db44aef4d75d718f8f1259d3b331b19ebd5"
     },
     {
       "file": "reader-preview.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 93635,
-      "sha256": "273a0802c1e554b0a6fad5aa2275c541d2d647652ea08108e025bea1238eb225"
+      "bytes": 96033,
+      "sha256": "68947ced93d09d52b92259a1dfe69acc34ae5e9b11de212a534180352881b9ac"
     },
     {
       "file": "editorial-review.gif",
@@ -243,16 +243,16 @@
       "height": 630,
       "frames": 138,
       "fps": 25,
-      "bytes": 176225,
-      "sha256": "7b1d14a163914b5b35a69e7bd62a36623edb178b2c6075ae0baa774a29f05ec0"
+      "bytes": 175440,
+      "sha256": "840e7fafe5b88069d9b721fa7d73fe93496fa1615290e95f822f030485f4b9eb"
     },
     {
       "file": "parliament.png",
       "width": 1280,
       "height": 2574,
       "frames": 1,
-      "bytes": 403710,
-      "sha256": "9fdb0161c63567ac16aa14b69484044562409ac1718e484cc3eeb1371f4861cc"
+      "bytes": 439533,
+      "sha256": "005d6ef6c764b04f15ae7993ffcbe918316d23a7e5867a828067e96bfc150990"
     },
     {
       "file": "parliament.gif",
@@ -260,24 +260,24 @@
       "height": 630,
       "frames": 188,
       "fps": 25,
-      "bytes": 1631159,
-      "sha256": "5143e36b166ef1148114bcc404dbd115ddcc51c7ee551c6dd708a76d63cb4bf2"
+      "bytes": 1641445,
+      "sha256": "9746e9d3787615a6b92f80e021fb1717b7c3692f13ba7ca8b07dc7963ece06c7"
     },
     {
       "file": "agent-inspector.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 100638,
-      "sha256": "42764d3016596fda77698e088418cc8911e39c348ceba4eb6abe877a390cba92"
+      "bytes": 126773,
+      "sha256": "093cdc8343293e1ddcdc5e5f172d35ab57f5e9ce4a642d29d7cad41a540e6fdf"
     },
     {
       "file": "agent-inspector-mobile.png",
       "width": 390,
       "height": 960,
       "frames": 1,
-      "bytes": 63417,
-      "sha256": "3419b6d5f9bbe243e7ae3536d6a631af277c6f21a90361c4de8171897bd4bf52"
+      "bytes": 76809,
+      "sha256": "f3539ae5cd4836edc6afd1c84f3a7d418ff757f978fdb6fdef615575b319ee9b"
     },
     {
       "file": "agent-inspector.gif",
@@ -285,24 +285,24 @@
       "height": 630,
       "frames": 100,
       "fps": 25,
-      "bytes": 59054,
-      "sha256": "06a0ac2397b20006c411d22bc7c0aaab1ee271b7e091be8d8b03285cd6634b54"
+      "bytes": 59411,
+      "sha256": "d40431f9468f45e8ecde794c1ec7f9314c908aa3c3a1c379f211fcea8a2429fc"
     },
     {
       "file": "model-metrics.png",
       "width": 1280,
       "height": 960,
       "frames": 1,
-      "bytes": 110494,
-      "sha256": "41d3f2753085260a818ed1283757ab4a3baf467656a5949cf7136e9a7a009040"
+      "bytes": 122475,
+      "sha256": "f1b94eb8f6def37886af90c10a78d794f161915d1370bbca577ce04e2e7faf66"
     },
     {
       "file": "model-metrics-mobile.png",
       "width": 390,
       "height": 960,
       "frames": 1,
-      "bytes": 75932,
-      "sha256": "0efe2c970656d5af9f898324cc970dc8f69b2d883a81008bfd50eaa687788320"
+      "bytes": 84285,
+      "sha256": "683710d9f69c21a300e2f5a52db60bb3888cd1a88002c6f6405c40f9a29165b5"
     },
     {
       "file": "model-metrics.gif",
@@ -310,8 +310,8 @@
       "height": 630,
       "frames": 52,
       "fps": 25,
-      "bytes": 734845,
-      "sha256": "829dba34438ecc7b2845717065651ca0cfa43c6dde327774eba13b25fff4b903"
+      "bytes": 738369,
+      "sha256": "b4b236f5442cd5798fc9a8aacc5fdfc6682b9cff3dee702f3c8d54952c31e880"
     }
   ]
 }
