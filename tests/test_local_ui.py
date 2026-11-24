@@ -32,6 +32,68 @@ _CASE = {
 class LocalUiTests(unittest.TestCase):
     """Verify the private browser API and storage across server instances."""
 
+    def test_authenticated_https_proxy_origin_is_restricted(self) -> None:
+        """An external HTTPS origin works without weakening loopback protections."""
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            assets = Path("web")
+            for invalid in (
+                "http://example.org",
+                "https://localhost",
+                "https://example.org/path",
+                "https://user:pass@example.org",
+                "https://example.org?query=1",
+            ):
+                with self.subTest(origin=invalid), self.assertRaises(ValueError):
+                    LocalServer(0, assets, directory, _CONFIG, public_origin=invalid)
+            with (
+                LocalServer(
+                    0, assets, directory, _CONFIG, public_origin="https://facts.example.org"
+                ) as server,
+                httpx.Client(base_url=server.origin, timeout=4, trust_env=False) as client,
+            ):
+                thread = Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    trusted = {"Host": "facts.example.org", "Origin": "https://facts.example.org"}
+                    self.assertEqual(client.get("/", headers=trusted).status_code, 200)
+                    self.assertEqual(client.get("/api/runs", headers=trusted).status_code, 200)
+                    self.assertEqual(
+                        client.post("/api/runs", json={}, headers=trusted).status_code, 400
+                    )
+                    self.assertEqual(
+                        client.post(
+                            "/api/runs",
+                            json=_CASE,
+                            headers={**trusted, "Origin": "https://evil.example.org"},
+                        ).status_code,
+                        403,
+                    )
+                    self.assertEqual(
+                        client.post(
+                            "/api/runs",
+                            json=_CASE,
+                            headers={**trusted, "Sec-Fetch-Site": "cross-site"},
+                        ).status_code,
+                        403,
+                    )
+                    self.assertEqual(
+                        client.post(
+                            "/api/runs",
+                            json=_CASE,
+                            headers={"Host": "facts.example.org"},
+                        ).status_code,
+                        403,
+                    )
+                    self.assertEqual(
+                        client.get("/api/runs", headers={"Host": "evil.example.org"}).status_code,
+                        403,
+                    )
+                    self.assertEqual(client.get("/api/runs").status_code, 200)
+                finally:
+                    server.shutdown()
+                    thread.join(timeout=4)
+
     def test_running_and_reopened_reports_use_the_same_saved_case(self) -> None:
         """Start one job, persist partial results, and reopen them after server restart."""
         checkpoint = Event()

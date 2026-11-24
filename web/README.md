@@ -226,6 +226,10 @@ Select **Einzelbeiträge** on a role card to open **Modellbeiträge und Prüfpfa
 
 The built-in case marks its sample results **Beispiel**. Saved and imported reports show available results, partial results, or missing evidence. Older reports still open and show **Kein Ergebnis** where they lack information for a role.
 
+## Private HTTPS hosting
+
+The [private Docker Compose deployment](../deploy/README.md) uses Caddy HTTPS authentication on all pages and API requests. The browser supports saved analyses from a configured HTTPS origin while the Python server remains loopback-only. Basic auth is intended for a single trusted editor; an explicit approved HTML export is still required to share a public reader edition.
+
 ## Using the local agent
 
 From the repository root with the package installed and Ollama running, launch the local server:
