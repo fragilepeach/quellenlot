@@ -339,7 +339,7 @@ def _validate_public_origin(value: str) -> str:
     parsed = urlsplit(value)
     if (
         parsed.scheme != "https"
-        or not parsed.hostname
+        or parsed.hostname is None
         or parsed.username is not None
         or parsed.password is not None
         or parsed.path
@@ -357,7 +357,11 @@ class LocalServer(ThreadingHTTPServer):
     """Serve the browser client and its local review data over loopback."""
 
     def __init__(
-        self, port: int, assets: Path, directory: Path, config: WorkflowConfig,
+        self,
+        port: int,
+        assets: Path,
+        directory: Path,
+        config: WorkflowConfig,
         public_origin: str | None = None,
     ) -> None:
         """Bind a local server to the selected port.
@@ -371,7 +375,7 @@ class LocalServer(ThreadingHTTPServer):
         """
         self.assets = assets
         self.runs = _LocalRuns(directory, config)
-        self.public_origin = _validate_public_origin(public_origin) if public_origin else None
+        self.public_origin = _validate_public_origin(public_origin) if public_origin is not None else None
         super().__init__((_LOOPBACK, port), _LocalHandler)
 
     @property
@@ -403,7 +407,7 @@ class _LocalHandler(BaseHTTPRequestHandler):
         allowed: dict[str, str] = {
             server.origin.removeprefix("http://"): server.origin,
         }
-        if server.public_origin:
+        if server.public_origin is not None:
             allowed[server.public_origin.removeprefix("https://")] = server.public_origin
         origin = allowed.get(self.headers.get("Host", ""))
         request_origin = self.headers.get("Origin")
@@ -413,7 +417,9 @@ class _LocalHandler(BaseHTTPRequestHandler):
             and self.headers.get("Sec-Fetch-Site") != "cross-site"
         ):
             return True
-        self._error(HTTPStatus.FORBIDDEN, "Diese Anfrage muss von der autorisierten Oberfläche kommen.")
+        self._error(
+            HTTPStatus.FORBIDDEN, "Diese Anfrage muss von der autorisierten Oberfläche kommen."
+        )
         return False
 
     def do_GET(self) -> None:
@@ -593,7 +599,8 @@ def main() -> None:
     )
     parser.add_argument("--port", type=int, default=8765, help="Local browser port.")
     parser.add_argument(
-        "--public-origin", type=str,
+        "--public-origin",
+        type=str,
         help="Exact external HTTPS origin behind an authenticated reverse proxy.",
     )
     data_home = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local/share"))
@@ -606,9 +613,7 @@ def main() -> None:
         if not (assets / "index.html").is_file():
             parser.error("Pass --web-dir or start from the Quellenlot checkout.")
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        server = LocalServer(
-            args.port, assets, directory, config, public_origin=args.public_origin
-        )
+        server = LocalServer(args.port, assets, directory, config, public_origin=args.public_origin)
     except (OSError, ValueError, OverflowError) as exc:
         parser.error(str(exc))
     with server:
