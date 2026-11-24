@@ -195,6 +195,15 @@ The reading view keeps the article and the selected claim’s evidence in view s
 
 ## Agent roles
 
+Select **Einzelbeiträge** on a role card to open **Modellbeiträge und Prüfpfad**, which lists recorded model IDs and model names, source or claim context, successful and failed attempts, peer-review partners, failure codes, and the count of judgments or unresolved categories. The sources/research role explicitly labels deterministic retrieval and SearXNG search as **Code, kein KI-Modell**, rather than inventing a model identity. It retains the original order, and reports that lack detailed model records say so. During an active run the inspector is unavailable until a saved report exists. Open **KI-Plenum** for full source-linked judgments and review reasons. The built-in static Tankrabatt demo has no real model execution trace.
+
+![Recorded model contributions and peer-review outcomes](../docs/images/generated/agent-inspector.png)
+
+[Mobile inspector screenshot](../docs/images/generated/agent-inspector-mobile.png)
+
+![Open model contributions from the five-stage workflow](../docs/images/generated/agent-inspector.gif)
+
+
 **Agenten im Prüfverlauf** shows the five roles below the article form. During a local run, the panel shows the article URL and marks the role reported by the server **Läuft**. **Phase beendet** means the run moved past that role. The interests check is optional.
 
 | Role | Opens the available result |

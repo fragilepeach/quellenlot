@@ -34,6 +34,8 @@ Select a highlighted claim, inspect source judgments and direct quotations, then
 
 **Agenten im Prüfverlauf** shows the currently active stage when a local analysis runs. Each of the five cards links to its available results. The interests stage is optional, and missing evidence is shown rather than silently treated as a successful check. [Role descriptions and status labels](web/README.md#agent-roles).
 
+The role cards also offer **Einzelbeiträge** to inspect actual model attempts, model names, failures, reviews, and documented source-search operations without confusing deterministic retrieval for AI activity. [Agent inspector screenshots and walkthrough](web/README.md#agent-roles).
+
 ### 3. Examine model disagreement in the KI-Plenum
 
 ![Open the KI-Plenum to inspect independent model assessments, peer review and unresolved objections](docs/images/generated/plenum.gif)

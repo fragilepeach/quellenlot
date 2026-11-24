@@ -192,10 +192,121 @@ const agentCards = agentRoles.map(([role, title, description, anchor]) => {
   const label = element("span", "", title);
   heading.append(label, link);
   const status = element("span", "agent-status");
-  item.append(heading, element("p", "", description), status);
+  const inspect = button("Einzelbeiträge", "agent-inspect-button");
+  inspect.setAttribute("aria-controls", "agent-inspector");
+  inspect.addEventListener("click", () => inspectAgent(role));
+  item.append(heading, element("p", "", description), status, inspect);
   $("agent-roles").append(item);
-  return { item, label, link, status, anchor, role };
+  return { item, label, link, status, anchor, role, inspect };
 });
+
+
+function agentAudit(report, retrieval) {
+  const audit = Object.fromEntries(agentRoles.map(([role]) => [role, []]));
+  const add = (role, record) => audit[role].push(record);
+  for (const attempt of report?.extraction_attempts || []) {
+    add("article", {
+      name: attempt.agent_id || "Unbekannt", model: attempt.model || "",
+      state: attempt.status, context: "Aussagenextraktion",
+      detail: attempt.error_code ? "Fehlercode: " + attempt.error_code : "Modellantwort und Zitate validiert",
+    });
+  }
+  for (const item of retrieval?.retrievals || []) {
+    if (String(item.source_id).startsWith("interest-evidence-")) continue;
+    add("research", {
+      name: item.snapshot?.title || item.requested_url || item.source_id || "Quellenabruf",
+      state: item.status, context: "Abruf · Code, kein KI-Modell",
+      detail: item.detail || "",
+    });
+  }
+  for (const query of retrieval?.discovery?.queries || []) {
+    add("research", {
+      name: query.query || "Suchanfrage", state: query.status,
+      context: "SearXNG-Suche · Code, kein KI-Modell",
+      detail: "Treffer: " + (query.result_count ?? "unbekannt"),
+    });
+  }
+  for (const claim of report?.claims || []) {
+    const review = claim.review;
+    const claimLabel = claim.claim_id || "Aussage";
+    for (const item of review?.analyses || []) {
+      add("comparison", {
+        name: item.agent_id || "Unbekannt", model: item.model || "", state: item.status,
+        context: claimLabel + " · unabhängiger Quellenvergleich",
+        detail: item.error_code ? "Fehlercode: " + item.error_code :
+          (item.summary || "") + " · " + (item.findings?.length || 0) + " Einzelbefunde",
+      });
+    }
+    for (const item of review?.reviews || []) {
+      const results = (item.findings || []).reduce((counts, finding) => {
+        counts[finding.outcome] = (counts[finding.outcome] || 0) + 1;
+        return counts;
+      }, {});
+      add("comparison", {
+        name: item.reviewer_agent_id || "Unbekannt", state: item.status,
+        context: claimLabel + " · Peer-Review von " + (item.reviewed_agent_id || "unbekannt"),
+        detail: item.error_code ? "Fehlercode: " + item.error_code :
+          "Zustimmung " + (results.agrees || 0) + " · Einwände " + (results.challenges || 0) +
+          " · unklar " + (results.unclear || 0) + (item.summary ? " · " + item.summary : ""),
+      });
+    }
+  }
+  for (const source of report?.interests?.sources || []) {
+    for (const item of source.assessments || []) {
+      add("interests", {
+        name: item.agent_id || "Unbekannt", model: item.model || "", state: item.status,
+        context: source.source?.title || source.source?.source_id || "Quelle",
+        detail: item.error_code ? "Fehlercode: " + item.error_code :
+          (item.findings?.length || 0) + " dokumentierte Beziehungen; " +
+          (item.unknown_categories?.length || 0) + " offene Kategorien",
+      });
+    }
+  }
+  for (const item of report?.editorial?.assessments || []) {
+    add("editorial", {
+      name: item.agent_id || "Unbekannt", model: item.model || "", state: item.status,
+      context: "Redaktionelle Schlussprüfung",
+      detail: item.error_code ? "Fehlercode: " + item.error_code :
+        (item.claims?.length || 0) + " geprüfte Aussagen",
+    });
+  }
+  return audit;
+}
+
+function inspectAgent(role) {
+  const item = agentRoles.find(([id]) => id === role);
+  if (!item) return;
+  const panel = $("agent-inspector");
+  const heading = $("agent-inspector-title");
+  const list = $("agent-inspector-records");
+  const records = state.report?.agentAudit?.[role] || [];
+  heading.textContent = item[1];
+  list.replaceChildren();
+  if (!records.length) {
+    list.append(element("li", "agent-audit-empty",
+      state.report === demo ? "Demo ohne Modellprotokolle. Öffne einen gespeicherten Prüfbericht." :
+        "Keine Einzelbeiträge für diese Rolle im gespeicherten Bericht."));
+  }
+  for (const record of records) {
+    const row = element("li", "agent-audit-row");
+    const header = element("div", "agent-audit-row-heading");
+    header.append(element("strong", "", record.name));
+    if (record.model) header.append(element("code", "", record.model));
+    const status = element("span", "agent-audit-state", record.state || "unbekannt");
+    status.dataset.state = record.state || "absent";
+    header.append(status);
+    row.append(header, element("p", "agent-audit-context", record.context));
+    if (record.detail) row.append(element("p", "", record.detail));
+    list.append(row);
+  }
+  const context = $("agent-inspector-context");
+  context.textContent = records.length + " protokollierte Einträge · " +
+    "Modellurteile sind keine Wahrheitsbelege. Vollständige Zitate und Begründungen im KI-Plenum.";
+  panel.hidden = false;
+  panel.open = true;
+  heading.focus({ preventScroll: true });
+  panel.scrollIntoView({ block: "start" });
+}
 
 function agentResults(report, retrieval) {
   const claims = report?.claims || [];
@@ -227,7 +338,7 @@ function renderAgentWorkflow(report, run = report?.runProgress) {
   const sourceLabel = (running || stopped) && run.article_url ? "Lauf für " + run.article_url : "";
   if (runSource.textContent !== sourceLabel) runSource.textContent = sourceLabel;
   runSource.hidden = !sourceLabel;
-  agentCards.forEach(({ item, label, link, status, anchor, role }, index) => {
+  agentCards.forEach(({ item, label, link, status, anchor, role, inspect }, index) => {
     const active = running && index === phase;
     const interrupted = stopped && index === phase;
     const outcome = report?.agentResults?.[role] || "absent";
@@ -248,11 +359,14 @@ function renderAgentWorkflow(report, run = report?.runProgress) {
     link.hidden = !(example || outcome !== "absent") || running || !resultTarget;
     label.hidden = !link.hidden;
     if (!link.hidden) link.href = "#" + resultTarget.id;
+    inspect.disabled = running || stopped;
   });
+  if (running || stopped) $("agent-inspector").hidden = true;
 }
 
 function renderReport(report) {
   state.report = report;
+  $("agent-inspector").hidden = true;
   window.quellenlotTrends.setPublications(report.timelineSources || []);
   state.claimIndex = 0;
   $("selection-status").textContent = "";
@@ -1144,6 +1258,7 @@ function readReport(data) {
       timelineSources: data.retrievals.flatMap((item) => item.snapshot ? [item.snapshot] : []),
       provenance: readSourceProvenance(data),
       agentResults: agentResults(null, data),
+      agentAudit: agentAudit(null, data),
       empty: failed
         ? "Der Bericht enthält keinen auswertbaren Artikel."
         : "Die Quellen wurden erfasst. Für diesen Lauf liegt noch kein Aussagenvergleich vor.",
@@ -1200,6 +1315,7 @@ function readReport(data) {
     claims,
     sourceSimilarities: normalizedSourceSimilarities(report),
     agentResults: agentResults(report, retrievalReport ? data : null),
+    agentAudit: agentAudit(report, retrievalReport ? data : null),
     retrievalIssues,
     timelineSources: [...report.sources, ...(retrievalReport
       ? data.retrievals.flatMap((item) => item.snapshot ? [item.snapshot] : []) : [])],
