@@ -566,7 +566,9 @@ async def run_review(
     if config.targeted_rechecks:
         requests = select_targeted_sources(analyses, reviews, config.targeted_rechecks)
         report.targeted_checks = [
-            await run_targeted_recheck(case, config, source_id, reviewed_id, challenger_id, analyses)
+            await run_targeted_recheck(
+                case, config, source_id, reviewed_id, challenger_id, analyses
+            )
             for source_id, reviewed_id, challenger_id in requests
         ]
         if any(item.status == "failed" for item in report.targeted_checks):

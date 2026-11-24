@@ -65,7 +65,8 @@ class TargetedChecksTests(unittest.TestCase):
         )
         self.assertEqual(workflow.select_targeted_sources(analyses, [review], 0), [])
         self.assertEqual(
-            workflow.select_targeted_sources(analyses, [review], 1), [("source-a", "agent-a", "agent-b")]
+            workflow.select_targeted_sources(analyses, [review], 1),
+            [("source-a", "agent-a", "agent-b")],
         )
 
 
