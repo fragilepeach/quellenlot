@@ -325,10 +325,48 @@ class _LocalRuns:
                 self._researching = False
 
 
+def _validate_public_origin(value: str) -> str:
+    """Require an exact HTTPS domain origin for the authenticated browser client.
+
+    Args:
+        value: Origin configured at the reverse proxy.
+
+    Returns:
+        The verified external HTTPS origin.
+
+    Raises:
+        ValueError: The origin contains credentials, a path, or unsafe scheme.
+    """
+    from urllib.parse import urlsplit
+
+    parsed = urlsplit(value)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname is None
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path
+        or parsed.query
+        or parsed.fragment
+        or parsed.port not in {None, 443}
+        or parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+    ):
+        msg = "Public origin must be a standalone HTTPS domain without credentials or path."
+        raise ValueError(msg)
+    return "https://" + parsed.netloc
+
+
 class LocalServer(ThreadingHTTPServer):
     """Serve the browser client and its local review data over loopback."""
 
-    def __init__(self, port: int, assets: Path, directory: Path, config: WorkflowConfig) -> None:
+    def __init__(
+        self,
+        port: int,
+        assets: Path,
+        directory: Path,
+        config: WorkflowConfig,
+        public_origin: str | None = None,
+    ) -> None:
         """Bind a local server to the selected port.
 
         Args:
@@ -336,9 +374,13 @@ class LocalServer(ThreadingHTTPServer):
             assets: Directory holding the browser interface files.
             directory: Existing directory for private run records.
             config: Model and search settings used by the article workflow.
+            public_origin: External authenticated HTTPS origin, if configured.
         """
         self.assets = assets
         self.runs = _LocalRuns(directory, config)
+        self.public_origin = (
+            _validate_public_origin(public_origin) if public_origin is not None else None
+        )
         super().__init__((_LOOPBACK, port), _LocalHandler)
 
     @property
@@ -366,15 +408,23 @@ class _LocalHandler(BaseHTTPRequestHandler):
         self._send(status, json.dumps({"error": message}).encode("utf-8"))
 
     def _authorized(self, *, mutation: bool = False) -> bool:
-        origin = cast("LocalServer", self.server).origin
+        server = cast("LocalServer", self.server)
+        allowed: dict[str, str] = {
+            server.origin.removeprefix("http://"): server.origin,
+        }
+        if server.public_origin is not None:
+            allowed[server.public_origin.removeprefix("https://")] = server.public_origin
+        origin = allowed.get(self.headers.get("Host", ""))
         request_origin = self.headers.get("Origin")
         if (
-            self.headers.get("Host") == origin.removeprefix("http://")
+            origin is not None
             and (request_origin == origin or (not mutation and request_origin is None))
             and self.headers.get("Sec-Fetch-Site") != "cross-site"
         ):
             return True
-        self._error(HTTPStatus.FORBIDDEN, "Diese Anfrage muss von der lokalen Oberfläche kommen.")
+        self._error(
+            HTTPStatus.FORBIDDEN, "Diese Anfrage muss von der autorisierten Oberfläche kommen."
+        )
         return False
 
     def do_GET(self) -> None:
@@ -553,6 +603,11 @@ def main() -> None:
         "--web-dir", type=Path, default=Path("web"), help="Checkout's web directory."
     )
     parser.add_argument("--port", type=int, default=8765, help="Local browser port.")
+    parser.add_argument(
+        "--public-origin",
+        type=str,
+        help="Exact external HTTPS origin behind an authenticated reverse proxy.",
+    )
     data_home = Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local/share"))
     parser.add_argument("--runs-dir", type=Path, default=data_home / "quellenlot/runs")
     args = parser.parse_args()
@@ -563,7 +618,7 @@ def main() -> None:
         if not (assets / "index.html").is_file():
             parser.error("Pass --web-dir or start from the Quellenlot checkout.")
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        server = LocalServer(args.port, assets, directory, config)
+        server = LocalServer(args.port, assets, directory, config, public_origin=args.public_origin)
     except (OSError, ValueError, OverflowError) as exc:
         parser.error(str(exc))
     with server:
