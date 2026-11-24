@@ -87,6 +87,10 @@ Model-generated responses are not trusted merely because several models agree. E
 
 During a local analysis the GUI highlights the active stage. After a completed or partial analysis, a stage card leads to the relevant saved evidence. The optional interests check may not run; older imported reports may lack newer fields. [Detailed stage and GUI behavior](web/README.md#agent-roles).
 
+### Targeted second-look checks
+
+By default, no extra follow-up models are called. To enable bounded, source-specific follow-ups for peer-review challenges or conflicting model relations, set `targeted_rechecks = 1` (or at most 2) in the top level of `models.toml`. Each disputed source is sent once to a third configured local model alongside the competing interpretations; the full five-model assessment is **not repeated**. New `targeted_checks` records preserve the model, exact source version, verified quotation if present, and failures. They never overwrite initial findings or resolve human editorial objections automatically. [Plenum walkthrough and limitations](web/README.md#ki-plenum).
+
 ### Local model execution
 
 Models run sequentially. Each Ollama request sets `keep_alive=0` to unload the model after responding, so the whole pool need not fit in memory simultaneously. The default context limit is 8,192 tokens (configurable up to 16,384); long reports and model generation can still be CPU- and RAM-intensive.

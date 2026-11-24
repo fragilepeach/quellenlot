@@ -494,6 +494,13 @@ async function checkClaimDiff(browser, record) {
         }] },
         { reviewer_agent_id: "drei", reviewed_agent_id: "eins", status: "failed", findings: [] },
       ],
+      targeted_checks: [{
+        source_id: news.source_id, source_version_id: news.version_id,
+        target_agent_id: "eins", challenging_agent_id: "zwei",
+        rechecking_agent_id: "drei", status: "succeeded",
+        relation: "qualifies", reasoning: "Die Quelle beschreibt einen abweichenden Zeitraum.",
+        quote: { ...passage(news, revised), verified: true },
+      }],
       source_diff: {
         sources: [
           { source: original, judgments: [judgment("eins", "supports", "common")] },
@@ -593,8 +600,10 @@ async function checkClaimDiff(browser, record) {
       await plenum.getByText("Die Änderung betrifft alle Öffnungstage.", { exact: true }).waitFor();
       await plenum.getByText("Öffnungszeiten bleiben umstritten.", { exact: true }).waitFor();
       await plenum.getByText("Gegenprüfung fehlgeschlagen.", { exact: true }).waitFor();
-      assert.deepEqual(await plenum.locator("blockquote").allTextContents(), [revised]);
-      const reviewLink = new URL(await plenum.getByRole("link", { name: "Beleg öffnen" }).getAttribute("href"));
+      await plenum.getByText("Gezielte Nachprüfungen", { exact: true }).waitFor();
+      await plenum.getByText("Die Quelle beschreibt einen abweichenden Zeitraum.", { exact: true }).waitFor();
+      assert.deepEqual(await plenum.locator("blockquote").allTextContents(), [revised, revised]);
+      const reviewLink = new URL(await plenum.getByRole("link", { name: "Beleg öffnen", exact: true }).getAttribute("href"));
       assert.equal(reviewLink.origin + reviewLink.pathname, news.url);
       assert.equal(decodeURIComponent(reviewLink.hash), "#:~:text=" + revised);
       if (reviews) {
@@ -603,6 +612,8 @@ async function checkClaimDiff(browser, record) {
         await reviews.hold(1.6);
         await reviews.scrollTo(plenum.locator("blockquote").first());
         await reviews.hold(1.5);
+        await reviews.scrollTo(plenum.getByText("Gezielte Nachprüfungen"));
+        await reviews.hold(1.6);
       }
       await plenum.locator("summary").click();
       const privateReview = page.locator("#private-review");
@@ -1293,7 +1304,11 @@ async function main() {
   await mkdir(output, { recursive: true });
   const frames = await mkdtemp(join(tmpdir(), "quellenlot-preview-"));
   try {
-    const browser = await chromium.launch();
+    const browser = await chromium.launch(
+      process.env.QUELLENLOT_BROWSER_CHANNEL
+        ? { channel: process.env.QUELLENLOT_BROWSER_CHANNEL }
+        : {},
+    );
     const record = createRecorder(frames);
     try {
       await captureOverview(browser, 1280, 960, "desktop.png");

@@ -169,6 +169,8 @@ The gallery captures the built-in example and controlled browser fixtures. A liv
 
 ## How the previews are generated
 
+The CI runner uses its preinstalled Chrome channel when present and falls back to Playwright's Chromium headless shell when needed. Local captures continue to use the browser installed through Playwright.
+
 The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the static demo and local-server fixtures in headless Chromium. It checks the same controls shown in the gallery, plus keyboard navigation, offline fonts, theme persistence, compatibility with earlier reports, and approval invalidation after editing. The GIFs record browser interactions and scrolling, with brief holds for reading. The [capture manifest](../docs/images/generated/manifest.json) records the tested revision, run, dimensions, frame counts, frame rates, file sizes and SHA-256 hashes.
 
 Pull requests that change the browser interface or its capture code upload a **quellenlot-gui-previews** artifact to the Actions run. A successful run on `main` refreshes the tracked gallery when its media change. You can also run the workflow manually for `main`.
@@ -284,6 +286,9 @@ The search checks up to five distinct candidate DOIs. The first configured Ollam
 Results are saved with the run for that claim, separately from the private editorial report. Start the search again to refresh the results. Publisher paywalls and PDFs outside the supported repository can leave a paper at abstract or metadata access.
 
 ## KI-Plenum
+
+When `targeted_rechecks` is enabled in `models.toml`, the Plenum displays **Gezielte Nachprüfungen** for sources with a challenged or unclear peer review, then other conflicting source relations if capacity remains. Each record identifies the original and challenging models, the additional local model, its source-specific reasoning, and any verified quotation. A targeted recheck is an **additional opinion**, not proof of consensus; original disagreements remain visible. At most two calls are added per claim and there are no extra calls by default.
+
 
 Open **KI-Plenum** under **Belege zur Aussage** to read each model’s independent summary and see which model checked each finding. A peer review shows the original source judgment, the reviewer’s outcome and reasoning, and any verified review quote that matches the finding’s source and captured version. Open the quote through **Beleg öffnen** when the source has a URL. The panel lists unresolved objections and recorded failures. Reports created before analysis and review records were included can still be opened.
 
