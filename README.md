@@ -1,101 +1,48 @@
 # Quellenlot
 
-Quellenlot runs an evidence-first, multi-model review over supplied source snapshots or public article URLs. Inference runs locally through Ollama and requires no cloud model API, account, or API key.
+Quellenlot helps you check claims in German-language news articles. Start with a public article URL or a saved source snapshot, add a question if you have one, and trace each claim back to the passages used to assess it. Model inference runs locally through Ollama without a cloud model API, account, or API key.
 
-## What you can do
+Open [the Tankrabatt demo](web/index.html) to explore the interface without Ollama, follow the [guided walkthrough](web/README.md#what-to-look-for-in-the-tankrabatt-demo), or use the [quick start](#quick-start) to analyze your own article.
 
-Paste a German-language news article, optionally ask a question, and trace the review from the article's *actual words* through versioned comparison sources, independent local-model judgments, peer review, and a private editorial assessment. The reader chooses what to inspect; Quellenlot does **not** output a model-vote-based truth score.
+## From article to editorial review
 
-| Capability | What to inspect |
-| --- | --- |
-| Article analysis | Up to five checkable claims, original quotations and a linked article summary |
-| Sources & provenance | Explicit citations, separate publication/update/capture dates, missing and incomplete retrievals |
-| Claim-by-claim comparison | Supporting, qualifying and conflicting assessments, exact quotations, RapidFuzz wording reuse and source-pair similarity |
-| Multi-model review | Independent model findings, directed peer review, unresolved objections and recorded failures |
-| Further research | Studies per claim, ownership/funding/affiliation checks and topic/event timelines |
-| Political records | Curated programme statements, parliamentary votes, motions and subsequent laws |
-| Editorial release | Private drafts, report-version-bound approval, reader preview and offline HTML export |
+**Agenten im Prüfverlauf** highlights the active stage and links to its saved results. Open **Einzelbeiträge** on a stage card to see model attempts, failures, and recorded searches. The stages share a pool of five Ollama models, which run sequentially. Code handles retrieval, quotation matching, and text similarity. [Interface guide](web/README.md#agent-roles)
 
-**Try without Ollama:** open [`web/index.html`](web/index.html) for the built-in Tankrabatt demonstration. **Run locally:** see [Quick start](#quick-start) for the Ollama-backed browser server. The source-linked demo and the controlled CI fixtures are demonstrations, **not a live fact-check or evaluation of model accuracy**.
+### 1. Behauptungsanalyse · Extract claims
 
-## Interface walkthroughs
+Quellenlot tries the configured models in order until one returns a valid extraction. It identifies up to five checkable claims, prioritizes your question when supplied, and links each item in the article summary to a verbatim passage.
 
-The repository tracks reproducible **25 fps browser GIFs** and desktop/mobile screenshots. These clips show GUI interactions with demo or fixture-backed data; they do not indicate that the models ran at 25 fps. The [complete feature gallery](web/README.md#feature-gallery) has all screenshots and walkthroughs, and the [capture manifest](docs/images/generated/manifest.json) identifies each tested commit and file hash.
+![Follow a highlighted Tankrabatt claim to its evidence](docs/images/generated/usage.gif)
 
-Start with the [Tankrabatt demo walkthrough](web/README.md#what-to-look-for-in-the-tankrabatt-demo) to follow the claim about full average pass-through through its source comparison and understand how a saved report appears in the KI-Plenum.
+### 2. Quellenrecherche · Find and trace sources
 
-### 1. Follow a claim to its cited evidence
+Quellenlot captures the comparison URLs you supply or discovers sources through a configured SearXNG instance. The provenance graph follows explicit links between pages so you can see when several outlets cite the same source. Snapshots retain publication, update, and capture dates separately and show failed or incomplete retrievals.
 
-![Select the Tankrabatt claim, inspect an exact passage and follow its citation to the original study](docs/images/generated/usage.gif)
+### 3. Quellenvergleich · Compare the evidence
 
-Select a highlighted claim, inspect source judgments and direct quotations, then follow the provenance graph to see which reports refer to a shared upstream source. Publication, modification and retrieval timestamps are **different fields**. A link or similar wording does not, by itself, establish copying or independent corroboration.
+The models independently assess each claim against the captured sources and cross-review successful findings. The source diff shows where evidence supports, qualifies, or contradicts a claim, where coverage is absent, and where incomplete captures prevent an assessment. [RapidFuzz passage matches and article-pair similarity](docs/images/generated/claim-diff.gif) help you inspect reused wording. In **KI-Plenum**, open the individual judgments, peer reviews, and unresolved objections. Read each verified quotation in context before deciding whether it supports the interpretation.
 
-### 2. Watch the five agent roles
+![Inspect independent judgments and peer review in KI-Plenum](docs/images/generated/plenum.gif)
 
-![Five-stage agent workflow showing stage progression and navigation into the saved results](docs/images/generated/agent-workflow.gif)
+### 4. Interessenprüfung · Check publisher and author relationships
 
-**Agenten im Prüfverlauf** shows the currently active stage when a local analysis runs. Each of the five cards links to its available results. The interests stage is optional, and missing evidence is shown rather than silently treated as a successful check. [Role descriptions and status labels](web/README.md#agent-roles).
+Enable this stage to examine documented ownership, funding, and affiliations. The report links each finding to its source and shows where the available material leaves a question unresolved.
 
-The role cards also offer **Einzelbeiträge** to inspect actual model attempts, model names, failures, reviews, and documented source-search operations without confusing deterministic retrieval for AI activity. [Agent inspector screenshots and walkthrough](web/README.md#agent-roles).
+### 5. Redaktionelle Schlussprüfung · Review before sharing
 
-### 3. Examine model disagreement in the KI-Plenum
+The models review assigned evidence findings and surface unresolved objections for the editor. You can save a private draft, preview the reader edition, and export it as HTML. Approval is a human decision tied to the exact saved report and draft revision. Editing either invalidates it.
 
-![Open the KI-Plenum to inspect independent model assessments, peer review and unresolved objections](docs/images/generated/plenum.gif)
+![Follow the five stages and open their saved results](docs/images/generated/agent-workflow.gif)
 
-Instead of collapsing disagreement into a single verdict, the Plenum preserves each model's independent findings and the outcome of the directed review. Check both whether a quotation occurs in a snapshot and whether the quoted passage actually justifies its interpretation. [Plenum guide](web/README.md#ki-plenum).
+## Explore related evidence
 
-<details>
-<summary><strong>More walkthroughs: comparisons, research, topic trends and parliamentary records</strong></summary>
+- **Studies for a claim.** Compare the populations, periods, and results in relevant papers and see whether the assessment used metadata, an abstract, or full text. [Study walkthrough](docs/images/generated/studies.gif)
+- **Topic trends and events.** Compare media coverage from GDELT with an imported Google Trends series on separate scales. Add sourced events to the timeline. [Trend walkthrough](docs/images/generated/topic-trends.gif)
+- **Party programmes and parliamentary records.** Follow curated programme excerpts through parliamentary motions, votes, and later laws. [Parliamentary records walkthrough](docs/images/generated/parliament.gif)
 
-**Claim comparisons and potential text reuse:** inspect a source-by-source diff, dated versions, changed wording and article-pair similarity. A high similarity score is a *text-overlap measurement*, not proof of copying.
+The [feature gallery](web/README.md#feature-gallery) includes desktop and mobile screenshots and 25 fps walkthroughs recorded with demo or fixture data. The [capture manifest](docs/images/generated/manifest.json) records the tested revision and file hashes. [Mobile screenshot](docs/images/generated/mobile.png) · [320 px light-theme preview](docs/images/generated/light-mobile.png)
 
-![Inspect claim comparisons, wording reuse and article similarity](docs/images/generated/claim-diff.gif)
-
-**Studies for one claim:** compare paper metadata, available abstract/full text, measured populations and periods, and the quotation on which a model's assessment rests.
-
-![Find papers for a selected claim and open source-backed study excerpts](docs/images/generated/studies.gif)
-
-**Topic trends and events:** compare separately scaled media coverage and search-interest series and place independently sourced events onto the timeline. Coincidence is not causation.
-
-![View news and search trends and add a documented event](docs/images/generated/topic-trends.gif)
-
-**Party programmes and parliamentary records:** follow dated programme excerpts, official vote tallies, parliamentary context and later legislative action.
-
-![Compare party programmes with parliamentary votes and later laws](docs/images/generated/parliament.gif)
-
-</details>
-
-### Desktop and mobile
-
-![Desktop GUI showing an article summary, highlighted claims, evidence and the provenance graph](docs/images/generated/desktop.png)
-
-[Mobile screenshot](docs/images/generated/mobile.png) · [320 px light-theme preview](docs/images/generated/light-mobile.png) · [Full feature gallery](web/README.md#feature-gallery)
-
-## How the five-stage review works
-
-Each stage has a distinct responsibility. **A stage is a workflow role, not necessarily a separate model process.** Five configured Ollama models are reused sequentially across model-driven tasks; deterministic code handles retrieval, quotation matching and textual similarity.
-
-| Role shown in the GUI | Mechanism | Evidence retained |
-| --- | --- | --- |
-| **1. Behauptungsanalyse** | Try models in order until one supplies a valid extraction; optionally prioritise the reader's question | Up to five claims anchored to verbatim article quotations, summary links and failed extraction attempts |
-| **2. Quellenrecherche** | Capture supplied URLs or use configured SearXNG to discover comparisons; traverse explicit links | Versioned text snapshots, retrieval failures, publication and update metadata, citation links, search provenance |
-| **3. Quellenvergleich** | Ask each of five models to assess each claim independently, then cross-review successful findings | Per-source relations, original reasons and exact quotes, model disagreements, peer-review outcomes and RapidFuzz overlap |
-| **4. Interessenprüfung** *(optional)* | Investigate documented publisher/author ownership, funding and affiliations when enabled | Captured evidence, per-model findings, unresolved categories and retrieval gaps |
-| **5. Redaktionelle Schlussprüfung** | Five models independently assess assigned evidence findings; editorial release remains a human decision | Finding coverage, supported notes, prior dissent, missing evidence and a private draft/approval record |
-
-Model-generated responses are not trusted merely because several models agree. Exact quote matching establishes only that specified words appear in the saved text. **It does not validate their factual accuracy, context, independence or relevance to the claim.** The public reader edition requires explicit human approval of an unchanged saved report and the drafted text.
-
-During a local analysis the GUI highlights the active stage. After a completed or partial analysis, a stage card leads to the relevant saved evidence. The optional interests check may not run; older imported reports may lack newer fields. [Detailed stage and GUI behavior](web/README.md#agent-roles).
-
-### Targeted second-look checks
-
-By default, no extra follow-up models are called. To enable bounded, source-specific follow-ups for peer-review challenges or conflicting model relations, set `targeted_rechecks = 1` (or at most 2) in the top level of `models.toml`. Each disputed source is sent once to a third configured local model alongside the competing interpretations; the full five-model assessment is **not repeated**. New `targeted_checks` records preserve the model, exact source version, verified quotation if present, and failures. They never overwrite initial findings or resolve human editorial objections automatically. [Plenum walkthrough and limitations](web/README.md#ki-plenum).
-
-### Local model execution
-
-Models run sequentially. Each Ollama request sets `keep_alive=0` to unload the model after responding, so the whole pool need not fit in memory simultaneously. The default context limit is 8,192 tokens (configurable up to 16,384); long reports and model generation can still be CPU- and RAM-intensive.
-
-The example pool in [`config.example.toml`](config.example.toml) is **not** a validated ranking: Qwen3.8 27B, gpt-oss 20B, Mistral Small 3.2 24B, Gemma 4 12B, and Ministral 3 14B. Model weights must be downloaded once. The largest example download is approximately 18 GB; model context and the OS consume additional memory. Inspect the individual model licenses before redistribution or commercial use.
+![Quellenlot desktop interface](docs/images/generated/desktop.png)
 
 ## Quick start
 
@@ -138,7 +85,15 @@ Run the analysis:
 quellenlot-agents --config models.toml --input case.json --output report.json
 ```
 
-A quote match proves only that the text appears in the supplied snapshot, not that it supports the reasoning. A failed model produces a partial report. Fewer than two successful analyses cannot produce peer review. If every model fails, the command exits nonzero.
+A failed model produces a partial report. Fewer than two successful analyses cannot produce peer review. If every model fails, the command exits nonzero.
+
+### Local model execution
+
+Models run sequentially. Each Ollama request sets `keep_alive=0` to unload the model after responding, so the whole pool need not fit in memory simultaneously. The default context limit is 8,192 tokens (configurable up to 16,384); long reports and model generation can still be CPU- and RAM-intensive.
+
+The example pool in [`config.example.toml`](config.example.toml) is **not** a validated ranking: Qwen3.8 27B, gpt-oss 20B, Mistral Small 3.2 24B, Gemma 4 12B, and Ministral 3 14B. Model weights must be downloaded once. The largest example download is approximately 18 GB; model context and the OS consume additional memory. Inspect the individual model licenses before redistribution or commercial use.
+
+## Input and report reference
 
 ### Article input
 
@@ -171,11 +126,11 @@ Use the same CLI command with JSON containing an `article` instead of an explici
 }
 ```
 
-Article reports can include an `article_summary` of up to three sentences drafted during claim extraction. Each sentence carries the ID of a distinct claim with a verified article quote. This is a summary of what the article says. A verified quote establishes that the passage appears in the article snapshot. The comparison and review results give the evidence assessment.
+Article reports can include an `article_summary` of up to three sentences drafted during claim extraction. Each sentence carries the ID of a distinct claim with a verified article quote. This is a summary of what the article says.
 
 Each claim entry contains the original quote, a source comparison in input order, and the detailed review. The comparison groups judgments by source and links exact-match citations to the supplied URL and snapshot version. A judgment may have no exact-match citation. Incomplete snapshots are marked unassessable when a model would otherwise report an omission.
 
-The detailed review holds the claim text, model disagreements, and peer review records. A peer review is successful only when it covers every assigned finding exactly once. If extraction finds no claims, the article report has status `no_claims`. Open **KI-Plenum** on a claim in the GUI to inspect the independent analyses, directed peer reviews, verified review quotes, and unresolved objections. [GUI guide](web/README.md#ki-plenum)
+The detailed review holds the claim text, model disagreements, and peer review records. A peer review is successful only when it covers every assigned finding exactly once. If extraction finds no claims, the article report has status `no_claims`.
 
 An article run can make up to ten model calls per extracted claim after extraction. Keep source snapshots short enough for the configured context length.
 
@@ -245,6 +200,10 @@ The evidence table groups identical quotes from multiple sources when their occu
 
 Model disagreements remain visible as separate judgments. An incomplete snapshot yields `not_assessable` when a model would otherwise label a claim omitted. Each row's evidence references cover verified citations from source analysis. Peer-review evidence and retrieval outcomes remain available in the detailed report.
 
+### Targeted second-look checks
+
+By default, no extra follow-up models are called. To enable bounded, source-specific follow-ups for peer-review challenges or conflicting model relations, set `targeted_rechecks = 1` (or at most 2) in the top level of `models.toml`. Each disputed source is sent once to a third configured local model alongside the competing interpretations; the full five-model assessment is **not repeated**. New `targeted_checks` records preserve the model, exact source version, verified quotation if present, and failures. They never overwrite initial findings or resolve human editorial objections automatically. [Plenum walkthrough and limitations](web/README.md#ki-plenum).
+
 ### Publisher and author relationships
 
 Set `check_interests = true` in the top-level `models.toml` configuration to run a separate interests investigation. When a SearXNG `[search]` section is configured, Quellenlot searches each available source's declared publisher and up to two named authors for ownership, funding, and affiliations. It captures up to three evidence pages per source, keeps the queries and retrieval outcomes, and asks all five local models to assess their contents sequentially. Without a search endpoint, the report records missing evidence.
@@ -267,17 +226,7 @@ A completed local run now stores one observation per Ollama call in `model_calls
 
 [GUI metrics screenshots and 25 fps walkthrough](web/README.md#model-performance-metrics)
 
-## Reading a Quellenlot result
-
-**What the labels mean.** A claim can be marked as supported, qualified, contradicted, not covered, or not assessable from an incomplete capture. They are *model judgments about the saved evidence*, not certified true/false labels. Read the underlying passage, compare its subject, population and time period with the claim, and inspect unresolved objections in **KI-Plenum**.
-
-**Where the evidence came from.** A URL result contains versioned capture text and a timestamp. `published_at`, `updated_at` and `captured_at` are separate; provenance links document explicit hyperlinks, not inferred first publication. When a page requires JavaScript, authentication or an unsupported format, retrieval can fail or return incomplete text. An apparent omission in such a source is not proof the original article omitted the fact.
-
-**How to use the extras.** `Studien suchen` queries Crossref and Europe PMC for candidate DOIs; a candidate may be metadata-only, abstract-only or full text. `Thementrends und Ereignisse` uses GDELT for the *share of monitored articles matching a search*, and accepts one Google Trends CSV as an independently scaled relative-search series. The server's automatic source discovery requires a separately configured SearXNG instance. External lookup services receive the query terms described in the [browser guide](web/README.md), while local Ollama inference does not require a cloud model API.
-
-**What becomes public.** The current server binds to `127.0.0.1`. Analysis reports, saved drafts, evidence, and approvals remain local unless you deliberately export or share them. Approval is bound to the exact report digest and draft revision; editing either invalidates the approval. There is currently **no hosted authentication or public publishing service**.
-
-**Reproducibility and validation.** The [Python CI](.github/workflows/python-quality.yml) checks types, formatting, security, contracts and deterministic tests. [GUI preview CI](.github/workflows/gui-previews.yml) uses headless Chromium with demo and controlled fixtures to publish screenshots/GIFs. These tests verify software behavior but do not establish real-world fact-checking accuracy or German-language model reliability. A separate held-out evaluation and real-source audit are still required.
+## Benchmark and troubleshoot
 
 ### CPU benchmark on the self-hosted Docker runner
 
@@ -296,6 +245,8 @@ Open the [benchmark workflow runs](https://github.com/fragilepeach/quellenlot/ac
 | Study or trend results are unavailable | Those features require a network path to Crossref/Europe PMC or GDELT; importing a Google Trends CSV works in the browser |
 
 ## Research-quality evaluation
+
+Python and browser CI use controlled fixtures to check software behavior. Evaluating German-language fact-checking quality requires independently annotated cases and a real-source audit.
 
 Run `quellenlot-eval` on saved reports and independently annotated claim/source labels to measure per-model coverage, agreement, missing findings, citation verification and relation confusion. Input SHA-256 hashes make repeated evaluations auditable. This is a **measurement harness**, not proof of model reliability; no real-world reference corpus is bundled. [Evaluation guide and label schema](docs/evaluation.md).
 
@@ -324,6 +275,3 @@ The [Python quality workflow](.github/workflows/python-quality.yml) runs the ful
 
 Quellenlot can run as a private HTTPS editorial workspace behind a Caddy Basic Authentication reverse proxy. Its Python API stays bound to loopback and validates the public Host/Origin pair; saved analyses, private drafts and approvals remain behind authentication. Public publication is a separate explicit export action. [Linux Docker Compose deployment and security notes](deploy/README.md).
 
-## Scope boundary
-
-Quellenlot includes a local agent library, a CLI, and a loopback browser interface with saved runs, private editorial drafts, and report-specific approval. Run `quellenlot-ui --config models.toml` from the checkout to start an analysis from the browser. See the [GUI guide](web/README.md#using-the-local-agent) for setup and storage paths. Hosted access control and public publication remain separate work. Local model quality for German political research still needs evaluation against a held-out set before relying on the results.
