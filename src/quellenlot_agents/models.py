@@ -282,6 +282,30 @@ class ReviewFinding(ContractModel):
     quote: VerifiedQuote | None
 
 
+class DraftTargetedRecheck(ContractModel):
+    """One model's bounded second look at a disputed source relationship."""
+
+    source_id: str
+    relation: Relation
+    reasoning: str = Field(min_length=1, max_length=2000)
+    quote: DraftQuote | None = None
+
+
+class TargetedRecheckRecord(ContractModel):
+    """Persist a targeted follow-up without overwriting original agent findings."""
+
+    source_id: str
+    source_version_id: str
+    target_agent_id: str
+    challenging_agent_id: str
+    rechecking_agent_id: str
+    status: Literal["succeeded", "failed"]
+    relation: Relation | None = None
+    reasoning: str | None = None
+    quote: VerifiedQuote | None = None
+    error_code: str | None = None
+
+
 class ReviewRecord(ContractModel):
     """One cross-review result or a recorded failure."""
 
@@ -445,6 +469,9 @@ class RunReport(ContractModel):
     sources: list[SourceSnapshot]
     analyses: list[AnalysisRecord]
     reviews: list[ReviewRecord]
+    targeted_checks: list[TargetedRecheckRecord] = Field(
+        default_factory=list[TargetedRecheckRecord]
+    )
     relation_counts: list[RelationCount]
     unresolved_dissent: list[str]
     model_calls: list[ModelCallMetric] = Field(default_factory=list[ModelCallMetric])

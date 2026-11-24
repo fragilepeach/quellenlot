@@ -276,6 +276,9 @@ Results are saved with the run for that claim, separately from the private edito
 
 ## KI-Plenum
 
+When `targeted_rechecks` is enabled in `models.toml`, the Plenum displays **Gezielte Nachprüfungen** for sources with a challenged or unclear peer review, then other conflicting source relations if capacity remains. Each record identifies the original and challenging models, the additional local model, its source-specific reasoning, and any verified quotation. A targeted recheck is an **additional opinion**, not proof of consensus; original disagreements remain visible. At most two calls are added per claim and there are no extra calls by default.
+
+
 Open **KI-Plenum** under **Belege zur Aussage** to read each model’s independent summary and see which model checked each finding. A peer review shows the original source judgment, the reviewer’s outcome and reasoning, and any verified review quote that matches the finding’s source and captured version. Open the quote through **Beleg öffnen** when the source has a URL. The panel lists unresolved objections and recorded failures. Reports created before analysis and review records were included can still be opened.
 
 The [feature gallery](#feature-gallery) includes a walkthrough of the independent findings and peer review. The workflow also checks this panel at mobile width.
