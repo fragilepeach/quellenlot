@@ -1304,7 +1304,11 @@ async function main() {
   await mkdir(output, { recursive: true });
   const frames = await mkdtemp(join(tmpdir(), "quellenlot-preview-"));
   try {
-    const browser = await chromium.launch();
+    const browser = await chromium.launch(
+      process.env.QUELLENLOT_BROWSER_CHANNEL
+        ? { channel: process.env.QUELLENLOT_BROWSER_CHANNEL }
+        : {},
+    );
     const record = createRecorder(frames);
     try {
       await captureOverview(browser, 1280, 960, "desktop.png");

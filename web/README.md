@@ -160,6 +160,8 @@ Cases are curated in [parliament-data.js](parliament-data.js). To add a case, su
 
 ## How the previews are generated
 
+The CI runner uses its preinstalled Chrome channel when present and falls back to Playwright's Chromium headless shell when needed. Local captures continue to use the browser installed through Playwright.
+
 The [GUI previews workflow](../.github/workflows/gui-previews.yml) runs the static demo and local-server fixtures in headless Chromium. It checks the same controls shown in the gallery, plus keyboard navigation, offline fonts, theme persistence, compatibility with earlier reports, and approval invalidation after editing. The GIFs record browser interactions and scrolling, with brief holds for reading. The [capture manifest](../docs/images/generated/manifest.json) records the tested revision, run, dimensions, frame counts, frame rates, file sizes and SHA-256 hashes.
 
 Pull requests that change the browser interface or its capture code upload a **quellenlot-gui-previews** artifact to the Actions run. A successful run on `main` refreshes the tracked gallery when its media change. You can also run the workflow manually for `main`.
