@@ -1,0 +1,36 @@
+name: Provision source runner
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: provision-source-runner
+  cancel-in-progress: false
+jobs:
+  provision:
+    runs-on: [self-hosted, linux, docker, x64]
+    timeout-minutes: 15
+    steps:
+      - name: Register dedicated runner
+        env:
+          REGISTRATION_TOKEN: ${{ secrets.SOURCE_RUNNER_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$REGISTRATION_TOKEN" || { echo "Missing registration token"; exit 1; }
+          name=github-runner-source-1
+          docker info --format 'Docker Engine {{.ServerVersion}}'
+          if docker container inspect "$name" >/dev/null 2>&1; then
+            echo "Container already exists; refusing to overwrite it."
+            exit 1
+          fi
+          docker pull ghcr.io/actions/actions-runner:latest
+          docker run -d --name "$name" --init --restart unless-stopped \
+            --entrypoint /bin/bash ghcr.io/actions/actions-runner:latest \
+            -c 'cd /home/runner; until test -f .provisioned; do sleep 2; done; exec ./run.sh'
+          if ! printf '%s\n' "$REGISTRATION_TOKEN" | docker exec -i "$name" /bin/bash -c 'set -eu; cd /home/runner; IFS= read -r token; ./config.sh --unattended --url https://github.com/fragilepeach/source --token "$token" --name runner-source-1 --labels source --work _work; touch .provisioned'; then
+            docker rm -f "$name" >/dev/null
+            exit 1
+          fi
+          docker inspect --format '{{.State.Status}}' "$name"
+          echo "Registration completed. Verify online status in source settings."
